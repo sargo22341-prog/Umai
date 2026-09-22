@@ -1,157 +1,397 @@
 # AGENTS.md
 
-## Règles générales
+Règles obligatoires du dépôt **umai**. Ce fichier fait autorité ; `.claude/CLAUDE.md`
+ne fait que l'importer. À lire entièrement avant toute modification.
 
-* Lire `AGENTS.md`, le repository et `.context/` avant de modifier le code.
-* Considérer l'OpenAPI Mealie dans `.context/` comme la source de vérité de l'API.
-* Ne jamais inventer d'endpoint ou de comportement absent de l'API.
-* Si une fonctionnalité demandée n'est pas supportée par Mealie, la signaler dans le rapport final.
-* Ne pas laisser de bug connu, TODO, FIXME ou dette technique volontaire.
-* Ne pas sur-engineerer.
+---
 
-## Stack
+## 1. Le projet
 
-* Kotlin.
-* Jetpack Compose / Material 3.
-* Android 17 minimum.
-* Pas de rétrocompatibilité avec les anciennes versions Android.
-* Aucun Google Play Services ou depandance non open sources.
-* L'application doit fonctionner sur GrapheneOS sans Google Play Services.
-* Limiter les dépendances inutiles et vérifier qu'elles ne nécessitent pas Google Play Services.
+**umai** est un client Android natif pour une instance **Mealie** auto-hébergée.
+Package : `org.opensources.umai` — le build debug s'installe sous
+`org.opensources.umai.debug` (`applicationIdSuffix`), ce qui permet de garder les deux
+côte à côte. Une seule application, un seul module Gradle (`:app`).
 
-## Architecture
+Mealie est le **seul** backend. L'application n'a pas de base de données propre,
+pas de serveur, pas de synchronisation maison.
 
-Utiliser une architecture claire avec séparation :
+Avant de coder : lire ce fichier, parcourir le dépôt, et consulter `.context/`.
+`.context/openapi.json` (et `.context/Mealie/`) est la **source de vérité de l'API**.
 
-`UI → ViewModel → Domain → Repository → Data → Mealie API`
+* Ne jamais inventer un endpoint, un champ ou un comportement absent de l'OpenAPI.
+* Si une fonctionnalité demandée n'existe pas dans Mealie, ne pas la simuler
+  localement : la signaler dans le rapport final (voir §14 *Limitations connues*).
+* Ne pas laisser de bug connu, de `TODO`, de `FIXME` ni de dette technique volontaire.
+* Ne pas sur-concevoir. Le code le plus simple qui répond au besoin est le bon.
 
-Organiser principalement le code par fonctionnalité :
+---
 
-* `setup`
-* `home`
-* `search`
-* `recipe`
-* `cooking`
-* `planning`
-* `shopping`
-* `settings`
-* ect...
+## 2. Stack
 
-Le code transversal uniquement dans `core`.
+| Élément | Version / choix |
+|---|---|
+| Langage | Kotlin |
+| UI | Jetpack Compose + Material 3 |
+| `minSdk` = `targetSdk` = `compileSdk` | **37 (Android 17)** |
+| Build | AGP 9.x + Gradle 9.x |
+| Réseau | Retrofit 3 + OkHttp 5 + kotlinx.serialization |
+| Images | Coil 3 (`coil-network-okhttp`) |
+| Stockage | DataStore Preferences + Android Keystore |
+| Injection | `AppContainer` écrit à la main (§4) |
 
-Éviter les dossiers fourre-tout comme `utils`, `helpers`, `misc` ou équivalents.
+Règles de dépendances :
 
-Les Composables ne communiquent jamais directement avec l'API.
+* **Aucun Google Play Services**, aucun Firebase, aucune dépendance non open source.
+  L'application doit fonctionner sur GrapheneOS, sans GMS. Si une bibliothèque tire
+  GMS, elle est écartée — pas de contournement.
+* Ajouter une dépendance seulement si elle remplace un vrai volume de code. Toute
+  nouvelle dépendance passe par `gradle/libs.versions.toml`, jamais en dur.
+* Vérifier l'APK après ajout : `com/google/android/gms`, `com/google/firebase` et
+  `com/google/android/maps` doivent rester absents (§13).
 
-Les ViewModels ne contiennent pas de logique HTTP.
+Pièges du build, déjà rencontrés — ne pas les réintroduire :
 
-Ne pas propager inutilement les modèles API dans l'UI.
+* Le plugin `org.jetbrains.kotlin.android` est **incompatible** avec le DSL d'AGP 9.
+  Le Kotlin intégré à AGP est utilisé ; ne pas appliquer ce plugin ni ajouter un bloc
+  `kotlin { compilerOptions }` racine.
+* Pas de rétrocompatibilité : utiliser directement les API Android 17, sans
+  `Build.VERSION` ni bibliothèque de compat superflue.
 
-## Taille des fichiers
+---
 
-* Aucun fichier source ne doit dépasser environ 600 lignes.
-* Découper les fichiers lorsqu'ils deviennent trop gros.
-* Découper selon les responsabilités, pas artificiellement pour respecter la limite.
+## 3. Architecture
 
-## Mealie
+Sens de dépendance strict, jamais inversé :
 
-Utiliser l'OpenAPI pour implémenter :
+```
+UI (Composable) → ViewModel → Repository → API Mealie (Retrofit)
+                                  ↓
+                          modèles de domaine
+```
 
-* authentification ;
-* recettes ;
-* recherche et filtres ;
-* images ;
-* planning ;
-* listes de courses ;
-* préférences ;
-* autres fonctionnalités disponibles.
+* Un Composable n'appelle **jamais** l'API ni un repository.
+* Un ViewModel ne contient **aucune** logique HTTP : ni URL, ni en-tête, ni code
+  de statut, ni DTO.
+* Les DTO (`core/network/dto`) ne sortent **jamais** de la couche data. Le mapping
+  DTO → domaine se fait dans un `*Mapper.kt` du paquet de la fonctionnalité.
+* L'UI ne consomme que les modèles de `core/model` et les `UiState` des ViewModels.
 
-Mealie reste la source de vérité. Ne pas créer un backend ou une logique locale parallèle lorsque Mealie fournit déjà la fonctionnalité.
+### Organisation par fonctionnalité
 
-## Authentification et sécurité
+Le code est rangé **par fonctionnalité**, pas par couche technique :
 
-Permettre de configurer, modifier et supprimer une instance Mealie.
+```
+org.opensources.umai
+├── setup/       ui
+├── home/        data · ui
+├── search/      domain · ui
+├── recipe/      data · ui
+├── cooking/     ui
+├── planning/    data · ui
+├── shopping/    data · ui
+├── settings/    ui
+├── organizer/   data
+├── navigation/
+└── core/        di · format · markdown · model · network(api, dto) · session · settings · ui(component, theme)
+```
 
-Gérer correctement les erreurs de connexion, HTTP, réseau, TLS et authentification.
+* Une nouvelle fonctionnalité crée son propre paquet racine, avec ses sous-paquets
+  `data` / `domain` / `ui` selon ce dont elle a besoin — pas plus.
+* `core/` est réservé au **transversal réel** : utilisé par au moins deux
+  fonctionnalités, ou infrastructure (réseau, session, thème, modèles partagés).
+  Du code qui ne sert qu'à un écran n'a rien à faire dans `core/`.
+* **Interdits** : `utils`, `helpers`, `common`, `misc`, `shared`, `tools`, `ext`,
+  `base` et équivalents. Un fichier porte le nom de sa responsabilité
+  (`RecipeFormatting.kt`, `MealieUrl.kt`), jamais celui d'un fourre-tout.
 
-Ne jamais logger ou committer :
+---
 
-* mots de passe ;
-* tokens ;
-* credentials ;
-* secrets.
+## 4. Conventions de code
 
-Ne jamais stocker un mot de passe en clair.
+**Écrans.** Chaque écran expose deux fonctions dans le même fichier :
 
-## État et réseau
+```kotlin
+@Composable
+fun RecipeDetailRoute(...)          // se branche au ViewModel, collecte l'état
 
-Utiliser Coroutines et `StateFlow` lorsque pertinent.
+@Composable
+fun RecipeDetailScreen(             // publique, sans état, testable directement
+    state: RecipeDetailUiState,
+    onAction: () -> Unit,
+)
+```
 
-Gérer explicitement les états loading, success, empty et error.
+La version sans état ne connaît ni ViewModel, ni `Context`, ni repository : elle
+reçoit son `UiState` et remonte les intentions par lambdas. C'est elle que testent
+les tests instrumentés.
 
-Les requêtes réseau ne doivent pas être lancées depuis les Composables.
+**État.** Un `data class ...UiState` par écran, exposé en `StateFlow` depuis le
+ViewModel. Les états `loading`, contenu, **vide** et `error` sont explicites et
+distingués : une liste vide n'est pas une erreur, une erreur n'est pas une liste vide.
+Les propriétés dérivées (`isIdle`, `isEmptyResult`, `hasNoList`…) vivent sur l'`UiState`,
+pas dans le Composable.
 
-Les opérations réseau doivent être annulables lorsque nécessaire.
+**ViewModels.** Créés via `viewModelFactory { initializer { } }`. Ils reçoivent des
+repositories et des `Flow`, jamais un `Context` ni un `Application`, pour rester
+testables sur JVM.
 
-## Téléphone, ADB, Git et identité
+**Repositories.** Ils reçoivent un fournisseur d'API — `apiProvider: () -> MealieApi?`
+— et non la session entière : l'instance peut changer à chaud, et un test injecte un
+faux serveur en une ligne. Ils retournent un `ApiResult<T>` (`core/network/ApiCall.kt`)
+et ne lèvent pas d'exception réseau.
 
-**ADB** : `C:\platform-tools\adb.exe`
+**Erreurs.** Toute panne devient un `NetworkError` (`Unreachable`, `Timeout`, `Tls`,
+`Unauthorized`, `NotFound`, `Server`, `Http`, `InvalidResponse`, `NotMealie`, `Unknown`).
+L'UI traduit ce type en message localisé ; elle ne voit jamais un code HTTP brut.
 
-Avant test : vérifier l'appareil visible, ne jamais supposer une connexion ni prétendre avoir testé si ADB ne le voit pas. Ne pas effacer les données utilisateur sans autorisation ni désinstaller inutilement. Installer le build debug, lancer l'activité principale, consulter `logcat` filtré sur le package en cas de problème. Jamais de secret dans les logs copiés.
+**Pagination.** `PagedItems<T>` (`core/model`) accumule les pages. Pas de logique de
+pagination dupliquée dans les ViewModels.
 
-**Git et fichiers** : modifier uniquement les fichiers liés à la tâche ; jamais `git reset --hard` ni suppression de travail existant pour résoudre un conflit ; pas de commit sans demande explicite ; petits changements cohérents. Pas de binaire généré, secret, fichier temporaire, code généré massif inutilisé, ou police sans licence explicite.
+**Injection.** `core/di/AppContainer.kt` construit les dépendances, `LocalAppContainer`
+les fournit à l'arbre Compose. Pas de framework DI : il n'apporterait rien ici.
 
-## Internationalisation
+**Style.** Commentaires en anglais, rares, et qui expliquent *pourquoi* — jamais ce
+que le code dit déjà. Nommage explicite. Pas de fonction d'extension « pratique »
+déposée hors de son domaine.
 
-L'application doit être disponible en français et anglais.
+---
 
-Tous les textes visibles doivent être localisés.
+## 5. Taille et découpage des fichiers
 
-Langue par défaut : langue système si français ou anglais, sinon anglais.
+* Aucun fichier source ne dépasse **~600 lignes**.
+* Découper **par responsabilité**, jamais par tranches arbitraires pour passer sous
+  la limite. Exemple existant : `RecipeDetailScreen.kt` (structure de l'écran) et
+  `RecipeContent.kt` (sections de contenu).
+* Un fichier qui approche la limite signale généralement une responsabilité de trop.
 
-Permettre de changer la langue dans les paramètres.
+---
 
-## Tests
+## 6. Mealie
 
-Ajouter les tests pertinents pour : authentification, API/repositories, mapping, recherche, filtres, planning, shopping list, erreurs réseau, états vides, principales interfaces. ect 
+Couvrir, en s'appuyant sur l'OpenAPI : authentification, recettes, recherche et
+filtres, images, planning, listes de courses, préférences, organizers
+(catégories / tags / ustensiles / aliments).
 
-Tester notamment les recettes avec et sans images et les étapes avec et sans images.
+* Mealie reste la source de vérité. Ne jamais dupliquer côté app une fonctionnalité
+  déjà offerte par le serveur.
+* Les seules données locales admises sont celles que Mealie **ne stocke pas** :
+  préférences d'affichage, langue, session, historique de consultation.
+* `core/network/api/MealieApi.kt` est écrit d'après l'OpenAPI. Toute signature
+  ajoutée doit être vérifiable dans `.context/openapi.json`.
 
-## Qualité
+### Limitations connues de Mealie
 
-Avant de terminer une tâche :
+Constatées sur une instance réelle. Les respecter, ne pas retenter de contournement :
 
-Compiler le projet, Exécuter les tests, Corriger les erreurs, Effectuer un build.
+* **Étapes de recette : pas de champ image.** Les photos d'étapes sont intégrées dans
+  le texte Markdown/HTML de l'étape. `core/markdown/StepContent.kt` les extrait
+  (`![](…)` et `<img src="">`) pour les afficher comme de vraies images.
+* **Temps en texte libre** (`"15 minutes"`, `"PT1H"`) : aucun filtre numérique par
+  durée n'est possible côté serveur. Ne pas en ajouter un côté client sur une page
+  partielle de résultats.
+* **Pas de notion de difficulté** dans l'API.
+* **Pas d'historique de consultation** côté serveur : « vu récemment » est local
+  (slugs uniquement).
+* `orderBy=random` **exige** un `paginationSeed`, sinon la pagination se répète.
+* Les favoris requièrent un compte utilisateur : un simple jeton d'API n'a pas de
+  contexte utilisateur, l'app doit le signaler au lieu d'échouer.
+* `lastMade IS NONE` renvoie 0 résultat sur instance réelle : filtre non exposé.
+* `queryFilter` est une mini-langue (`rating >= 4`, `id IN ["…"]`, `createdAt > "…"`).
+  Attention au séparateur : `joinToString` sans `separator = ","` casse `IN [...]`.
 
-Ne pas déclarer la tâche terminée avec un build cassé ou un problème important connu.
+---
 
-## Rapport final
+## 7. Authentification et sécurité
 
-Le rapport final doit indiquer :
+* Permettre de configurer, modifier et supprimer une instance Mealie.
+* Accepter un domaine personnalisé (`mealie.ndd.custom`), une IP, un port, un
+  sous-chemin. HTTPS par défaut ; **HTTP autorisé mais avec un avertissement visible**.
+* Deux modes d'authentification : identifiant/mot de passe et jeton d'API.
+* Gérer distinctement les erreurs réseau, HTTP, TLS et d'authentification (§4).
+* **Ne jamais contourner TLS.** Pas de `TrustManager` permissif, pas de
+  `hostnameVerifier` neutralisé. Pour une PKI privée (mkcert, step-ca), la bonne
+  réponse est la confiance aux CA **utilisateur** via `network_security_config.xml`.
+* Le jeton est scellé en **AES/GCM via l'Android Keystore** avant d'atteindre DataStore.
+  Un **mot de passe n'est jamais persisté**, sous aucune forme.
+* Ne jamais logger ni committer mot de passe, jeton, cookie, credential ou secret.
+  Le log HTTP existe uniquement sous `BuildConfig.DEBUG`, avec `Authorization`,
+  `Cookie` et `Set-Cookie` masqués. `ServerSession.toString()` masque le jeton.
+* Aucun secret dans un log copié dans une réponse, un rapport ou un message de commit.
+
+---
+
+## 8. État, réseau et spécificités Android 17
+
+* Coroutines et `StateFlow` ; les requêtes réseau partent d'un ViewModel ou d'un
+  repository, **jamais d'un Composable**, et restent annulables
+  (`CancellationException` est relancée, jamais avalée).
+* **Réseau local.** Android 17 bloque le trafic vers le LAN sans la permission
+  d'exécution `ACCESS_LOCAL_NETWORK` ; sans elle, les connexions expirent en silence.
+  L'app la déclare et ne la demande **que** si l'adresse configurée résout vers une
+  adresse locale (privée, link-local, loopback, ULA IPv6). Ne pas la demander
+  systématiquement.
+* **Langue.** Changement à chaud via `LocaleManager` (per-app language) +
+  `res/xml/locales_config.xml` + `localeFilters`. Dans un Composable, lire la locale
+  de façon observable (`core/format/LocalizedDates.kt`), jamais via `Locale.getDefault()`.
+
+---
+
+## 9. Internationalisation
+
+* Français **et** anglais, à parité. Tout texte visible passe par `strings.xml`.
+* Anglais = ressources par défaut ; français dans `values-fr/`.
+* Langue par défaut : langue système si fr ou en, sinon anglais.
+* La langue est changeable dans les réglages (Système / Français / English).
+* Toute chaîne ajoutée est traduite **dans le même changement**. Une chaîne
+  volontairement non traduite (nom du produit) est marquée `translatable="false"`
+  avec un commentaire.
+
+---
+
+## 10. Design et accessibilité
+
+* Material 3, sobre, orienté contenu. Thèmes clair **et** sombre.
+* Palette **Claude Code / Anthropic** (`core/ui/theme/Color.kt`). Couleurs dynamiques
+  proposées en option (AOSP, sans dépendance Google).
+* Contraste conforme WCAG AA ; l'accent clair est assombri pour atteindre le ratio.
+* La navigation basse compte 5 destinations, **Recherche au centre et mise en avant**.
+* L'interface doit rester utilisable avec de grandes tailles de police.
+* Toute image porteuse de sens a une `contentDescription`, y compris dans ses états
+  chargement / erreur / absence d'image.
+
+---
+
+## 11. Tests
+
+Tests JVM dans `app/src/test`, tests instrumentés dans `app/src/androidTest`, rangés
+selon les mêmes paquets que le code testé.
+
+Couvrir : authentification, repositories et API, mapping DTO → domaine, recherche,
+filtres, planning, listes de courses, erreurs réseau, états vides, et les écrans
+principaux.
+
+Cas obligatoires : recette **avec** et **sans** image, étape **avec** et **sans**
+image, aucun serveur configuré, serveur injoignable, authentification invalide,
+résultats de recherche vides, liste de courses vide.
+
+Outils et pièges déjà réglés :
+
+* `FakeMealieServer` (MockWebServer) sert les réponses ; ne pas appeler le vrai
+  serveur depuis un test.
+* Pour un ViewModel faisant du vrai HTTP sur MockWebServer, utiliser
+  `Dispatchers.setMain(Dispatchers.Unconfined)` + `runBlocking` +
+  `withTimeout { state.first { … } }`. `StandardTestDispatcher` + `advanceUntilIdle()`
+  ne voit jamais la fin de la requête.
+* Tests Compose : `createComposeRule` **v2**, un seul `setContent` par test.
+* Quand un test échoue, corriger le **code**, pas l'attente du test — sauf si
+  l'attente est elle-même fausse, et le dire.
+
+---
+
+## 12. Qualité — avant de déclarer une tâche terminée
+
+Dans cet ordre, et tout doit passer :
+
+```powershell
+.\gradlew.bat :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease
+.\gradlew.bat :app:connectedDebugAndroidTest    # appareil branché requis
+```
+
+* Zéro erreur, zéro avertissement de compilation, zéro erreur lint.
+* Ne jamais déclarer terminé avec un build cassé, un test rouge ou un problème
+  important connu.
+* Corriger proprement la cause ; ne pas empiler un workaround. Désactiver une règle
+  lint exige une justification écrite en commentaire.
+
+---
+
+## 13. Téléphone et ADB
+
+**ADB** : `C:\platform-tools\adb.exe` — appareil de test : Pixel 6 Pro, Android 17.
+
+* Vérifier d'abord que l'appareil est visible (`adb devices`). Ne jamais supposer une
+  connexion, ne jamais prétendre avoir testé si ADB ne voit pas l'appareil.
+* L'appareil a plusieurs utilisateurs (propriétaire = `0`, profil professionnel = `11`).
+  Toujours cibler explicitement `--user 0` pour `pm` : sinon `SecurityException`.
+
+### Ne pas désinstaller l'application de debug
+
+**L'application debug installée sur le téléphone doit rester installée, avec ses
+données**, pour que l'instance Mealie et la session configurées soient conservées et
+qu'il n'y ait pas à les ressaisir à chaque fois.
+
+* **Interdits** sans demande explicite : `adb uninstall`, `pm uninstall`,
+  `pm clear org.opensources.umai.debug`, suppression de DataStore, réinitialisation de
+  l'appareil.
+* Mettre à jour l'app par **réinstallation par-dessus**, qui préserve les données :
+  ```powershell
+  C:\platform-tools\adb.exe install -r -d app\build\outputs\apk\debug\app-debug.apk
+  ```
+* ⚠️ **`connectedDebugAndroidTest` désinstalle l'application à la fin.** Après avoir
+  lancé les tests instrumentés, **toujours réinstaller le build debug** avec la
+  commande ci-dessus, puis vérifier que l'app démarre :
+  ```powershell
+  C:\platform-tools\adb.exe shell am start -n org.opensources.umai.debug/org.opensources.umai.MainActivity
+  ```
+  Si la session a été perdue, reconfigurer l'instance et le dire dans le rapport.
+* En cas de problème, consulter `logcat` filtré sur le package — sans jamais recopier
+  de secret.
+* Vérification « sans GMS » sur l'APK release :
+  ```powershell
+  # aucune occurrence attendue
+  unzip -l app\build\outputs\apk\release\app-release.apk | Select-String "com/google/android/gms|com/google/firebase"
+  ```
+
+---
+
+## 14. Git, fichiers et rapport final
+
+**Git.** Ne modifier que les fichiers liés à la tâche. Jamais de `git reset --hard`
+ni de suppression de travail existant pour résoudre un conflit. **Aucun commit sans
+demande explicite.** Changements petits et cohérents.
+
+**Fichiers interdits au dépôt** : binaire généré, secret, `local.properties`, fichier
+temporaire, code généré massif inutilisé, police sans licence explicite.
+
+**Serveur Mealie de test.** Ne **rien** supprimer ni modifier sur l'instance fournie.
+Créer une donnée de test puis la supprimer soi-même est acceptable ; éditer ou
+supprimer une recette, un planning ou une liste préexistants ne l'est pas. Toute
+modification involontaire doit être restaurée **et** signalée dans le rapport.
+
+**Rapport final.** Il indique :
 
 * résumé des changements ;
 * fonctionnalités terminées ;
 * principaux fichiers modifiés ;
 * tests exécutés et résultats ;
 * vérifications effectuées ;
-* limitations réelles de Mealie, s'il y en a.
+* limitations réelles de Mealie rencontrées ;
+* tout incident ou échec, y compris ceux qui n'ont pas bloqué la tâche.
 
-Ajouter un exemple de commit prêt à copier, en français.
+Y ajouter un **exemple de commit prêt à copier, en français**.
 
-Ne pas créer de commit automatiquement sauf demande explicite.
+---
 
-## Notification KDE
+## 15. Notification KDE
 
-Uniquement après la fin complète du travail, avec build et vérifications réussis, exécuter :
+Uniquement après la fin complète du travail, build et vérifications réussis, exécuter
+**une seule fois** :
 
 ```powershell
 kdeconnect-cli --device 9d3e0da7eb0e4cacb95ff4869f8f669b --ping-msg "Le développement de l'application Mealie est terminé."
 ```
 
-Si l'envoi échoue, le signaler dans le rapport final.
+* **La sortie de cette commande peut être ignorée.** L'appareil est souvent
+  injoignable et la commande affiche alors une erreur D-Bus
+  (`No such object path … /ping`) : c'est sans conséquence sur le travail.
+* **Ne jamais relancer la commande en boucle**, ne pas chercher un autre appareil,
+  ne pas essayer un canal de remplacement. Un échec se mentionne en une ligne dans
+  le rapport final, et rien de plus.
 
-## Principe
+---
 
-Privilégier un code simple, clair, séparé, testable et maintenable.
+## 16. Principe
 
-Toujours corriger proprement un problème plutôt que l'empiler sous forme de workaround.
+Code simple, clair, séparé, testable et maintenable.
+Toujours corriger proprement la cause d'un problème plutôt que l'empiler sous forme
+de contournement.
