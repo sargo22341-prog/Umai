@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Umai talks to a self-hosted Mealie instance chosen by the user, so the trust
+  decision belongs to the user's device, not to the app:
+   * system CAs are trusted as usual;
+   * user-installed CAs are trusted too, which is what makes a private CA
+     (mkcert, step-ca, an internal PKI) work once the user installed it. The app
+     never disables verification or accepts an untrusted chain by itself.
+   * cleartext is permitted because some LAN instances are plain http; the setup
+     screen shows an explicit warning before such an instance is saved.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

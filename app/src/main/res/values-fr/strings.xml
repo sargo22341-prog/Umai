@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Actions génériques -->
+    <string name="action_retry">Réessayer</string>
+    <string name="action_cancel">Annuler</string>
+    <string name="action_apply">Appliquer</string>
+    <string name="action_reset">Réinitialiser</string>
+    <string name="action_add">Ajouter</string>
+    <string name="action_delete">Supprimer</string>
+    <string name="action_close">Fermer</string>
+    <string name="action_back">Retour</string>
+    <string name="action_clear">Effacer</string>
+    <string name="action_connect">Se connecter</string>
+    <string name="action_done">Terminé</string>
+    <string name="action_change">Modifier</string>
+    <string name="action_create">Créer</string>
+    <string name="loading">Chargement…</string>
+
+    <!-- Erreurs réseau -->
+    <string name="error_unreachable_title">Impossible de contacter votre serveur Mealie</string>
+    <string name="error_unreachable_message">Vérifiez votre connexion réseau ou l\'adresse de votre instance.</string>
+    <string name="error_timeout_title">Le serveur a mis trop de temps à répondre</string>
+    <string name="error_timeout_message">Votre instance Mealie est peut-être en cours de démarrage ou surchargée.</string>
+    <string name="error_tls_title">Connexion sécurisée impossible</string>
+    <string name="error_tls_message">Le certificat de votre instance n\'a pas pu être vérifié. S\'il est signé par votre propre autorité de certification, installez cette autorité sur l\'appareil, puis réessayez.</string>
+    <string name="error_unauthorized_title">Connexion requise</string>
+    <string name="error_unauthorized_message">Votre session a expiré ou vos identifiants ont été refusés.</string>
+    <string name="error_not_found_title">Introuvable</string>
+    <string name="error_not_found_message">Cet élément n\'existe plus sur votre instance Mealie.</string>
+    <string name="error_server_title">Erreur du serveur</string>
+    <string name="error_server_message">Votre instance Mealie a renvoyé une erreur (code %1$d).</string>
+    <string name="error_http_title">Requête refusée</string>
+    <string name="error_http_message">Votre instance Mealie a refusé la requête (code %1$d).</string>
+    <string name="error_invalid_response_title">Réponse inattendue</string>
+    <string name="error_invalid_response_message">La réponse ne correspond pas à ce que documente l\'API Mealie. L\'instance utilise peut-être une version incompatible.</string>
+    <string name="error_not_mealie_title">Ce n\'est pas une instance Mealie</string>
+    <string name="error_not_mealie_message">Cette adresse répond, mais elle n\'expose pas l\'API Mealie.</string>
+    <string name="error_unknown_title">Une erreur est survenue</string>
+    <string name="error_unknown_message">Veuillez réessayer.</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Accueil</string>
+    <string name="nav_planning">Planning</string>
+    <string name="nav_search">Recherche</string>
+    <string name="nav_shopping">Courses</string>
+    <string name="nav_settings">Réglages</string>
+
+    <!-- Configuration -->
+    <string name="setup_title">Connectez votre instance</string>
+    <string name="setup_intro">Connectez votre instance Mealie pour accéder à vos recettes, à votre planning et à vos listes de courses.</string>
+    <string name="setup_url_label">Adresse de l\'instance</string>
+    <string name="setup_url_placeholder">mealie.exemple.fr</string>
+    <string name="setup_url_helper">Un domaine personnalisé, une adresse IP ou une adresse avec un port fonctionnent. Sans préfixe, HTTPS est utilisé.</string>
+    <string name="setup_auth_method">Méthode de connexion</string>
+    <string name="setup_auth_password">Identifiant et mot de passe</string>
+    <string name="setup_auth_token">Jeton d\'API</string>
+    <string name="setup_username_label">Identifiant ou e-mail</string>
+    <string name="setup_password_label">Mot de passe</string>
+    <string name="setup_token_label">Jeton d\'API</string>
+    <string name="setup_token_helper">Créez un jeton depuis Mealie, dans Réglages, jetons d\'API.</string>
+    <string name="setup_show_password">Afficher le mot de passe</string>
+    <string name="setup_hide_password">Masquer le mot de passe</string>
+    <string name="setup_connecting">Connexion…</string>
+    <string name="setup_cleartext_warning">Cette adresse utilise HTTP : votre mot de passe et vos recettes circuleront en clair sur le réseau. Préférez HTTPS dès que votre instance le permet.</string>
+    <string name="setup_error_url_empty">Saisissez l\'adresse de votre instance.</string>
+    <string name="setup_error_url_invalid">Cette adresse ne peut pas être lue. Exemple : mealie.exemple.fr</string>
+    <string name="setup_error_url_scheme">Seuls http et https sont pris en charge.</string>
+    <string name="setup_error_credentials_empty">Renseignez votre identifiant et votre mot de passe.</string>
+    <string name="setup_error_token_empty">Collez votre jeton d\'API.</string>
+    <string name="setup_error_password_login_disabled">Cette instance désactive la connexion par mot de passe. Utilisez plutôt un jeton d\'API.</string>
+    <string name="setup_detected_version">Mealie %1$s détecté</string>
+    <string name="setup_expired_title">Reconnectez-vous</string>
+    <string name="setup_expired_message">Votre session sur %1$s a expiré.</string>
+    <string name="setup_error_local_network_denied">Umai a besoin d\'accéder à votre réseau local pour joindre une instance hébergée chez vous. Accordez l\'autorisation, ou autorisez-la depuis les paramètres système de l\'application.</string>
+    <string name="setup_use_other_instance">Utiliser une autre instance</string>
+
+    <!-- Accueil -->
+    <string name="home_title">Umai</string>
+    <string name="home_section_recent">Consultées récemment</string>
+    <string name="home_section_latest">Dernières recettes</string>
+    <string name="home_empty_title">Aucune recette pour l\'instant</string>
+    <string name="home_empty_message">Ajoutez une première recette depuis Mealie, elle apparaîtra ici.</string>
+    <string name="home_search_hint">Rechercher une recette</string>
+    <string name="home_favorites">Favoris</string>
+
+    <!-- Recherche -->
+    <string name="search_title">Recherche</string>
+    <string name="search_placeholder">Recette, ingrédient, mot-clé…</string>
+    <string name="search_filters">Filtres</string>
+    <string name="search_empty_title">Aucun résultat</string>
+    <string name="search_empty_message">Essayez un autre mot-clé ou assouplissez vos filtres.</string>
+    <string name="search_start_title">Cherchez dans vos recettes</string>
+    <string name="search_start_message">Saisissez quelques lettres, ou ouvrez les filtres pour parcourir par catégorie, tag, ingrédient ou note.</string>
+    <string name="search_results_count">%1$d recettes</string>
+    <string name="search_clear_filters">Effacer les filtres</string>
+
+    <!-- Filtres -->
+    <string name="filter_title">Filtres</string>
+    <string name="filter_categories">Catégories</string>
+    <string name="filter_tags">Tags</string>
+    <string name="filter_tools">Ustensiles</string>
+    <string name="filter_foods">Ingrédients</string>
+    <string name="filter_require_all">Tous à la fois</string>
+    <string name="filter_rating">Note minimale</string>
+    <string name="filter_rating_any">Indifférente</string>
+    <string name="filter_rating_value">%1$d étoiles et plus</string>
+    <string name="filter_favorites">Favoris uniquement</string>
+    <string name="filter_servings">Portions</string>
+    <string name="filter_servings_min">Au moins</string>
+    <string name="filter_servings_max">Au plus</string>
+    <string name="filter_added">Ajoutée</string>
+    <string name="filter_added_any">Peu importe</string>
+    <string name="filter_added_week">7 derniers jours</string>
+    <string name="filter_added_month">30 derniers jours</string>
+    <string name="filter_added_year">Dernière année</string>
+    <string name="filter_sort">Trier par</string>
+    <string name="sort_recent">Plus récentes</string>
+    <string name="sort_oldest">Plus anciennes</string>
+    <string name="sort_name_asc">Nom (A→Z)</string>
+    <string name="sort_name_desc">Nom (Z→A)</string>
+    <string name="sort_rating">Note</string>
+    <string name="sort_last_made">Dernière réalisation</string>
+    <string name="sort_random">Au hasard</string>
+    <string name="filter_search_list">Filtrer cette liste</string>
+    <string name="filter_no_match">Aucune correspondance</string>
+    <string name="filter_food_hint">Saisissez au moins deux lettres pour chercher un ingrédient.</string>
+    <string name="filter_time_unsupported">Mealie enregistre les temps de préparation et de cuisson sous forme de texte libre : ils ne peuvent pas être filtrés par durée.</string>
+
+    <!-- Fiche recette -->
+    <string name="recipe_ingredients">Ingrédients</string>
+    <string name="recipe_instructions">Instructions</string>
+    <string name="recipe_notes">Notes</string>
+    <string name="recipe_nutrition">Nutrition</string>
+    <string name="recipe_source">Source</string>
+    <string name="recipe_open_source">Ouvrir la page d\'origine</string>
+    <string name="recipe_cook_mode">Mode cuisine</string>
+    <string name="recipe_add_to_list">Ajouter à une liste de courses</string>
+    <string name="recipe_add_to_plan">Ajouter au planning</string>
+    <string name="recipe_favorite_add">Ajouter aux favoris</string>
+    <string name="recipe_favorite_remove">Retirer des favoris</string>
+    <string name="recipe_no_ingredients">Cette recette n\'a aucun ingrédient.</string>
+    <string name="recipe_no_instructions">Cette recette n\'a aucune instruction.</string>
+    <string name="recipe_time_total">Total</string>
+    <string name="recipe_time_prep">Préparation</string>
+    <string name="recipe_time_cook">Cuisson</string>
+    <string name="recipe_time_perform">Actif</string>
+    <string name="recipe_added_to_list">Ajouté à %1$s</string>
+    <string name="recipe_added_to_plan">Ajouté au planning</string>
+    <string name="recipe_favorite_needs_account">Les favoris nécessitent un compte utilisateur ; un jeton d\'API seul ne suffit pas.</string>
+
+    <string name="nutrition_calories">Calories</string>
+    <string name="nutrition_carbohydrate">Glucides</string>
+    <string name="nutrition_fat">Lipides</string>
+    <string name="nutrition_protein">Protéines</string>
+    <string name="nutrition_fiber">Fibres</string>
+    <string name="nutrition_sugar">Sucres</string>
+    <string name="nutrition_sodium">Sodium</string>
+    <string name="nutrition_cholesterol">Cholestérol</string>
+    <string name="nutrition_saturated_fat">Acides gras saturés</string>
+    <string name="nutrition_trans_fat">Acides gras trans</string>
+    <string name="nutrition_unsaturated_fat">Acides gras insaturés</string>
+
+    <!-- Mode cuisine -->
+    <string name="cooking_title">Mode cuisine</string>
+    <string name="cooking_step_position">Étape %1$d sur %2$d</string>
+    <string name="cooking_previous">Précédente</string>
+    <string name="cooking_next">Suivante</string>
+    <string name="cooking_finish">Terminer</string>
+    <string name="cooking_exit">Quitter le mode cuisine</string>
+    <string name="cooking_steps">Toutes les étapes</string>
+    <string name="cooking_ingredients_for_step">Ingrédients de cette étape</string>
+    <string name="cooking_all_ingredients">Tous les ingrédients</string>
+    <string name="cooking_no_steps">Cette recette n\'a aucune instruction à suivre.</string>
+    <string name="cooking_image_failed">L\'image de cette étape n\'a pas pu être chargée.</string>
+    <string name="cooking_done_title">Recette terminée</string>
+    <string name="cooking_done_message">Bon appétit !</string>
+
+    <!-- Planning -->
+    <string name="planning_title">Planning</string>
+    <string name="planning_yesterday">Hier</string>
+    <string name="planning_today">Aujourd\'hui</string>
+    <string name="planning_tomorrow">Demain</string>
+    <string name="planning_add_meal">Ajouter un repas</string>
+    <string name="planning_empty_day">Rien de prévu</string>
+    <string name="planning_empty_title">Votre planning est vide</string>
+    <string name="planning_empty_message">Ajoutez une recette ou une note à un jour pour commencer à planifier.</string>
+    <string name="planning_meal_type">Repas</string>
+    <string name="planning_choose_recipe">Choisir une recette</string>
+    <string name="planning_or_note">Ou écrire une note</string>
+    <string name="planning_note_placeholder">Restes, restaurant, à emporter…</string>
+    <string name="planning_delete_entry">Retirer du planning</string>
+    <string name="planning_previous_week">Semaine précédente</string>
+    <string name="planning_next_week">Semaine suivante</string>
+    <string name="planning_back_to_today">Revenir à aujourd\'hui</string>
+    <string name="planning_search_recipe">Rechercher une recette</string>
+    <string name="planning_entry_for">%1$s — %2$s</string>
+    <string name="planning_change_recipe">Changer la recette</string>
+
+    <string name="meal_breakfast">Petit-déjeuner</string>
+    <string name="meal_lunch">Déjeuner</string>
+    <string name="meal_dinner">Dîner</string>
+    <string name="meal_side">Accompagnement</string>
+    <string name="meal_snack">Collation</string>
+    <string name="meal_drink">Boisson</string>
+    <string name="meal_dessert">Dessert</string>
+
+    <!-- Courses -->
+    <string name="shopping_title">Courses</string>
+    <string name="shopping_lists">Listes</string>
+    <string name="shopping_new_list">Nouvelle liste</string>
+    <string name="shopping_list_name">Nom de la liste</string>
+    <string name="shopping_no_lists_title">Aucune liste de courses</string>
+    <string name="shopping_no_lists_message">Créez une liste pour commencer à la remplir, ici ou depuis Mealie.</string>
+    <string name="shopping_empty_title">Cette liste est vide</string>
+    <string name="shopping_empty_message">Ajoutez un élément, ou envoyez-y les ingrédients d\'une recette depuis sa fiche.</string>
+    <string name="shopping_add_item">Ajouter un élément</string>
+    <string name="shopping_item_placeholder">Deux citrons, huile d\'olive…</string>
+    <string name="shopping_checked_section">Fait (%1$d)</string>
+    <string name="shopping_to_buy_section">À acheter</string>
+    <string name="shopping_unlabelled">Autre</string>
+    <string name="shopping_delete_list">Supprimer cette liste</string>
+    <string name="shopping_delete_list_title">Supprimer %1$s ?</string>
+    <string name="shopping_delete_list_message">La liste et ses éléments seront supprimés de votre instance Mealie.</string>
+    <string name="shopping_linked_recipes">Recettes ajoutées à cette liste</string>
+    <string name="shopping_choose_list">Choisir une liste</string>
+
+    <!-- Réglages -->
+    <string name="settings_title">Réglages</string>
+    <string name="settings_section_connection">Connexion</string>
+    <string name="settings_instance">Instance Mealie</string>
+    <string name="settings_account">Compte</string>
+    <string name="settings_status">État</string>
+    <string name="settings_status_connected">Connecté</string>
+    <string name="settings_status_expired">Session expirée</string>
+    <string name="settings_status_checking">Vérification…</string>
+    <string name="settings_auth_password">Identifiant et mot de passe</string>
+    <string name="settings_auth_token">Jeton d\'API</string>
+    <string name="settings_check_connection">Vérifier la connexion</string>
+    <string name="settings_change_instance">Changer d\'instance</string>
+    <string name="settings_sign_out">Se déconnecter</string>
+    <string name="settings_sign_out_title">Se déconnecter ?</string>
+    <string name="settings_sign_out_message">Umai oubliera cette instance et son jeton. Rien n\'est supprimé sur votre serveur Mealie.</string>
+    <string name="settings_section_app">Application</string>
+    <string name="settings_language">Langue</string>
+    <string name="settings_language_system">Langue du système</string>
+    <string name="settings_language_french">Français</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_theme">Thème</string>
+    <string name="settings_theme_system">Système</string>
+    <string name="settings_theme_light">Clair</string>
+    <string name="settings_theme_dark">Sombre</string>
+    <string name="settings_dynamic_color">Couleurs du fond d\'écran</string>
+    <string name="settings_dynamic_color_summary">Utiliser la palette Android tirée de votre fond d\'écran à la place de la palette Umai.</string>
+    <string name="settings_layout">Affichage des recettes</string>
+    <string name="settings_layout_grid">Grille</string>
+    <string name="settings_layout_list">Liste</string>
+    <string name="settings_keep_screen_on">Garder l\'écran allumé en cuisine</string>
+    <string name="settings_keep_screen_on_summary">L\'écran reste allumé tant que le mode cuisine est ouvert.</string>
+    <string name="settings_section_mealie">Votre instance Mealie</string>
+    <string name="settings_first_day_of_week">Premier jour de la semaine</string>
+    <string name="settings_show_nutrition">Afficher la nutrition</string>
+    <string name="settings_mealie_preferences_hint">Ces préférences appartiennent à votre foyer et se modifient depuis Mealie.</string>
+    <string name="settings_section_about">À propos</string>
+    <string name="settings_app_version">Version d\'Umai</string>
+    <string name="settings_server_version">Version de Mealie</string>
+    <string name="settings_about_description">Umai est un client Android natif pour Mealie. Il ne requiert aucun service Google et conserve vos données sur votre propre instance.</string>
+
+    <!-- Unités et formats -->
+    <string name="unit_hour_short">h</string>
+    <string name="unit_minute_short">min</string>
+    <string name="value_unknown">—</string>
+    <string name="value_yes">Oui</string>
+    <string name="value_no">Non</string>
+
+    <!-- Descriptions d\'accessibilité -->
+    <string name="cd_recipe_image">Photo de %1$s</string>
+    <string name="cd_recipe_no_image">Cette recette n\'a pas de photo</string>
+    <string name="cd_step_image">Photo de l\'étape %1$d</string>
+    <string name="cd_open_filters">Ouvrir les filtres</string>
+    <string name="cd_search">Rechercher</string>
+    <string name="cd_more_options">Plus d\'options</string>
+    <string name="cd_rating">Note de %1$s sur 5</string>
+
+    <plurals name="plural_servings">
+        <item quantity="one">%1$d portion</item>
+        <item quantity="other">%1$d portions</item>
+    </plurals>
+    <plurals name="plural_recipes">
+        <item quantity="one">%1$d recette</item>
+        <item quantity="other">%1$d recettes</item>
+    </plurals>
+    <plurals name="plural_active_filters">
+        <item quantity="one">%1$d filtre actif</item>
+        <item quantity="other">%1$d filtres actifs</item>
+    </plurals>
+    <plurals name="plural_items">
+        <item quantity="one">%1$d élément</item>
+        <item quantity="other">%1$d éléments</item>
+    </plurals>
+</resources>
