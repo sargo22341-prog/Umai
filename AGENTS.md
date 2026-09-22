@@ -327,13 +327,21 @@ qu'il n'y ait pas à les ressaisir à chaque fois.
   ```powershell
   C:\platform-tools\adb.exe install -r -d app\build\outputs\apk\debug\app-debug.apk
   ```
-* ⚠️ **`connectedDebugAndroidTest` désinstalle l'application à la fin.** Après avoir
-  lancé les tests instrumentés, **toujours réinstaller le build debug** avec la
-  commande ci-dessus, puis vérifier que l'app démarre :
+* `connectedDebugAndroidTest` désinstallait les deux APK en fin de course, ce qui
+  effaçait la session. `gradle.properties` porte désormais
+  `android.injected.androidTest.leaveApksInstalledAfterRun=true` : AGP en déduit
+  `android-test.uninstall-after-tests = false` et l'app reste en place avec ses
+  données. Ne pas retirer cette ligne. L'APK de test
+  (`org.opensources.umai.debug.test`) reste lui aussi installé : c'est attendu, il
+  est remplacé à chaque exécution.
+* Après une session de tests instrumentés, vérifier que l'app est toujours là et
+  qu'elle démarre :
   ```powershell
+  C:\platform-tools\adb.exe shell pm list packages --user 0 | Select-String umai
   C:\platform-tools\adb.exe shell am start -n org.opensources.umai.debug/org.opensources.umai.MainActivity
   ```
-  Si la session a été perdue, reconfigurer l'instance et le dire dans le rapport.
+  Si la session a malgré tout été perdue, reconfigurer l'instance et le dire dans le
+  rapport.
 * En cas de problème, consulter `logcat` filtré sur le package — sans jamais recopier
   de secret.
 * Vérification « sans GMS » sur l'APK release :
