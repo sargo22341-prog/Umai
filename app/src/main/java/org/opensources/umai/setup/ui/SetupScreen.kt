@@ -226,7 +226,7 @@ private fun Header(expiredForUrl: String?) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Icon(
-            painter = painterResource(R.drawable.splash_icon),
+            painter = painterResource(R.drawable.ic_launcher_monochrome),
             contentDescription = null,
             modifier = Modifier.size(72.dp),
             tint = MaterialTheme.colorScheme.primary,

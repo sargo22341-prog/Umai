@@ -17,3 +17,4 @@ liste des commits. Détails : [docs/release.md](docs/release.md).
 - Import : une recette déjà importée depuis la même page est signalée au lieu d'être dupliquée.
 - Planning : ajout des recettes de la semaine à une liste de courses (recettes, portions, ingrédients).
 - Sécurité : le jeton Mealie n'est plus envoyé qu'à l'instance, jamais aux sites tiers.
+- Nouveau logo : un bol de ramen sur fond crème, aussi affiché au démarrage.

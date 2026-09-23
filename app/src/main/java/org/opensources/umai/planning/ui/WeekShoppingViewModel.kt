@@ -155,7 +155,7 @@ class WeekShoppingViewModel(
     private fun loadRecipes() {
         val missing = _state.value.chosen.mapNotNull { it.recipe?.slug }.distinct().filter { it !in _state.value.recipes }
         if (missing.isEmpty()) {
-            applyDefaultServings()
+            _state.update { it.withDefaultServings() }
             return
         }
         _state.update { it.copy(loadingRecipes = true, error = null) }
@@ -164,16 +164,18 @@ class WeekShoppingViewModel(
             val results = missing.map { slug -> async { slug to recipeRepository.recipe(slug) } }.awaitAll()
             val failure = results.firstNotNullOfOrNull { (_, result) -> (result as? ApiResult.Failure)?.error }
             val loaded = results.mapNotNull { (slug, result) -> (result as? ApiResult.Success)?.value?.let { slug to it } }
-            _state.update { it.copy(loadingRecipes = false, recipes = it.recipes + loaded, error = failure) }
-            applyDefaultServings()
+            // One update, so the recipes are never seen without their servings.
+            _state.update {
+                it.copy(loadingRecipes = false, recipes = it.recipes + loaded, error = failure).withDefaultServings()
+            }
         }
     }
 
-    private fun applyDefaultServings() = _state.update { state ->
-        val defaults = state.chosen
-            .filter { it.id !in state.servings }
-            .associate { entry -> entry.id to (state.recipeOf(entry)?.baseServings ?: 1) }
-        state.copy(servings = state.servings + defaults)
+    private fun WeekShoppingUiState.withDefaultServings(): WeekShoppingUiState {
+        val defaults = chosen
+            .filter { it.id !in servings }
+            .associate { entry -> entry.id to (recipeOf(entry)?.baseServings ?: 1) }
+        return copy(servings = servings + defaults)
     }
 
     /** One call per meal; a failure stops there, and a retry goes on from it. */

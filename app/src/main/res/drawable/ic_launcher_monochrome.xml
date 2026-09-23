@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Silhouette of ic_launcher_foreground, used for themed icons and tinted in-app. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -6,25 +7,33 @@
     android:viewportHeight="108"
     android:tint="#FFFFFF">
 
+    <!-- Bowl rim as a ring -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M27,60 L81,60 C81,74.9 68.9,87 54,87 C39.1,87 27,74.9 27,60 Z" />
+        android:fillType="evenOdd"
+        android:pathData="M29,55 a23,23 0 1,0 46,0 a23,23 0 1,0 -46,0 Z M33.5,55 a18.5,18.5 0 1,0 37,0 a18.5,18.5 0 1,0 -37,0 Z" />
+
+    <!-- Egg with its yolk cut out -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M24.5,53.5 L83.5,53.5 A3,3 0 0 1 83.5,59.5 L24.5,59.5 A3,3 0 0 1 24.5,53.5 Z" />
+        android:fillType="evenOdd"
+        android:pathData="M39,53 a4.8,7 0 1,0 9.6,0 a4.8,7 0 1,0 -9.6,0 Z M40.8,55 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0 Z" />
+
+    <!-- Noodles -->
     <path
-        android:pathData="M42,46 C35.5,39 47.5,34 41,26"
+        android:pathData="M45.6,68 a3.8,3.8 0 1,0 7.6,0 a3.8,3.8 0 1,0 -7.6,0 M57.8,69.5 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0 M51.5,63.5 a4.2,4.2 0 1,0 8.4,0 a4.2,4.2 0 1,0 -8.4,0 M60.5,60.5 a4.2,4.2 0 1,0 8.4,0 a4.2,4.2 0 1,0 -8.4,0"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="5"
-        android:strokeLineCap="round" />
+        android:strokeWidth="1.6" />
+
+    <!-- Toppings -->
     <path
-        android:pathData="M54,47 C47.5,39 59.5,34 53,24"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="5"
-        android:strokeLineCap="round" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M49.5,41.2 L53.4,40.2 L54.4,44.1 L50.5,45.1 Z M55.2,48.6 L59,48.2 L59.4,52 L55.6,52.4 Z" />
+
+    <!-- Chopsticks -->
     <path
-        android:pathData="M66,46 C59.5,39 71.5,34 65,26"
+        android:pathData="M61,27 L72,80 M66.5,28 L76,78"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="5"
-        android:strokeLineCap="round" />
+        android:strokeLineCap="round"
+        android:strokeWidth="2.6" />
 </vector>
