@@ -33,6 +33,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -80,6 +81,10 @@ fun PlanningScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val picker by viewModel.picker.collectAsStateWithLifecycle()
 
+    // The tab keeps its ViewModel while the user walks through other screens,
+    // so the plan is asked for again every time the screen comes back.
+    LaunchedEffect(Unit) { viewModel.onScreenShown() }
+
     PlanningScreen(
         state = state,
         picker = picker,
@@ -88,6 +93,7 @@ fun PlanningScreen(
         onNextWeek = viewModel::showNextWeek,
         onBackToToday = viewModel::backToToday,
         onRetry = viewModel::load,
+        onRefresh = viewModel::refresh,
         onPickerQueryChange = viewModel::onPickerQueryChange,
         onResetPicker = viewModel::resetPicker,
         onAddRecipe = viewModel::addRecipe,
@@ -109,6 +115,7 @@ fun PlanningScreen(
     onNextWeek: () -> Unit,
     onBackToToday: () -> Unit,
     onRetry: () -> Unit,
+    onRefresh: () -> Unit,
     onPickerQueryChange: (String) -> Unit,
     onResetPicker: () -> Unit,
     onAddRecipe: (LocalDate, MealType, RecipeSummary) -> Unit,
@@ -185,7 +192,7 @@ fun PlanningScreen(
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             val error = state.error
-        when {
+            when {
                 state.loading && state.entriesByDay.isEmpty() -> LoadingView()
 
                 error != null && state.entriesByDay.isEmpty() -> NetworkErrorView(
@@ -194,25 +201,33 @@ fun PlanningScreen(
                     onRetry = onRetry,
                 )
 
-                else -> LazyRow(
-                    state = listState,
+                // The week scrolls sideways, so the pull gesture is picked up by
+                // the vertical list of meals inside each day.
+                else -> PullToRefreshBox(
+                    isRefreshing = state.refreshing,
+                    onRefresh = onRefresh,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    val days = state.days
-                    items(count = days.size, key = { days[it].toString() }) { index ->
-                        val day = days[index]
-                        DayColumn(
-                            width = DayColumnWidth,
-                            date = day,
-                            isToday = day == state.today,
-                            entries = state.entriesByDay[day].orEmpty(),
-                            onAdd = { sheetTarget = day },
-                            onRecipeClick = onRecipeClick,
-                            onDelete = onDeleteEntry,
-                            recipeImageUrl = recipeImageUrl,
-                        )
+                    LazyRow(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        val days = state.days
+                        items(count = days.size, key = { days[it].toString() }) { index ->
+                            val day = days[index]
+                            DayColumn(
+                                width = DayColumnWidth,
+                                date = day,
+                                isToday = day == state.today,
+                                entries = state.entriesByDay[day].orEmpty(),
+                                onAdd = { sheetTarget = day },
+                                onRecipeClick = onRecipeClick,
+                                onDelete = onDeleteEntry,
+                                recipeImageUrl = recipeImageUrl,
+                            )
+                        }
                     }
                 }
             }

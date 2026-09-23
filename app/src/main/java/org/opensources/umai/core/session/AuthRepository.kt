@@ -126,6 +126,8 @@ class AuthRepository(
                     userId = user.value.id.takeIf { it.isNotBlank() },
                     userDisplayName = user.value.fullName ?: user.value.username,
                     serverVersion = serverVersion,
+                    isAdmin = user.value.admin,
+                    avatarCacheKey = user.value.cacheKey.takeIf { it.isNotBlank() },
                 ),
             )
         }

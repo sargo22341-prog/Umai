@@ -17,6 +17,8 @@
     <string name="action_done">Done</string>
     <string name="action_change">Change</string>
     <string name="action_create">Create</string>
+    <string name="action_select_all">Select all</string>
+    <string name="action_select_none">Clear selection</string>
     <string name="loading">Loading…</string>
 
     <!-- Network errors -->
@@ -46,7 +48,7 @@
     <string name="nav_planning">Planning</string>
     <string name="nav_search">Search</string>
     <string name="nav_shopping">Shopping</string>
-    <string name="nav_settings">Settings</string>
+    <string name="nav_profile">Profile</string>
 
     <!-- Setup -->
     <string name="setup_title">Connect your instance</string>
@@ -55,7 +57,8 @@
     <string name="setup_url_placeholder">mealie.example.com</string>
     <string name="setup_url_helper">A custom domain, an IP address or an address with a port all work. Without a prefix, HTTPS is used.</string>
     <string name="setup_auth_method">Sign-in method</string>
-    <string name="setup_auth_password">Username and password</string>
+    <!-- Kept short: both labels share one segmented row and must fit on a line. -->
+    <string name="setup_auth_password">Password</string>
     <string name="setup_auth_token">API token</string>
     <string name="setup_username_label">Username or e-mail</string>
     <string name="setup_password_label">Password</string>
@@ -128,9 +131,14 @@
     <string name="filter_no_match">Nothing matches</string>
     <string name="filter_food_hint">Type at least two letters to look an ingredient up.</string>
     <string name="filter_time_unsupported">Mealie stores preparation and cooking times as free text, so they cannot be filtered by duration.</string>
+    <string name="filter_calories_unsupported">Nutrition values, calories included, are stored as free text too: the server would compare them letter by letter, so filtering by calories is not offered.</string>
 
     <!-- Recipe detail -->
     <string name="recipe_ingredients">Ingredients</string>
+    <string name="recipe_ingredients_for">Ingredients for %1$s</string>
+    <string name="recipe_yield">Yield</string>
+    <string name="servings_increase">One more serving</string>
+    <string name="servings_decrease">One less serving</string>
     <string name="recipe_instructions">Instructions</string>
     <string name="recipe_notes">Notes</string>
     <string name="recipe_nutrition">Nutrition</string>
@@ -146,10 +154,17 @@
     <string name="recipe_time_total">Total</string>
     <string name="recipe_time_prep">Prep</string>
     <string name="recipe_time_cook">Cooking</string>
-    <string name="recipe_time_perform">Active</string>
     <string name="recipe_added_to_list">Added to %1$s</string>
     <string name="recipe_added_to_plan">Added to the meal plan</string>
     <string name="recipe_favorite_needs_account">Favourites need a user account; an API token alone is not enough.</string>
+
+    <!-- Comments -->
+    <string name="recipe_comments">Comments</string>
+    <string name="recipe_comments_empty">No comment yet.</string>
+    <string name="recipe_comment_placeholder">Write a comment…</string>
+    <string name="recipe_comment_send">Send the comment</string>
+    <string name="recipe_comment_delete">Delete this comment</string>
+    <string name="recipe_comment_unknown_author">Unknown author</string>
 
     <string name="nutrition_calories">Calories</string>
     <string name="nutrition_carbohydrate">Carbohydrates</string>
@@ -226,9 +241,75 @@
     <string name="shopping_delete_list_message">The list and its items will be removed from your Mealie instance.</string>
     <string name="shopping_linked_recipes">Recipes added to this list</string>
     <string name="shopping_choose_list">Choose a list</string>
+    <string name="shopping_servings_scaled">Quantities are scaled from the %1$d servings of the recipe.</string>
+
+    <!-- Profile -->
+    <string name="profile_title">Profile</string>
+    <string name="profile_change_avatar">Change the profile picture</string>
+    <string name="profile_avatar_updated">Profile picture updated</string>
+    <string name="profile_group_and_household">%1$s · %2$s</string>
+    <string name="profile_stat_recipes">Recipes</string>
+    <string name="profile_stat_categories">Categories</string>
+    <string name="profile_stat_tags">Tags</string>
+    <string name="profile_stat_tools">Tools</string>
+    <string name="profile_stat_users">Members</string>
+    <string name="profile_section_add">Add</string>
+    <string name="profile_section_settings">Settings</string>
+    <string name="profile_import_recipe">Import a recipe</string>
+    <string name="profile_import_recipe_summary">Let Mealie read a web page and turn it into a recipe.</string>
+    <string name="profile_create_recipe">Add a recipe</string>
+    <string name="profile_create_recipe_summary">Write a recipe step by step, and save it as a draft along the way.</string>
+    <string name="profile_drafts">My drafts</string>
+    <string name="profile_drafts_empty">No recipe started</string>
+
+    <!-- Recipe import -->
+    <string name="import_intro">Paste the address of a recipe page: Mealie reads it and creates the recipe on your instance.</string>
+    <string name="import_url_label">Page address</string>
+    <string name="import_url_placeholder">https://example.com/recipe</string>
+    <string name="import_include_tags">Import the tags</string>
+    <string name="import_include_categories">Import the categories</string>
+    <string name="import_action">Import</string>
+    <string name="import_running">Importing…</string>
+    <string name="import_hint">If the page is not recognised, Mealie creates a recipe with what it managed to read; you can then finish it by hand.</string>
+
+    <!-- Recipe creation -->
+    <string name="create_save_draft">Save the draft</string>
+    <string name="create_step_position">Step %1$d of %2$d — %3$s</string>
+    <string name="create_step_basics">The basics</string>
+    <string name="create_step_organizers">Categories and tags</string>
+    <string name="create_previous">Previous</string>
+    <string name="create_next">Next</string>
+    <string name="create_publish">Create the recipe</string>
+    <string name="create_name_label">Recipe name</string>
+    <string name="create_name_helper">Required: Mealie builds the address of the recipe from it.</string>
+    <string name="create_description_label">Description</string>
+    <string name="create_time_placeholder">30 minutes</string>
+    <string name="create_time_helper">Times are free text on Mealie: write them the way you want to read them.</string>
+    <string name="create_ingredients_helper">One line per ingredient, quantity included, as you would write it on paper.</string>
+    <string name="create_ingredient_label">Ingredient %1$d</string>
+    <string name="create_add_ingredient">Add an ingredient</string>
+    <string name="create_remove_ingredient">Remove this ingredient</string>
+    <string name="create_step_label">Step %1$d</string>
+    <string name="create_step_title_label">Heading (optional)</string>
+    <string name="create_step_text_label">Instruction</string>
+    <string name="create_add_step">Add a step</string>
+    <string name="create_remove_step">Remove this step</string>
+    <string name="create_organizers_helper">Only the categories and tags that already exist on your instance are offered; create the others from Mealie.</string>
+    <string name="create_no_organizer">Nothing on this instance yet.</string>
+
+    <!-- Drafts -->
+    <string name="drafts_empty_title">No draft</string>
+    <string name="drafts_empty_message">A recipe you start writing is kept here until you create it on Mealie.</string>
+    <string name="drafts_untitled">Untitled recipe</string>
+    <string name="drafts_updated_at">Last edited on %1$s</string>
+    <string name="drafts_delete_title">Delete this draft?</string>
+    <string name="drafts_delete_message">The draft only exists on this device and cannot be recovered.</string>
 
     <!-- Settings -->
-    <string name="settings_title">Settings</string>
+    <string name="settings_app_title">App settings</string>
+    <string name="settings_app_summary">Language, theme, display and cooking mode.</string>
+    <string name="settings_mealie_title">Mealie settings</string>
+    <string name="settings_mealie_summary">Instance, account and the preferences of your household.</string>
     <string name="settings_section_connection">Connection</string>
     <string name="settings_instance">Mealie instance</string>
     <string name="settings_account">Account</string>
@@ -259,10 +340,20 @@
     <string name="settings_layout_list">List</string>
     <string name="settings_keep_screen_on">Keep the screen on while cooking</string>
     <string name="settings_keep_screen_on_summary">The screen stays awake as long as the cooking mode is open.</string>
-    <string name="settings_section_mealie">Your Mealie instance</string>
+    <string name="settings_section_household">Your household</string>
     <string name="settings_first_day_of_week">First day of the week</string>
     <string name="settings_show_nutrition">Show nutrition</string>
-    <string name="settings_mealie_preferences_hint">These preferences belong to your household and are changed from Mealie.</string>
+    <string name="settings_show_nutrition_summary">Show the nutrition table on every recipe of the household.</string>
+    <string name="settings_show_assets">Show attachments</string>
+    <string name="settings_show_assets_summary">Show the files attached to a recipe.</string>
+    <string name="settings_disable_comments">Disable comments</string>
+    <string name="settings_disable_comments_summary">Hide the comments on the recipes of the household.</string>
+    <string name="settings_recipe_public">Public recipes</string>
+    <string name="settings_recipe_public_summary">New recipes can be read without signing in.</string>
+    <string name="settings_private_household">Private household</string>
+    <string name="settings_private_household_summary">Keep the household out of the public pages of the group.</string>
+    <string name="settings_household_read_only">Only a household manager can change these preferences. Ask an administrator of your instance to grant you that right.</string>
+    <string name="settings_household_unavailable">These preferences could not be read from your instance.</string>
     <string name="settings_section_about">About</string>
     <string name="settings_app_version">Umai version</string>
     <string name="settings_server_version">Mealie version</string>
@@ -272,8 +363,6 @@
     <string name="unit_hour_short">h</string>
     <string name="unit_minute_short">min</string>
     <string name="value_unknown">—</string>
-    <string name="value_yes">Yes</string>
-    <string name="value_no">No</string>
 
     <!-- Content descriptions -->
     <string name="cd_recipe_image">Picture of %1$s</string>
@@ -299,5 +388,9 @@
     <plurals name="plural_items">
         <item quantity="one">%1$d item</item>
         <item quantity="other">%1$d items</item>
+    </plurals>
+    <plurals name="plural_drafts">
+        <item quantity="one">%1$d draft</item>
+        <item quantity="other">%1$d drafts</item>
     </plurals>
 </resources>

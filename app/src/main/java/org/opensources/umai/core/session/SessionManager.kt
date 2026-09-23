@@ -65,6 +65,20 @@ class SessionManager(
         store.updateToken(token)
     }
 
+    /**
+     * Re-reads the identity carried by the session after the user edited their
+     * Mealie profile, so the avatar shown in the navigation bar follows.
+     */
+    suspend fun updateIdentity(displayName: String?, isAdmin: Boolean, avatarCacheKey: String?) {
+        val updated = current.value?.copy(
+            userDisplayName = displayName,
+            isAdmin = isAdmin,
+            avatarCacheKey = avatarCacheKey,
+        ) ?: return
+        current.value = updated
+        store.save(updated)
+    }
+
     override suspend fun signOut() {
         current.value = null
         clients = null
@@ -108,6 +122,8 @@ class SessionManager(
             userId = userId,
             userDisplayName = userDisplayName,
             serverVersion = serverVersion,
+            isAdmin = isAdmin,
+            avatarCacheKey = avatarCacheKey,
         )
     }
 

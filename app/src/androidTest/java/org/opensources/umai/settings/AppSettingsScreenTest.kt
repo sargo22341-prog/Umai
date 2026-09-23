@@ -5,10 +5,11 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -18,18 +19,15 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.opensources.umai.BuildConfig
 import org.opensources.umai.R
-import org.opensources.umai.core.session.AuthMode
-import org.opensources.umai.core.session.ServerSession
-import org.opensources.umai.core.session.SessionState
 import org.opensources.umai.core.settings.AppLanguage
 import org.opensources.umai.core.settings.AppPreferences
 import org.opensources.umai.core.settings.ThemeMode
 import org.opensources.umai.core.ui.theme.UmaiTheme
-import org.opensources.umai.settings.ui.SettingsScreen
-import org.opensources.umai.settings.ui.SettingsUiState
+import org.opensources.umai.settings.ui.AppSettingsScreen
 
+/** The half of the settings that never leaves the device. */
 @RunWith(AndroidJUnit4::class)
-class SettingsScreenTest {
+class AppSettingsScreenTest {
 
     @get:Rule
     val rule = createComposeRule()
@@ -38,35 +36,19 @@ class SettingsScreenTest {
 
     private fun string(id: Int) = context.getString(id)
 
-    private val session = SessionState.Active(
-        ServerSession(
-            baseUrl = "https://mealie.ndd.custom/",
-            token = "secret",
-            authMode = AuthMode.API_TOKEN,
-            username = "hiroo",
-            userId = "u1",
-            userDisplayName = "hiroo",
-            serverVersion = "v3.27.0",
-        ),
-    )
-
     private fun render(
         preferences: AppPreferences = AppPreferences(),
-        sessionState: SessionState = session,
-        state: SettingsUiState = SettingsUiState(),
+        serverVersion: String? = "v3.27.0",
         onLanguageChange: (AppLanguage) -> Unit = {},
         onThemeChange: (ThemeMode) -> Unit = {},
-        onSignOut: () -> Unit = {},
-        onCheckConnection: () -> Unit = {},
+        onBack: () -> Unit = {},
     ) {
         rule.setContent {
             UmaiTheme {
-                SettingsScreen(
+                AppSettingsScreen(
                     preferences = preferences,
-                    session = sessionState,
-                    state = state,
-                    onCheckConnection = onCheckConnection,
-                    onSignOut = onSignOut,
+                    serverVersion = serverVersion,
+                    onBack = onBack,
                     onLanguageChange = onLanguageChange,
                     onThemeChange = onThemeChange,
                     onLayoutChange = {},
@@ -75,37 +57,6 @@ class SettingsScreenTest {
                 )
             }
         }
-    }
-
-    @Test
-    fun theConfiguredInstanceAndAccountAreShown() {
-        render()
-
-        rule.onNodeWithText(string(R.string.settings_instance)).assertIsDisplayed()
-        rule.onNodeWithText("https://mealie.ndd.custom/").assertIsDisplayed()
-        rule.onNodeWithText("hiroo").assertIsDisplayed()
-        rule.onNodeWithText(string(R.string.settings_auth_token)).assertIsDisplayed()
-    }
-
-    @Test
-    fun theTokenItselfIsNeverDisplayed() {
-        render()
-
-        rule.onNodeWithText("secret", substring = true).assertDoesNotExist()
-    }
-
-    @Test
-    fun anActiveSessionIsReportedAsConnected() {
-        render()
-
-        rule.onNodeWithText(string(R.string.settings_status_connected)).assertIsDisplayed()
-    }
-
-    @Test
-    fun anExpiredSessionIsReportedAsSuch() {
-        render(sessionState = SessionState.Expired("https://mealie.ndd.custom/", "hiroo"))
-
-        rule.onNodeWithText(string(R.string.settings_status_expired)).assertIsDisplayed()
     }
 
     @Test
@@ -146,29 +97,6 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun theConnectionCanBeChecked() {
-        var checked = false
-        render(onCheckConnection = { checked = true })
-
-        rule.onNodeWithText(string(R.string.settings_check_connection)).performScrollTo().performClick()
-
-        assertTrue(checked)
-    }
-
-    @Test
-    fun signingOutAsksForConfirmationFirst() {
-        var signedOut = false
-        render(onSignOut = { signedOut = true })
-
-        rule.onNodeWithText(string(R.string.settings_change_instance)).performScrollTo().performClick()
-        rule.onNodeWithText(string(R.string.settings_sign_out_title)).assertIsDisplayed()
-        assertTrue("nothing must happen before confirmation", !signedOut)
-
-        rule.onNodeWithText(string(R.string.settings_sign_out)).performClick()
-        assertTrue(signedOut)
-    }
-
-    @Test
     fun bothVersionsAreListedInTheAboutSection() {
         render()
 
@@ -180,5 +108,25 @@ class SettingsScreenTest {
         rule.onNodeWithText(string(R.string.settings_app_version)).assertIsDisplayed()
         rule.onNodeWithText(BuildConfig.VERSION_NAME).assertExists()
         rule.onNodeWithText("v3.27.0").assertExists()
+    }
+
+    @Test
+    fun anInstanceThatNeverAnnouncedItsVersionIsSimplyOmitted() {
+        render(serverVersion = null)
+
+        rule.onNode(hasScrollToNodeAction())
+            .performScrollToNode(hasText(string(R.string.settings_app_version)))
+
+        rule.onNodeWithText(string(R.string.settings_server_version)).assertDoesNotExist()
+    }
+
+    @Test
+    fun goingBackIsAlwaysAvailable() {
+        var back = false
+        render(onBack = { back = true })
+
+        rule.onNodeWithContentDescription(string(R.string.action_back)).performClick()
+
+        assertTrue(back)
     }
 }

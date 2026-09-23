@@ -46,6 +46,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -143,6 +144,8 @@ fun SetupScreen(
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                // Both labels stay on a single line: a label that wraps makes
+                // its segment taller than the other one and the row lopsided.
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     SetupAuthMethod.entries.forEachIndexed { index, method ->
                         SegmentedButton(
@@ -155,12 +158,14 @@ fun SetupScreen(
                             ),
                             label = {
                                 Text(
-                                    when (method) {
+                                    text = when (method) {
                                         SetupAuthMethod.PASSWORD ->
                                             stringResource(R.string.setup_auth_password)
                                         SetupAuthMethod.API_TOKEN ->
                                             stringResource(R.string.setup_auth_token)
                                     },
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             },
                         )

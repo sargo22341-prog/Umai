@@ -35,10 +35,15 @@ data class Recipe(
     val showNutrition: Boolean,
     val showAssets: Boolean,
     val assets: List<RecipeAsset>,
+    /** `settings.disableComments` on the Mealie side. */
+    val commentsDisabled: Boolean = false,
 ) {
     val id: String get() = summary.id
     val slug: String get() = summary.slug
     val name: String get() = summary.name
+
+    /** Servings the recipe was written for; `null` when Mealie holds none. */
+    val baseServings: Int? get() = summary.servings.takeIf { it >= 1.0 }?.toInt()
 }
 
 /**
@@ -54,21 +59,60 @@ data class RecipeStep(
     val ingredientReferenceIds: List<String>,
 )
 
+/**
+ * One ingredient line.
+ *
+ * [display] is what Mealie pre-rendered for the recipe's own servings; the
+ * structured parts next to it are what lets Umai re-render the line when the
+ * user scales the recipe, and what it echoes back when sending a subset of the
+ * ingredients to a shopping list.
+ */
 data class RecipeIngredient(
     val referenceId: String?,
     /** Pre-rendered text from Mealie; always safe to show as-is. */
     val display: String,
     val quantity: Double?,
-    val unit: String?,
-    val food: String?,
+    val unit: IngredientUnit?,
+    val food: IngredientFood?,
     val note: String?,
     /** Section header introduced by Mealie when an ingredient carries a title. */
     val sectionTitle: String?,
-    val foodId: String?,
-    val unitId: String?,
+    val originalText: String? = null,
+) {
+    /** Scaling a line only makes sense when there is a quantity to scale. */
+    val isScalable: Boolean get() = (quantity ?: 0.0) > 0.0
+}
+
+data class IngredientFood(
+    val id: String?,
+    val name: String,
+    val pluralName: String?,
+)
+
+data class IngredientUnit(
+    val id: String?,
+    val name: String,
+    val pluralName: String?,
+    val abbreviation: String,
+    val pluralAbbreviation: String?,
+    val useAbbreviation: Boolean,
+    val fraction: Boolean,
 )
 
 data class RecipeNote(val title: String, val text: String)
+
+/**
+ * A comment left on a recipe. Mealie lets the author delete their own comment,
+ * and an administrator delete any of them.
+ */
+data class RecipeComment(
+    val id: String,
+    val recipeId: String,
+    val text: String,
+    val authorId: String,
+    val authorName: String,
+    val createdAt: java.time.OffsetDateTime?,
+)
 
 data class RecipeAsset(val name: String, val icon: String, val fileName: String?)
 

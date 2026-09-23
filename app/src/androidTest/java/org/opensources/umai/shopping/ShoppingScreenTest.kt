@@ -53,6 +53,7 @@ class ShoppingScreenTest {
                     onCheckedChange = onCheckedChange,
                     onDeleteItem = onDeleteItem,
                     onRetry = onRetry,
+                    onRefresh = {},
                 )
             }
         }

@@ -1,9 +1,6 @@
 package org.opensources.umai.recipe.ui
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -16,7 +13,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -24,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,6 +39,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import org.opensources.umai.R
 import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.model.Recipe
+import org.opensources.umai.core.model.RecipeComment
 import org.opensources.umai.core.ui.component.LoadingView
 import org.opensources.umai.core.ui.component.NetworkErrorView
 import org.opensources.umai.core.ui.component.message
@@ -52,7 +50,7 @@ import org.opensources.umai.core.ui.component.title
 fun RecipeDetailScreen(
     slug: String,
     onBack: () -> Unit,
-    onStartCooking: (String) -> Unit,
+    onStartCooking: (String, Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val container = LocalAppContainer.current
@@ -63,7 +61,7 @@ fun RecipeDetailScreen(
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
     val context = LocalContext.current
 
-    var listPickerVisible by remember { mutableStateOf(false) }
+    var listSheetVisible by remember { mutableStateOf(false) }
     var planPickerVisible by remember { mutableStateOf(false) }
 
     // Resolved during composition so the message follows the language chosen in
@@ -82,13 +80,17 @@ fun RecipeDetailScreen(
         if (event != null) viewModel.consumeEvent()
     }
 
-    if (listPickerVisible) {
-        ShoppingListPicker(
+    val recipe = state.recipe
+    if (listSheetVisible && recipe != null) {
+        AddToShoppingListSheet(
+            recipe = recipe,
             lists = state.shoppingLists,
-            onDismiss = { listPickerVisible = false },
-            onSelect = {
-                viewModel.addToShoppingList(it)
-                listPickerVisible = false
+            loadingLists = state.loadingShoppingLists,
+            initialServings = state.servings,
+            onDismiss = { listSheetVisible = false },
+            onConfirm = { list, servings, ingredients ->
+                viewModel.addToShoppingList(list, servings, ingredients)
+                listSheetVisible = false
             },
         )
     }
@@ -112,12 +114,16 @@ fun RecipeDetailScreen(
         onToggleFavorite = viewModel::toggleFavorite,
         onOpenShoppingLists = {
             viewModel.loadShoppingLists()
-            listPickerVisible = true
+            listSheetVisible = true
         },
         onOpenPlanPicker = { planPickerVisible = true },
         onRetry = viewModel::load,
-        imageUrl = { recipe ->
-            container.imageUrls.original(recipe.id, recipe.summary.imageToken)
+        onRefresh = viewModel::refresh,
+        onServingsChange = viewModel::setServings,
+        onPostComment = viewModel::postComment,
+        onDeleteComment = viewModel::deleteComment,
+        imageUrl = { value ->
+            container.imageUrls.original(value.id, value.summary.imageToken)
         },
         stepImageUrl = { recipeId, source -> container.imageUrls.stepImage(recipeId, source) },
         onOpenSource = { url ->
@@ -139,11 +145,15 @@ fun RecipeDetailScaffold(
     scrollBehavior: TopAppBarScrollBehavior,
     snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
-    onStartCooking: (String) -> Unit,
+    onStartCooking: (String, Int) -> Unit,
     onToggleFavorite: () -> Unit,
     onOpenShoppingLists: () -> Unit,
     onOpenPlanPicker: () -> Unit,
     onRetry: () -> Unit,
+    onRefresh: () -> Unit,
+    onServingsChange: (Int) -> Unit,
+    onPostComment: (String) -> Unit,
+    onDeleteComment: (RecipeComment) -> Unit,
     imageUrl: (Recipe) -> String?,
     stepImageUrl: (String, String) -> String?,
     onOpenSource: (String) -> Unit,
@@ -208,7 +218,7 @@ fun RecipeDetailScaffold(
             val recipe = state.recipe
             if (recipe != null && recipe.steps.isNotEmpty()) {
                 ExtendedFloatingActionButton(
-                    onClick = { onStartCooking(recipe.slug) },
+                    onClick = { onStartCooking(recipe.slug, state.servings) },
                     icon = { Icon(Icons.Rounded.Restaurant, contentDescription = null) },
                     text = { Text(stringResource(R.string.recipe_cook_mode)) },
                 )
@@ -219,20 +229,30 @@ fun RecipeDetailScaffold(
         when {
             state.loading -> LoadingView(Modifier.padding(padding))
 
-            error != null -> NetworkErrorView(
+            error != null && state.recipe == null -> NetworkErrorView(
                 error = error,
                 modifier = Modifier.fillMaxSize().padding(padding),
                 onRetry = onRetry,
             )
 
             else -> state.recipe?.let { recipe ->
-                RecipeContent(
-                    recipe = recipe,
-                    imageUrl = imageUrl(recipe),
-                    stepImageUrl = stepImageUrl,
-                    contentPadding = padding,
-                    onOpenSource = onOpenSource,
-                )
+                PullToRefreshBox(
+                    isRefreshing = state.refreshing,
+                    onRefresh = onRefresh,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    RecipeContent(
+                        recipe = recipe,
+                        state = state,
+                        imageUrl = imageUrl(recipe),
+                        stepImageUrl = stepImageUrl,
+                        contentPadding = padding,
+                        onServingsChange = onServingsChange,
+                        onPostComment = onPostComment,
+                        onDeleteComment = onDeleteComment,
+                        onOpenSource = onOpenSource,
+                    )
+                }
             }
         }
     }

@@ -46,12 +46,22 @@ class HomeViewModel(
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
     private var loadJob: Job? = null
+    private var hasLoadedOnce = false
 
     init {
         refresh(initial = true)
         viewModelScope.launch {
             layout.collect { value -> _state.update { it.copy(layout = value) } }
         }
+    }
+
+    /**
+     * Called every time the tab comes back into view: the recipe just read has
+     * to appear among the recently viewed ones, and the instance may have
+     * gained recipes meanwhile.
+     */
+    fun onScreenShown() {
+        if (hasLoadedOnce) refresh()
     }
 
     fun refresh(initial: Boolean = false) {
@@ -63,13 +73,16 @@ class HomeViewModel(
                 is ApiResult.Failure -> _state.update {
                     it.copy(loading = false, refreshing = false, error = latest.error)
                 }
-                is ApiResult.Success -> _state.update {
-                    it.copy(
-                        latest = PagedItems<RecipeSummary>().append(latest.value),
-                        loading = false,
-                        refreshing = false,
-                        error = null,
-                    )
+                is ApiResult.Success -> {
+                    hasLoadedOnce = true
+                    _state.update {
+                        it.copy(
+                            latest = PagedItems<RecipeSummary>().append(latest.value),
+                            loading = false,
+                            refreshing = false,
+                            error = null,
+                        )
+                    }
                 }
             }
             loadRecentlyViewed()

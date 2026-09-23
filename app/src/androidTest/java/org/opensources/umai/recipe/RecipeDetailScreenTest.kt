@@ -22,6 +22,7 @@ import org.junit.runner.RunWith
 import org.opensources.umai.R
 import org.opensources.umai.TestData
 import org.opensources.umai.core.model.Recipe
+import org.opensources.umai.core.model.RecipeComment
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.ui.theme.UmaiTheme
 import org.opensources.umai.recipe.ui.RecipeDetailScaffold
@@ -40,9 +41,12 @@ class RecipeDetailScreenTest {
     @OptIn(ExperimentalMaterial3Api::class)
     private fun render(
         state: RecipeDetailUiState,
-        onStartCooking: (String) -> Unit = {},
+        onStartCooking: (String, Int) -> Unit = { _, _ -> },
         onBack: () -> Unit = {},
         onRetry: () -> Unit = {},
+        onServingsChange: (Int) -> Unit = {},
+        onPostComment: (String) -> Unit = {},
+        onDeleteComment: (RecipeComment) -> Unit = {},
         imageUrl: (Recipe) -> String? = { "https://mealie.lan/photo.webp" },
     ) {
         rule.setContent {
@@ -57,6 +61,10 @@ class RecipeDetailScreenTest {
                     onOpenShoppingLists = {},
                     onOpenPlanPicker = {},
                     onRetry = onRetry,
+                    onRefresh = {},
+                    onServingsChange = onServingsChange,
+                    onPostComment = onPostComment,
+                    onDeleteComment = onDeleteComment,
                     imageUrl = imageUrl,
                     stepImageUrl = { _, source -> "https://mealie.lan/$source" },
                     onOpenSource = {},
@@ -90,13 +98,22 @@ class RecipeDetailScreenTest {
     }
 
     @Test
-    fun timesAndServingsAreShownInReadableUnits() {
+    fun timesAreShownInReadableUnits() {
         render(RecipeDetailUiState(recipe = recipe, loading = false))
 
         rule.onNodeWithText("25 ${string(R.string.unit_minute_short)}").assertExists()
+    }
+
+    @Test
+    fun theIngredientHeadingCarriesTheChosenNumberOfServings() {
+        render(RecipeDetailUiState(recipe = recipe, loading = false, servings = 4))
+
         rule.onNodeWithText(
-            context.resources.getQuantityString(R.plurals.plural_servings, 4, 4),
-        ).assertExists()
+            string(
+                R.string.recipe_ingredients_for,
+                context.resources.getQuantityString(R.plurals.plural_servings, 4, 4),
+            ),
+        ).performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -128,13 +145,17 @@ class RecipeDetailScreenTest {
 
     @Test
     fun cookingModeIsOfferedForARecipeWithSteps() {
-        var started: String? = null
-        render(RecipeDetailUiState(recipe = recipe, loading = false), onStartCooking = { started = it })
+        var started: Pair<String, Int>? = null
+        render(
+            RecipeDetailUiState(recipe = recipe, loading = false, servings = 6),
+            onStartCooking = { slug, servings -> started = slug to servings },
+        )
 
         rule.onNodeWithText(string(R.string.recipe_cook_mode), useUnmergedTree = true)
             .performClick()
 
-        assertEquals(recipe.slug, started)
+        // The cooking mode has to be handed the servings the reader picked.
+        assertEquals(recipe.slug to 6, started)
     }
 
     @Test

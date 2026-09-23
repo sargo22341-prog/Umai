@@ -36,6 +36,8 @@ class SessionStore(context: Context, private val vault: SecretVault = SecretVaul
                 userId = prefs[KeyUserId],
                 userDisplayName = prefs[KeyUserDisplayName],
                 serverVersion = prefs[KeyServerVersion],
+                isAdmin = prefs[KeyIsAdmin] == true,
+                avatarCacheKey = prefs[KeyAvatarCacheKey],
                 tokenRejected = prefs[KeyTokenRejected] == true,
             )
         }
@@ -51,6 +53,9 @@ class SessionStore(context: Context, private val vault: SecretVault = SecretVaul
             session.userDisplayName?.let { prefs[KeyUserDisplayName] = it }
                 ?: prefs.remove(KeyUserDisplayName)
             session.serverVersion?.let { prefs[KeyServerVersion] = it } ?: prefs.remove(KeyServerVersion)
+            prefs[KeyIsAdmin] = session.isAdmin
+            session.avatarCacheKey?.let { prefs[KeyAvatarCacheKey] = it }
+                ?: prefs.remove(KeyAvatarCacheKey)
             prefs[KeyTokenRejected] = false
         }
     }
@@ -85,6 +90,8 @@ class SessionStore(context: Context, private val vault: SecretVault = SecretVaul
         val userId: String?,
         val userDisplayName: String?,
         val serverVersion: String?,
+        val isAdmin: Boolean,
+        val avatarCacheKey: String?,
         val tokenRejected: Boolean,
     )
 
@@ -96,6 +103,8 @@ class SessionStore(context: Context, private val vault: SecretVault = SecretVaul
         val KeyUserId = stringPreferencesKey("user_id")
         val KeyUserDisplayName = stringPreferencesKey("user_display_name")
         val KeyServerVersion = stringPreferencesKey("server_version")
+        val KeyIsAdmin = booleanPreferencesKey("user_is_admin")
+        val KeyAvatarCacheKey = stringPreferencesKey("user_avatar_cache_key")
         val KeyTokenRejected = booleanPreferencesKey("token_rejected")
     }
 }

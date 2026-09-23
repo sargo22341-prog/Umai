@@ -1,6 +1,7 @@
 package org.opensources.umai.shopping.data
 
 import org.opensources.umai.core.model.LinkedRecipe
+import org.opensources.umai.core.model.RecipeIngredient
 import org.opensources.umai.core.model.ShoppingItem
 import org.opensources.umai.core.model.ShoppingList
 import org.opensources.umai.core.model.ShoppingListSummary
@@ -15,6 +16,7 @@ import org.opensources.umai.core.network.dto.ShoppingListItemDto
 import org.opensources.umai.core.network.dto.ShoppingListItemUpdateDto
 import org.opensources.umai.core.network.dto.ShoppingListSummaryDto
 import org.opensources.umai.core.network.api.MealieApi
+import org.opensources.umai.recipe.data.toDto
 
 /**
  * Shopping lists backed by `/api/households/shopping/...`.
@@ -85,14 +87,29 @@ class ShoppingRepository(private val apiProvider: () -> MealieApi?) {
         return apiCall { api.deleteShoppingItem(itemId) }
     }
 
-    /** Uses Mealie's own "add recipe ingredients to list" endpoint. */
-    suspend fun addRecipe(listId: String, recipeId: String, servings: Double): ApiResult<ShoppingList> {
+    /**
+     * Uses Mealie's own "add recipe ingredients to list" endpoint.
+     *
+     * [multiplier] is what Mealie calls `recipeIncrementQuantity`: it scales
+     * every quantity, so asking for six servings of a four-serving recipe sends
+     * 1.5. Passing [ingredients] restricts the transfer to the lines the user
+     * kept ticked; `null` sends the whole recipe.
+     */
+    suspend fun addRecipe(
+        listId: String,
+        recipeId: String,
+        multiplier: Double,
+        ingredients: List<RecipeIngredient>? = null,
+    ): ApiResult<ShoppingList> {
         val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
         return apiCall {
             api.addRecipeToShoppingList(
                 listId = listId,
                 recipeId = recipeId,
-                body = ShoppingListAddRecipeDto(recipeIncrementQuantity = servings),
+                body = ShoppingListAddRecipeDto(
+                    recipeIncrementQuantity = multiplier.takeIf { it > 0.0 } ?: 1.0,
+                    recipeIngredients = ingredients?.map { it.toDto() },
+                ),
             ).toDomain()
         }
     }

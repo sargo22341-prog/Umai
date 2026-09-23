@@ -1,22 +1,30 @@
 package org.opensources.umai.recipe.data
 
+import org.opensources.umai.core.format.ApiDates
+import org.opensources.umai.core.format.IngredientText
 import org.opensources.umai.core.markdown.StepContent
 import org.opensources.umai.core.model.Food
+import org.opensources.umai.core.model.IngredientFood
+import org.opensources.umai.core.model.IngredientUnit
 import org.opensources.umai.core.model.Label
 import org.opensources.umai.core.model.Nutrition
 import org.opensources.umai.core.model.Organizer
 import org.opensources.umai.core.model.Paged
 import org.opensources.umai.core.model.Recipe
 import org.opensources.umai.core.model.RecipeAsset
+import org.opensources.umai.core.model.RecipeComment
 import org.opensources.umai.core.model.RecipeIngredient
 import org.opensources.umai.core.model.RecipeNote
 import org.opensources.umai.core.model.RecipeStep
 import org.opensources.umai.core.model.RecipeSummary
+import org.opensources.umai.core.network.dto.IngredientFoodDto
 import org.opensources.umai.core.network.dto.IngredientFoodListDto
+import org.opensources.umai.core.network.dto.IngredientUnitDto
 import org.opensources.umai.core.network.dto.LabelDto
 import org.opensources.umai.core.network.dto.NutritionDto
 import org.opensources.umai.core.network.dto.PaginationDto
 import org.opensources.umai.core.network.dto.RecipeCategoryDto
+import org.opensources.umai.core.network.dto.RecipeCommentDto
 import org.opensources.umai.core.network.dto.RecipeDetailDto
 import org.opensources.umai.core.network.dto.RecipeIngredientDto
 import org.opensources.umai.core.network.dto.RecipeStepDto
@@ -90,6 +98,9 @@ fun RecipeDetailDto.toDomain(): Recipe? {
         showNutrition = settings?.showNutrition ?: false,
         showAssets = settings?.showAssets ?: false,
         assets = assets.map { RecipeAsset(it.name, it.icon, it.fileName) },
+        // Only an explicit `true` hides the comments: an instance that omits
+        // the settings block should still let the user read and write them.
+        commentsDisabled = settings?.disableComments == true,
     )
 }
 
@@ -105,28 +116,78 @@ private fun RecipeStepDto.toDomain(index: Int): RecipeStep {
 }
 
 private fun RecipeIngredientDto.toDomain(): RecipeIngredient {
-    val unitLabel = unit?.let { if (it.useAbbreviation && it.abbreviation.isNotBlank()) it.abbreviation else it.name }
-    return RecipeIngredient(
+    val ingredient = RecipeIngredient(
         referenceId = referenceId,
-        display = display.ifBlank { fallbackDisplay(unitLabel) },
+        display = "",
         quantity = quantity?.takeIf { it > 0.0 },
-        unit = unitLabel?.takeIf { it.isNotBlank() },
-        food = food?.name?.takeIf { it.isNotBlank() },
+        unit = unit?.toDomain(),
+        food = food?.toDomain(),
         note = note?.takeIf { it.isNotBlank() },
         sectionTitle = title?.takeIf { it.isNotBlank() },
-        foodId = food?.id,
-        unitId = unit?.id,
+        originalText = originalText?.takeIf { it.isNotBlank() },
     )
+    // Mealie normally pre-renders the line; when it does not, the same rules it
+    // applies are used so the display never falls back to an empty row.
+    return ingredient.copy(display = display.ifBlank { IngredientText.format(ingredient) })
 }
 
-private fun RecipeIngredientDto.fallbackDisplay(unitLabel: String?): String =
-    listOfNotNull(
-        org.opensources.umai.core.format.QuantityText.format(quantity).takeIf { it.isNotBlank() },
-        unitLabel?.takeIf { it.isNotBlank() },
-        food?.name?.takeIf { it.isNotBlank() },
-        note?.takeIf { it.isNotBlank() },
-        originalText?.takeIf { it.isNotBlank() && food == null && note.isNullOrBlank() },
-    ).joinToString(" ")
+private fun IngredientFoodDto.toDomain() = IngredientFood(
+    id = id?.takeIf { it.isNotBlank() },
+    name = name,
+    pluralName = pluralName?.takeIf { it.isNotBlank() },
+)
+
+private fun IngredientUnitDto.toDomain() = IngredientUnit(
+    id = id?.takeIf { it.isNotBlank() },
+    name = name,
+    pluralName = pluralName?.takeIf { it.isNotBlank() },
+    abbreviation = abbreviation,
+    pluralAbbreviation = pluralAbbreviation?.takeIf { it.isNotBlank() },
+    useAbbreviation = useAbbreviation,
+    fraction = fraction,
+)
+
+/**
+ * The reverse mapping: Mealie's "add these ingredients to a shopping list"
+ * endpoint expects the very objects it served, so a selected line is rebuilt
+ * into the payload it came from.
+ */
+fun RecipeIngredient.toDto(): RecipeIngredientDto = RecipeIngredientDto(
+    quantity = quantity ?: 0.0,
+    unit = unit?.let {
+        IngredientUnitDto(
+            id = it.id,
+            name = it.name,
+            pluralName = it.pluralName,
+            abbreviation = it.abbreviation,
+            pluralAbbreviation = it.pluralAbbreviation,
+            useAbbreviation = it.useAbbreviation,
+            fraction = it.fraction,
+        )
+    },
+    food = food?.let {
+        IngredientFoodDto(id = it.id, name = it.name, pluralName = it.pluralName)
+    },
+    note = note,
+    display = display,
+    title = sectionTitle,
+    originalText = originalText,
+    referenceId = referenceId,
+)
+
+fun RecipeCommentDto.toDomain(): RecipeComment? {
+    val identifier = id.takeIf { it.isNotBlank() } ?: return null
+    return RecipeComment(
+        id = identifier,
+        recipeId = recipeId,
+        text = text,
+        authorId = userId,
+        authorName = user?.fullName?.takeIf { it.isNotBlank() }
+            ?: user?.username?.takeIf { it.isNotBlank() }
+            ?: "",
+        createdAt = ApiDates.parseDateTime(createdAt),
+    )
+}
 
 private fun NutritionDto.toDomain() = Nutrition(
     calories = calories,

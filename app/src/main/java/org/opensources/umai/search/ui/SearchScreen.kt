@@ -24,6 +24,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -76,6 +77,7 @@ fun SearchScreen(
         onFoodSelected = viewModel::rememberSelectedFood,
         onLoadMore = viewModel::loadMore,
         onRetry = viewModel::retry,
+        onRefresh = viewModel::refresh,
         recipeImageUrl = { recipe -> container.imageUrls.thumbnail(recipe.id, recipe.imageToken) },
         modifier = modifier,
     )
@@ -97,6 +99,7 @@ fun SearchScreen(
     onFoodSelected: (Food) -> Unit,
     onLoadMore: () -> Unit,
     onRetry: () -> Unit,
+    onRefresh: () -> Unit,
     recipeImageUrl: (RecipeSummary) -> String?,
     modifier: Modifier = Modifier,
 ) {
@@ -179,21 +182,27 @@ fun SearchScreen(
                         modifier = Modifier.fillMaxSize(),
                     )
 
-                    else -> LazyVerticalGrid(
-                        columns = recipeGridCells(state.layout),
-                        state = gridState,
+                    else -> PullToRefreshBox(
+                        isRefreshing = state.refreshing,
+                        onRefresh = onRefresh,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = RecipeGridArrangement,
-                        verticalArrangement = RecipeGridArrangement,
                     ) {
-                        recipeCards(
-                            recipes = state.results.items,
-                            layout = state.layout,
-                            imageUrlFor = recipeImageUrl,
-                            onRecipeClick = { onRecipeClick(it.slug) },
-                            loadingMore = state.loadingMore,
-                        )
+                        LazyVerticalGrid(
+                            columns = recipeGridCells(state.layout),
+                            state = gridState,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = RecipeGridArrangement,
+                            verticalArrangement = RecipeGridArrangement,
+                        ) {
+                            recipeCards(
+                                recipes = state.results.items,
+                                layout = state.layout,
+                                imageUrlFor = recipeImageUrl,
+                                onRecipeClick = { onRecipeClick(it.slug) },
+                                loadingMore = state.loadingMore,
+                            )
+                        }
                     }
                 }
             }

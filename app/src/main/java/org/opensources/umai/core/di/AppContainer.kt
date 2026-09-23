@@ -14,6 +14,11 @@ import org.opensources.umai.core.settings.LocaleController
 import org.opensources.umai.home.data.RecentRecipesStore
 import org.opensources.umai.organizer.data.OrganizerRepository
 import org.opensources.umai.planning.data.MealPlanRepository
+import org.opensources.umai.profile.data.AvatarImageSource
+import org.opensources.umai.profile.data.ProfileRepository
+import org.opensources.umai.recipe.data.RecipeCommentRepository
+import org.opensources.umai.recipe.data.RecipeDraftStore
+import org.opensources.umai.recipe.data.RecipeEditRepository
 import org.opensources.umai.recipe.data.RecipeRepository
 import org.opensources.umai.shopping.data.ShoppingRepository
 
@@ -50,10 +55,14 @@ class AppContainer(context: Context) {
         apiProvider = apiProvider,
         currentUserId = { sessionManager.activeSession()?.userId },
     )
+    val recipeCommentRepository = RecipeCommentRepository(apiProvider)
+    val recipeEditRepository = RecipeEditRepository(apiProvider)
     val organizerRepository = OrganizerRepository(apiProvider)
     val mealPlanRepository = MealPlanRepository(apiProvider)
     val shoppingRepository = ShoppingRepository(apiProvider)
+    val profileRepository = ProfileRepository(apiProvider, AvatarImageSource(appContext))
     val recentRecipesStore = RecentRecipesStore(appContext)
+    val recipeDraftStore = RecipeDraftStore(appContext)
 
     val imageUrls = ImageUrlResolver(sessionManager)
 
@@ -78,6 +87,9 @@ class ImageUrlResolver(private val sessionManager: SessionManager) {
 
     fun stepImage(recipeId: String, source: String): String? =
         sessionManager.baseUrl()?.let { MealieMedia.resolveStepImage(it, recipeId, source) }
+
+    fun userAvatar(userId: String, cacheKey: String?): String? =
+        sessionManager.baseUrl()?.let { MealieMedia.userImage(it, userId, cacheKey) }
 
     private fun url(
         recipeId: String,

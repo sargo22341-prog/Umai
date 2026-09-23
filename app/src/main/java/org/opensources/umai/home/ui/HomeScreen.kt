@@ -55,6 +55,10 @@ fun HomeScreen(
     val viewModel: HomeViewModel = viewModel(factory = HomeViewModel.factory(container))
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    // The tab keeps its ViewModel while the user walks through other screens,
+    // so Home is asked for again every time it comes back.
+    LaunchedEffect(Unit) { viewModel.onScreenShown() }
+
     HomeScreen(
         state = state,
         onRecipeClick = onRecipeClick,

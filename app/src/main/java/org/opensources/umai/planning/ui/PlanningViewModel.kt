@@ -26,6 +26,7 @@ data class PlanningUiState(
     val anchor: LocalDate = LocalDate.now(),
     val entriesByDay: Map<LocalDate, List<MealPlanEntry>> = emptyMap(),
     val loading: Boolean = true,
+    val refreshing: Boolean = false,
     val error: NetworkError? = null,
     val mutating: Boolean = false,
 ) {
@@ -64,26 +65,50 @@ class PlanningViewModel(
 
     private var loadJob: Job? = null
     private var pickerJob: Job? = null
+    private var hasLoadedOnce = false
 
     init {
         load()
     }
 
-    fun load() {
+    /**
+     * Called every time the tab comes back into view.
+     *
+     * A meal added from a recipe page lands on the server while this ViewModel
+     * is still alive, so returning to the tab has to ask Mealie again instead of
+     * showing what was loaded before.
+     */
+    fun onScreenShown() {
+        if (hasLoadedOnce) refresh()
+    }
+
+    fun load() = load(refreshing = false)
+
+    fun refresh() = load(refreshing = true)
+
+    private fun load(refreshing: Boolean) {
         val window = _state.value
         loadJob?.cancel()
-        _state.update { it.copy(loading = true, error = null) }
+        _state.update {
+            it.copy(loading = !refreshing, refreshing = refreshing, error = null)
+        }
         loadJob = viewModelScope.launch {
             val start = window.days.first()
             val end = window.days.last()
             when (val result = mealPlanRepository.entries(start, end)) {
-                is ApiResult.Failure -> _state.update { it.copy(loading = false, error = result.error) }
-                is ApiResult.Success -> _state.update {
-                    it.copy(
-                        entriesByDay = result.value.groupBy { entry -> entry.date },
-                        loading = false,
-                        error = null,
-                    )
+                is ApiResult.Failure -> _state.update {
+                    it.copy(loading = false, refreshing = false, error = result.error)
+                }
+                is ApiResult.Success -> {
+                    hasLoadedOnce = true
+                    _state.update {
+                        it.copy(
+                            entriesByDay = result.value.groupBy { entry -> entry.date },
+                            loading = false,
+                            refreshing = false,
+                            error = null,
+                        )
+                    }
                 }
             }
         }

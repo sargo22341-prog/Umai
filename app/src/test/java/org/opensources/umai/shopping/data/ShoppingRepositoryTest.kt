@@ -7,6 +7,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.opensources.umai.core.model.IngredientFood
+import org.opensources.umai.core.model.RecipeIngredient
 import org.opensources.umai.core.model.ShoppingItem
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.FakeMealieServer
@@ -144,12 +146,51 @@ class ShoppingRepositoryTest {
     fun `pushing a recipe uses Mealie's own endpoint`() = runTest {
         fake.enqueueJson(LIST_DETAIL)
 
-        repository.addRecipe(listId = "l1", recipeId = "r1", servings = 2.0)
+        repository.addRecipe(listId = "l1", recipeId = "r1", multiplier = 2.0)
 
         val request = fake.takeRequest()
         assertEquals("POST", request.method)
         assertEquals("/api/households/shopping/lists/l1/recipe/r1", request.url.encodedPath)
         assertTrue(request.body?.utf8().orEmpty().contains(""""recipeIncrementQuantity":2"""))
+    }
+
+    @Test
+    fun `only the ticked ingredients are sent when a subset was kept`() = runTest {
+        fake.enqueueJson(LIST_DETAIL)
+
+        repository.addRecipe(
+            listId = "l1",
+            recipeId = "r1",
+            multiplier = 1.5,
+            ingredients = listOf(
+                RecipeIngredient(
+                    referenceId = "ref-1",
+                    display = "2 citrons",
+                    quantity = 2.0,
+                    unit = null,
+                    food = IngredientFood(id = "f1", name = "citron", pluralName = "citrons"),
+                    note = null,
+                    sectionTitle = null,
+                ),
+            ),
+        )
+
+        // Mealie expects the very ingredient objects it served, so the food it
+        // knows has to come back with its identifier.
+        val body = fake.takeRequest().body?.utf8().orEmpty()
+        assertTrue(body.contains(""""recipeIncrementQuantity":1.5"""))
+        assertTrue(body.contains(""""recipeIngredients""""))
+        assertTrue(body.contains(""""id":"f1""""))
+        assertTrue(body.contains(""""name":"citron""""))
+    }
+
+    @Test
+    fun `no selection means the whole recipe`() = runTest {
+        fake.enqueueJson(LIST_DETAIL)
+
+        repository.addRecipe(listId = "l1", recipeId = "r1", multiplier = 1.0)
+
+        assertFalse(fake.takeRequest().body?.utf8().orEmpty().contains("recipeIngredients"))
     }
 
     @Test

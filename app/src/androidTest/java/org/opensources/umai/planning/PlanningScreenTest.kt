@@ -53,6 +53,7 @@ class PlanningScreenTest {
                     onNextWeek = {},
                     onBackToToday = onBackToToday,
                     onRetry = onRetry,
+                    onRefresh = {},
                     onPickerQueryChange = {},
                     onResetPicker = {},
                     onAddRecipe = { _, _, _ -> },

@@ -34,7 +34,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,6 +66,10 @@ fun ShoppingScreen(modifier: Modifier = Modifier) {
     val viewModel: ShoppingViewModel = viewModel(factory = ShoppingViewModel.factory(container))
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    // The tab keeps its ViewModel while the user walks through other screens,
+    // so the data is asked for again every time the screen comes back.
+    LaunchedEffect(Unit) { viewModel.onScreenShown() }
+
     ShoppingScreen(
         state = state,
         onSelectList = viewModel::selectList,
@@ -73,6 +79,7 @@ fun ShoppingScreen(modifier: Modifier = Modifier) {
         onCheckedChange = viewModel::setChecked,
         onDeleteItem = viewModel::deleteItem,
         onRetry = viewModel::loadLists,
+        onRefresh = viewModel::refresh,
         modifier = modifier,
     )
 }
@@ -89,6 +96,7 @@ fun ShoppingScreen(
     onCheckedChange: (ShoppingItem, Boolean) -> Unit,
     onDeleteItem: (ShoppingItem) -> Unit,
     onRetry: () -> Unit,
+    onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var newListDialogVisible by remember { mutableStateOf(false) }
@@ -191,7 +199,7 @@ fun ShoppingScreen(
             }
 
             val error = state.error
-        when {
+            when {
                 state.loadingLists -> LoadingView()
 
                 error != null && state.list == null -> NetworkErrorView(
@@ -208,13 +216,19 @@ fun ShoppingScreen(
                     onAction = { newListDialogVisible = true },
                 )
 
-                else -> ListContent(
-                    items = currentList?.items.orEmpty(),
-                    onCheckedChange = onCheckedChange,
-                    onDelete = onDeleteItem,
-                    onAddItem = onAddItem,
-                    isEmpty = state.isListEmpty,
-                )
+                else -> PullToRefreshBox(
+                    isRefreshing = state.refreshing,
+                    onRefresh = onRefresh,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    ListContent(
+                        items = currentList?.items.orEmpty(),
+                        onCheckedChange = onCheckedChange,
+                        onDelete = onDeleteItem,
+                        onAddItem = onAddItem,
+                        isEmpty = state.isListEmpty,
+                    )
+                }
             }
         }
     }

@@ -133,19 +133,28 @@ class RecipeMapperTest {
     }
 
     @Test
-    fun `a unit flagged for abbreviation uses its short form`() {
+    fun `the structured parts of an ingredient survive the mapping`() {
         val dto = json.decodeFromString<RecipeDetailDto>(
             """
             {
               "id":"abc","name":"x","slug":"x",
               "recipeIngredient":[
                 {"quantity":1,"unit":{"id":"u","name":"gramme","abbreviation":"g","useAbbreviation":true},
-                 "food":{"id":"f","name":"sel"},"display":"1 g sel"}
+                 "food":{"id":"f","name":"sel","pluralName":"sels"},"display":"1 g sel"}
               ]
             }
             """.trimIndent(),
         )
-        assertEquals("g", dto.toDomain()!!.ingredients.single().unit)
+
+        // They are what lets the line be re-rendered when the recipe is scaled,
+        // and what is echoed back when it is sent to a shopping list.
+        val ingredient = dto.toDomain()!!.ingredients.single()
+        assertEquals("gramme", ingredient.unit?.name)
+        assertEquals("g", ingredient.unit?.abbreviation)
+        assertEquals(true, ingredient.unit?.useAbbreviation)
+        assertEquals("sel", ingredient.food?.name)
+        assertEquals("u", ingredient.unit?.id)
+        assertEquals("f", ingredient.food?.id)
     }
 
     @Test

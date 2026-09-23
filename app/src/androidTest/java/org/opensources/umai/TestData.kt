@@ -1,16 +1,25 @@
 package org.opensources.umai
 
+import org.opensources.umai.core.model.HouseholdPreferences
+import org.opensources.umai.core.model.HouseholdStatistics
+import org.opensources.umai.core.model.IngredientFood
+import org.opensources.umai.core.model.IngredientUnit
 import org.opensources.umai.core.model.MealPlanEntry
 import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.model.Organizer
 import org.opensources.umai.core.model.Recipe
+import org.opensources.umai.core.model.RecipeComment
 import org.opensources.umai.core.model.RecipeIngredient
 import org.opensources.umai.core.model.RecipeStep
 import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.model.ShoppingItem
 import org.opensources.umai.core.model.ShoppingList
 import org.opensources.umai.core.model.ShoppingListSummary
+import org.opensources.umai.core.model.UserProfile
+import org.opensources.umai.recipe.domain.RecipeDraft
 import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
 
 /** Fixtures shared by the UI tests. */
 object TestData {
@@ -59,22 +68,46 @@ object TestData {
         ingredientReferenceIds = ingredientRefs,
     )
 
-    fun ingredient(referenceId: String? = "ref-1", display: String = "2 citrons") = RecipeIngredient(
+    fun ingredient(
+        referenceId: String? = "ref-1",
+        display: String = "2 citrons",
+        quantity: Double? = null,
+        unit: IngredientUnit? = null,
+        food: IngredientFood? = null,
+        note: String? = null,
+    ) = RecipeIngredient(
         referenceId = referenceId,
         display = display,
-        quantity = null,
-        unit = null,
-        food = null,
-        note = null,
+        quantity = quantity,
+        unit = unit,
+        food = food,
+        note = note,
         sectionTitle = null,
-        foodId = null,
-        unitId = null,
+    )
+
+    fun food(name: String = "citron", pluralName: String? = "citrons") =
+        IngredientFood(id = "food-1", name = name, pluralName = pluralName)
+
+    fun unit(
+        name: String = "gramme",
+        pluralName: String? = "grammes",
+        abbreviation: String = "g",
+        useAbbreviation: Boolean = false,
+    ) = IngredientUnit(
+        id = "unit-1",
+        name = name,
+        pluralName = pluralName,
+        abbreviation = abbreviation,
+        pluralAbbreviation = null,
+        useAbbreviation = useAbbreviation,
+        fraction = true,
     )
 
     fun recipe(
         summary: RecipeSummary = summary(),
         ingredients: List<RecipeIngredient> = listOf(ingredient()),
         steps: List<RecipeStep> = listOf(step()),
+        commentsDisabled: Boolean = false,
     ) = Recipe(
         summary = summary,
         ingredients = ingredients,
@@ -84,7 +117,67 @@ object TestData {
         showNutrition = false,
         showAssets = false,
         assets = emptyList(),
+        commentsDisabled = commentsDisabled,
     )
+
+    fun comment(
+        id: String = "c1",
+        text: String = "Trop bon",
+        authorId: String = "u1",
+        authorName: String = "Hiroo",
+    ) = RecipeComment(
+        id = id,
+        recipeId = "r1",
+        text = text,
+        authorId = authorId,
+        authorName = authorName,
+        createdAt = OffsetDateTime.of(2026, 2, 2, 10, 0, 0, 0, ZoneOffset.UTC),
+    )
+
+    fun user(
+        fullName: String = "Hiroo",
+        username: String = "hiroo",
+        email: String = "hiroo@example.org",
+        canManageHousehold: Boolean = true,
+        isAdmin: Boolean = false,
+    ) = UserProfile(
+        id = "u1",
+        username = username,
+        fullName = fullName,
+        email = email,
+        isAdmin = isAdmin,
+        groupName = "Famille",
+        householdName = "Maison",
+        cacheKey = "abc",
+        canManageHousehold = canManageHousehold,
+    )
+
+    fun statistics() = HouseholdStatistics(
+        recipes = 114,
+        users = 2,
+        categories = 17,
+        tags = 499,
+        tools = 1,
+    )
+
+    /** Mealie numbers the days from Sunday: 1 really is Monday. */
+    fun householdPreferences(firstDayOfWeek: Int = 1) = HouseholdPreferences(
+        firstDayOfWeek = firstDayOfWeek,
+        privateHousehold = true,
+        showAnnouncements = true,
+        lockRecipeEditsFromOtherHouseholds = true,
+        recipePublic = true,
+        recipeShowNutrition = false,
+        recipeShowAssets = false,
+        recipeLandscapeView = false,
+        recipeDisableComments = false,
+    )
+
+    fun draft(
+        id: String = "d1",
+        name: String = "Tarte aux pommes",
+        updatedAt: Long = 1_770_000_000_000L,
+    ) = RecipeDraft(id = id, name = name, updatedAt = updatedAt)
 
     fun shoppingListSummary(id: String = "l1", name: String = "Cellier") =
         ShoppingListSummary(id = id, name = name, recipeCount = 0)

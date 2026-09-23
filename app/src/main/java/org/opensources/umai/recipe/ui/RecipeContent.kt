@@ -21,8 +21,11 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -36,23 +39,30 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.opensources.umai.R
 import org.opensources.umai.core.format.DurationText
+import org.opensources.umai.core.format.IngredientText
 import org.opensources.umai.core.markdown.MarkdownText
 import org.opensources.umai.core.model.Nutrition
 import org.opensources.umai.core.model.Recipe
+import org.opensources.umai.core.model.RecipeComment
 import org.opensources.umai.core.model.RecipeIngredient
 import org.opensources.umai.core.model.RecipeStep
 import org.opensources.umai.core.ui.component.RemoteImage
 
 /**
  * The scrollable body of the recipe page: picture, facts, ingredients,
- * instructions with their embedded images, notes, nutrition and source.
+ * instructions with their embedded images, notes, nutrition, source and
+ * comments.
  */
 @Composable
 internal fun RecipeContent(
     recipe: Recipe,
+    state: RecipeDetailUiState,
     imageUrl: String?,
     stepImageUrl: (String, String) -> String?,
     contentPadding: PaddingValues,
+    onServingsChange: (Int) -> Unit,
+    onPostComment: (String) -> Unit,
+    onDeleteComment: (RecipeComment) -> Unit,
     onOpenSource: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -99,13 +109,19 @@ internal fun RecipeContent(
 
         item { HorizontalDivider(Modifier.padding(horizontal = 20.dp)) }
 
-        item { SectionTitle(stringResource(R.string.recipe_ingredients)) }
+        item {
+            IngredientsHeader(
+                servings = state.servings,
+                canScale = state.canScale,
+                onServingsChange = onServingsChange,
+            )
+        }
 
         if (recipe.ingredients.isEmpty()) {
             item { Hint(stringResource(R.string.recipe_no_ingredients)) }
         } else {
             items(count = recipe.ingredients.size) { index ->
-                IngredientRow(recipe.ingredients[index])
+                IngredientRow(recipe.ingredients[index], state.scale)
             }
         }
 
@@ -180,6 +196,15 @@ internal fun RecipeContent(
                 }
             }
         }
+
+        if (state.commentsVisible) {
+            item { HorizontalDivider(Modifier.padding(horizontal = 20.dp)) }
+            recipeComments(
+                state = state,
+                onPostComment = onPostComment,
+                onDeleteComment = onDeleteComment,
+            )
+        }
     }
 }
 
@@ -202,28 +227,91 @@ private fun Hint(text: String) {
     )
 }
 
+/**
+ * "Ingredients for N servings", with the control that scales them.
+ *
+ * The number is deliberately shown next to the list it changes rather than in
+ * the row of facts above: it is not a fact about the recipe any more, it is
+ * what the reader is cooking today.
+ */
+@Composable
+private fun IngredientsHeader(
+    servings: Int,
+    canScale: Boolean,
+    onServingsChange: (Int) -> Unit,
+) {
+    // Mealie leaves the serving count at zero on plenty of recipes; there is
+    // nothing to scale then, and the plain heading is shown instead.
+    val scalable = canScale && servings > 0
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = if (scalable) {
+                stringResource(
+                    R.string.recipe_ingredients_for,
+                    pluralStringResource(R.plurals.plural_servings, servings, servings),
+                )
+            } else {
+                stringResource(R.string.recipe_ingredients)
+            },
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleMedium,
+        )
+
+        if (scalable) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = { onServingsChange(servings - 1) },
+                    enabled = servings > 1,
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Remove,
+                        contentDescription = stringResource(R.string.servings_decrease),
+                    )
+                }
+                Text(
+                    text = servings.toString(),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                IconButton(onClick = { onServingsChange(servings + 1) }) {
+                    Icon(
+                        imageVector = Icons.Outlined.Add,
+                        contentDescription = stringResource(R.string.servings_increase),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Mealie's own editor labels `performTime` "cook time" and never fills the
+ * `cookTime` column, which only a scraped recipe carries; the cooking time is
+ * therefore read from `performTime` first.
+ */
 @Composable
 private fun RecipeFacts(recipe: Recipe) {
     val hourUnit = stringResource(R.string.unit_hour_short)
     val minuteUnit = stringResource(R.string.unit_minute_short)
+    val cookTime = recipe.summary.performTime ?: recipe.summary.cookTime
     val facts = buildList {
-        recipe.summary.servings.takeIf { it >= 1.0 }?.toInt()?.let { servings ->
-            add(
-                stringResource(R.string.filter_servings) to
-                    pluralStringResource(R.plurals.plural_servings, servings, servings),
-            )
-        }
         DurationText.format(recipe.summary.totalTime, hourUnit, minuteUnit)?.let {
             add(stringResource(R.string.recipe_time_total) to it)
         }
         DurationText.format(recipe.summary.prepTime, hourUnit, minuteUnit)?.let {
             add(stringResource(R.string.recipe_time_prep) to it)
         }
-        DurationText.format(recipe.summary.cookTime, hourUnit, minuteUnit)?.let {
+        DurationText.format(cookTime, hourUnit, minuteUnit)?.let {
             add(stringResource(R.string.recipe_time_cook) to it)
         }
-        DurationText.format(recipe.summary.performTime, hourUnit, minuteUnit)?.let {
-            add(stringResource(R.string.recipe_time_perform) to it)
+        recipe.summary.yieldText?.let {
+            add(stringResource(R.string.recipe_yield) to it)
         }
     }
     if (facts.isEmpty()) return
@@ -248,13 +336,13 @@ private fun RecipeFacts(recipe: Recipe) {
     }
 }
 
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun OrganizerChips(recipe: Recipe) {
     val all = recipe.summary.categories + recipe.summary.tags + recipe.summary.tools
     if (all.isEmpty()) return
 
-    androidx.compose.foundation.layout.FlowRow(
+    FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -275,7 +363,7 @@ private fun OrganizerChips(recipe: Recipe) {
 }
 
 @Composable
-private fun IngredientRow(ingredient: RecipeIngredient) {
+private fun IngredientRow(ingredient: RecipeIngredient, scale: Double) {
     Column(modifier = Modifier.padding(horizontal = 20.dp)) {
         ingredient.sectionTitle?.let { title ->
             Text(
@@ -298,7 +386,7 @@ private fun IngredientRow(ingredient: RecipeIngredient) {
                     ),
             )
             MarkdownText(
-                markdown = ingredient.display,
+                markdown = IngredientText.format(ingredient, scale),
                 style = MaterialTheme.typography.bodyLarge,
             )
         }

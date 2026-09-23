@@ -56,6 +56,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.opensources.umai.R
 import org.opensources.umai.core.di.LocalAppContainer
+import org.opensources.umai.core.format.IngredientText
 import org.opensources.umai.core.markdown.MarkdownText
 import org.opensources.umai.core.model.RecipeIngredient
 import org.opensources.umai.core.ui.component.EmptyView
@@ -71,12 +72,15 @@ import org.opensources.umai.core.ui.component.RemoteImage
 @Composable
 fun CookingScreen(
     slug: String,
+    servings: Int,
     onExit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val container = LocalAppContainer.current
-    val viewModel: CookingViewModel =
-        viewModel(factory = CookingViewModel.factory(container, slug), key = "cooking-$slug")
+    val viewModel: CookingViewModel = viewModel(
+        factory = CookingViewModel.factory(container, slug, servings),
+        key = "cooking-$slug",
+    )
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     CookingScreen(
@@ -189,6 +193,7 @@ fun CookingScreen(
                     imageSources = state.step?.images.orEmpty(),
                     stepImageUrl = stepImageUrl,
                     ingredients = state.ingredientsForStep,
+                    scale = state.scale,
                 )
             }
         }
@@ -204,6 +209,7 @@ private fun StepContent(
     imageSources: List<String>,
     stepImageUrl: (String) -> String?,
     ingredients: List<RecipeIngredient>,
+    scale: Double,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -276,7 +282,7 @@ private fun StepContent(
                                     .background(MaterialTheme.colorScheme.primary, CircleShape),
                             )
                             Text(
-                                text = ingredient.display,
+                                text = IngredientText.format(ingredient, scale),
                                 style = MaterialTheme.typography.bodyLarge,
                             )
                         }

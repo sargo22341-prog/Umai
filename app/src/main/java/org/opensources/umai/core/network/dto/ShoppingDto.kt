@@ -1,5 +1,7 @@
 package org.opensources.umai.core.network.dto
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -85,8 +87,20 @@ data class ShoppingListItemUpdateDto(
 @Serializable
 data class ShoppingListCreateDto(val name: String)
 
+/**
+ * Body of `POST /api/households/shopping/lists/{id}/recipe/{recipeId}`.
+ *
+ * [recipeIngredients] restricts the transfer to a subset of the recipe: Mealie
+ * expects the very ingredient objects it served, so they are echoed back
+ * untouched. Leaving it `null` sends every ingredient, which is Mealie's own
+ * default.
+ */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
-data class ShoppingListAddRecipeDto(val recipeIncrementQuantity: Double = 1.0)
+data class ShoppingListAddRecipeDto(
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS) val recipeIncrementQuantity: Double = 1.0,
+    val recipeIngredients: List<RecipeIngredientDto>? = null,
+)
 
 @Serializable
 data class ShoppingListItemsCollectionDto(

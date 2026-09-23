@@ -35,6 +35,24 @@ data class UserDto(
     val groupSlug: String = "",
     val householdId: String = "",
     val householdSlug: String = "",
+    val canInvite: Boolean = false,
+    val canManage: Boolean = false,
+    val canManageHousehold: Boolean = false,
+    val canOrganize: Boolean = false,
+    /** Changes whenever Mealie rewrites the profile picture; used to bust caches. */
+    val cacheKey: String = "",
+)
+
+/** Payload of `PUT /api/users/{item_id}`; only the editable identity fields. */
+@Serializable
+data class UserUpdateDto(
+    val id: String,
+    val username: String?,
+    val fullName: String?,
+    val email: String,
+    val admin: Boolean,
+    val group: String?,
+    val household: String?,
 )
 
 @Serializable
@@ -49,12 +67,44 @@ data class UserRatingsDto(
     val ratings: List<UserRatingSummaryDto> = emptyList(),
 )
 
+/**
+ * Mirrors `ReadHouseholdPreferences`. Every field of `UpdateHouseholdPreferences`
+ * is kept, because `PUT /api/households/preferences` replaces the whole object:
+ * a field left out would be reset to its server-side default.
+ */
 @Serializable
 data class HouseholdPreferencesDto(
+    val id: String? = null,
+    val privateHousehold: Boolean = true,
+    val showAnnouncements: Boolean = true,
+    val lockRecipeEditsFromOtherHouseholds: Boolean = true,
+    /** Mealie numbers the days the JavaScript way: 0 = Sunday … 6 = Saturday. */
     val firstDayOfWeek: Int = 0,
+    val recipePublic: Boolean = true,
     val recipeShowNutrition: Boolean = false,
     val recipeShowAssets: Boolean = false,
-    val recipePublic: Boolean = true,
+    val recipeLandscapeView: Boolean = false,
     val recipeDisableComments: Boolean = false,
-    val privateHousehold: Boolean = true,
+)
+
+@Serializable
+data class UpdateHouseholdPreferencesDto(
+    val privateHousehold: Boolean,
+    val showAnnouncements: Boolean,
+    val lockRecipeEditsFromOtherHouseholds: Boolean,
+    val firstDayOfWeek: Int,
+    val recipePublic: Boolean,
+    val recipeShowNutrition: Boolean,
+    val recipeShowAssets: Boolean,
+    val recipeLandscapeView: Boolean,
+    val recipeDisableComments: Boolean,
+)
+
+@Serializable
+data class HouseholdStatisticsDto(
+    val totalRecipes: Int = 0,
+    val totalUsers: Int = 0,
+    val totalCategories: Int = 0,
+    val totalTags: Int = 0,
+    val totalTools: Int = 0,
 )

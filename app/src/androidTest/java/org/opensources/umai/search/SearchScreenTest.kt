@@ -61,6 +61,7 @@ class SearchScreenTest {
                     onFoodSelected = {},
                     onLoadMore = {},
                     onRetry = onRetry,
+                    onRefresh = {},
                     recipeImageUrl = { null },
                 )
             }

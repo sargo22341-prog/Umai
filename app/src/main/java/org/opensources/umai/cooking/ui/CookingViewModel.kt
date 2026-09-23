@@ -26,6 +26,8 @@ data class CookingUiState(
     val loading: Boolean = true,
     val error: NetworkError? = null,
     val keepScreenOn: Boolean = true,
+    /** Servings chosen on the recipe page; `0` keeps the recipe's own count. */
+    val servings: Int = 0,
 ) {
     val steps: List<RecipeStep> get() = recipe?.steps.orEmpty()
     val stepCount: Int get() = steps.size
@@ -45,10 +47,19 @@ data class CookingUiState(
             if (references.isEmpty()) return emptyList()
             return all.filter { it.referenceId != null && it.referenceId in references }
         }
+
+    /** Mirrors the scaling applied on the recipe page. */
+    val scale: Double
+        get() {
+            val base = recipe?.baseServings ?: return 1.0
+            if (servings <= 0 || base <= 0) return 1.0
+            return servings.toDouble() / base
+        }
 }
 
 class CookingViewModel(
     private val slug: String,
+    private val servings: Int,
     private val recipeRepository: RecipeRepository,
     keepScreenOn: Flow<Boolean>,
 ) : ViewModel() {
@@ -70,7 +81,14 @@ class CookingViewModel(
             when (val result = recipeRepository.recipe(slug)) {
                 is ApiResult.Failure -> _state.update { it.copy(loading = false, error = result.error) }
                 is ApiResult.Success -> _state.update {
-                    it.copy(recipe = result.value, loading = false, error = null, currentStep = 0)
+                    it.copy(
+                        recipe = result.value,
+                        loading = false,
+                        error = null,
+                        currentStep = 0,
+                        servings = servings.takeIf { value -> value > 0 }
+                            ?: result.value.baseServings ?: 0,
+                    )
                 }
             }
         }
@@ -89,10 +107,11 @@ class CookingViewModel(
     }
 
     companion object {
-        fun factory(container: AppContainer, slug: String) = viewModelFactory {
+        fun factory(container: AppContainer, slug: String, servings: Int) = viewModelFactory {
             initializer {
                 CookingViewModel(
                     slug = slug,
+                    servings = servings,
                     recipeRepository = container.recipeRepository,
                     keepScreenOn = container.preferencesRepository.preferences
                         .map { it.keepScreenOnWhileCooking },

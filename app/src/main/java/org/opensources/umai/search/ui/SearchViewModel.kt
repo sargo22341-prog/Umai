@@ -34,6 +34,7 @@ data class SearchUiState(
     val filters: RecipeFilters = RecipeFilters.None,
     val results: PagedItems<RecipeSummary> = PagedItems(),
     val loading: Boolean = false,
+    val refreshing: Boolean = false,
     val loadingMore: Boolean = false,
     val error: NetworkError? = null,
     val hasQueried: Boolean = false,
@@ -108,6 +109,9 @@ class SearchViewModel(
 
     fun retry() = runSearch(_state.value.query, _state.value.filters)
 
+    /** Runs the same query again, for the pull-to-refresh gesture. */
+    fun refresh() = runSearch(_state.value.query, _state.value.filters, refreshing = true)
+
     fun loadMore() {
         val current = _state.value
         if (current.loadingMore || current.loading || !current.results.canLoadMore) return
@@ -175,7 +179,7 @@ class SearchViewModel(
         }
     }
 
-    private fun runSearch(query: String, filters: RecipeFilters) {
+    private fun runSearch(query: String, filters: RecipeFilters, refreshing: Boolean = false) {
         searchJob?.cancel()
 
         if (query.isBlank() && filters.isEmpty) {
@@ -183,6 +187,7 @@ class SearchViewModel(
                 it.copy(
                     results = PagedItems(),
                     loading = false,
+                    refreshing = false,
                     loadingMore = false,
                     error = null,
                     hasQueried = false,
@@ -192,7 +197,7 @@ class SearchViewModel(
         }
 
         if (filters.sort == RecipeSort.RANDOM) paginationSeed = newSeed()
-        _state.update { it.copy(loading = true, error = null) }
+        _state.update { it.copy(loading = !refreshing, refreshing = refreshing, error = null) }
 
         searchJob = viewModelScope.launch {
             val result = recipeRepository.search(
@@ -203,12 +208,13 @@ class SearchViewModel(
             )
             when (result) {
                 is ApiResult.Failure -> _state.update {
-                    it.copy(loading = false, error = result.error, hasQueried = true)
+                    it.copy(loading = false, refreshing = false, error = result.error, hasQueried = true)
                 }
                 is ApiResult.Success -> _state.update {
                     it.copy(
                         results = PagedItems<RecipeSummary>().append(result.value),
                         loading = false,
+                        refreshing = false,
                         error = null,
                         hasQueried = true,
                     )

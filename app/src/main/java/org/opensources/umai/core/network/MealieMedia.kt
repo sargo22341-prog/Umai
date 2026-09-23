@@ -30,6 +30,16 @@ object MealieMedia {
         "${baseUrl.trimEnd('/')}/api/media/recipes/$recipeId/assets/$fileName"
 
     /**
+     * Profile pictures are always stored as `profile.webp`. Mealie hands out a
+     * cache key that changes on every upload, so the new picture is not served
+     * from the disk cache.
+     */
+    fun userImage(baseUrl: String, userId: String, cacheKey: String?): String {
+        val suffix = cacheKey?.takeIf { it.isNotBlank() }?.let { "?cacheKey=$it" }.orEmpty()
+        return "${baseUrl.trimEnd('/')}/api/media/users/$userId/profile.webp$suffix"
+    }
+
+    /**
      * Step images are authored inside the step text and may be absolute,
      * root-relative (`/api/media/...`) or a bare asset file name.
      */

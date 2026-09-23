@@ -14,6 +14,8 @@
     <string name="action_done">Terminé</string>
     <string name="action_change">Modifier</string>
     <string name="action_create">Créer</string>
+    <string name="action_select_all">Tout sélectionner</string>
+    <string name="action_select_none">Tout désélectionner</string>
     <string name="loading">Chargement…</string>
 
     <!-- Erreurs réseau -->
@@ -43,7 +45,7 @@
     <string name="nav_planning">Planning</string>
     <string name="nav_search">Recherche</string>
     <string name="nav_shopping">Courses</string>
-    <string name="nav_settings">Réglages</string>
+    <string name="nav_profile">Profil</string>
 
     <!-- Configuration -->
     <string name="setup_title">Connectez votre instance</string>
@@ -52,7 +54,8 @@
     <string name="setup_url_placeholder">mealie.exemple.fr</string>
     <string name="setup_url_helper">Un domaine personnalisé, une adresse IP ou une adresse avec un port fonctionnent. Sans préfixe, HTTPS est utilisé.</string>
     <string name="setup_auth_method">Méthode de connexion</string>
-    <string name="setup_auth_password">Identifiant et mot de passe</string>
+    <!-- Volontairement courts : les deux libellés partagent la même rangée segmentée. -->
+    <string name="setup_auth_password">Mot de passe</string>
     <string name="setup_auth_token">Jeton d\'API</string>
     <string name="setup_username_label">Identifiant ou e-mail</string>
     <string name="setup_password_label">Mot de passe</string>
@@ -125,9 +128,14 @@
     <string name="filter_no_match">Aucune correspondance</string>
     <string name="filter_food_hint">Saisissez au moins deux lettres pour chercher un ingrédient.</string>
     <string name="filter_time_unsupported">Mealie enregistre les temps de préparation et de cuisson sous forme de texte libre : ils ne peuvent pas être filtrés par durée.</string>
+    <string name="filter_calories_unsupported">Les valeurs nutritionnelles, calories comprises, sont elles aussi du texte libre : le serveur les comparerait lettre par lettre, le filtre par calories n\'est donc pas proposé.</string>
 
     <!-- Fiche recette -->
     <string name="recipe_ingredients">Ingrédients</string>
+    <string name="recipe_ingredients_for">Ingrédients pour %1$s</string>
+    <string name="recipe_yield">Rendement</string>
+    <string name="servings_increase">Une portion de plus</string>
+    <string name="servings_decrease">Une portion de moins</string>
     <string name="recipe_instructions">Instructions</string>
     <string name="recipe_notes">Notes</string>
     <string name="recipe_nutrition">Nutrition</string>
@@ -143,10 +151,17 @@
     <string name="recipe_time_total">Total</string>
     <string name="recipe_time_prep">Préparation</string>
     <string name="recipe_time_cook">Cuisson</string>
-    <string name="recipe_time_perform">Actif</string>
     <string name="recipe_added_to_list">Ajouté à %1$s</string>
     <string name="recipe_added_to_plan">Ajouté au planning</string>
     <string name="recipe_favorite_needs_account">Les favoris nécessitent un compte utilisateur ; un jeton d\'API seul ne suffit pas.</string>
+
+    <!-- Commentaires -->
+    <string name="recipe_comments">Commentaires</string>
+    <string name="recipe_comments_empty">Aucun commentaire pour l\'instant.</string>
+    <string name="recipe_comment_placeholder">Écrire un commentaire…</string>
+    <string name="recipe_comment_send">Envoyer le commentaire</string>
+    <string name="recipe_comment_delete">Supprimer ce commentaire</string>
+    <string name="recipe_comment_unknown_author">Auteur inconnu</string>
 
     <string name="nutrition_calories">Calories</string>
     <string name="nutrition_carbohydrate">Glucides</string>
@@ -223,9 +238,75 @@
     <string name="shopping_delete_list_message">La liste et ses éléments seront supprimés de votre instance Mealie.</string>
     <string name="shopping_linked_recipes">Recettes ajoutées à cette liste</string>
     <string name="shopping_choose_list">Choisir une liste</string>
+    <string name="shopping_servings_scaled">Les quantités sont ajustées à partir des %1$d portions de la recette.</string>
+
+    <!-- Profil -->
+    <string name="profile_title">Profil</string>
+    <string name="profile_change_avatar">Changer la photo de profil</string>
+    <string name="profile_avatar_updated">Photo de profil mise à jour</string>
+    <string name="profile_group_and_household">%1$s · %2$s</string>
+    <string name="profile_stat_recipes">Recettes</string>
+    <string name="profile_stat_categories">Catégories</string>
+    <string name="profile_stat_tags">Tags</string>
+    <string name="profile_stat_tools">Ustensiles</string>
+    <string name="profile_stat_users">Membres</string>
+    <string name="profile_section_add">Ajout</string>
+    <string name="profile_section_settings">Réglages</string>
+    <string name="profile_import_recipe">Importer une recette</string>
+    <string name="profile_import_recipe_summary">Laissez Mealie lire une page web et la transformer en recette.</string>
+    <string name="profile_create_recipe">Ajouter une recette</string>
+    <string name="profile_create_recipe_summary">Rédigez une recette étape par étape, en l\'enregistrant comme brouillon au passage.</string>
+    <string name="profile_drafts">Mes brouillons</string>
+    <string name="profile_drafts_empty">Aucune recette commencée</string>
+
+    <!-- Import de recette -->
+    <string name="import_intro">Collez l\'adresse d\'une page de recette : Mealie la lit et crée la recette sur votre instance.</string>
+    <string name="import_url_label">Adresse de la page</string>
+    <string name="import_url_placeholder">https://exemple.fr/recette</string>
+    <string name="import_include_tags">Importer les tags</string>
+    <string name="import_include_categories">Importer les catégories</string>
+    <string name="import_action">Importer</string>
+    <string name="import_running">Import en cours…</string>
+    <string name="import_hint">Si la page n\'est pas reconnue, Mealie crée une recette avec ce qu\'il a pu lire ; vous pourrez la compléter à la main.</string>
+
+    <!-- Création de recette -->
+    <string name="create_save_draft">Enregistrer le brouillon</string>
+    <string name="create_step_position">Étape %1$d sur %2$d — %3$s</string>
+    <string name="create_step_basics">L\'essentiel</string>
+    <string name="create_step_organizers">Catégories et tags</string>
+    <string name="create_previous">Précédent</string>
+    <string name="create_next">Suivant</string>
+    <string name="create_publish">Créer la recette</string>
+    <string name="create_name_label">Nom de la recette</string>
+    <string name="create_name_helper">Obligatoire : Mealie en déduit l\'adresse de la recette.</string>
+    <string name="create_description_label">Description</string>
+    <string name="create_time_placeholder">30 minutes</string>
+    <string name="create_time_helper">Les durées sont du texte libre côté Mealie : écrivez-les comme vous voulez les relire.</string>
+    <string name="create_ingredients_helper">Une ligne par ingrédient, quantité comprise, comme sur une feuille de papier.</string>
+    <string name="create_ingredient_label">Ingrédient %1$d</string>
+    <string name="create_add_ingredient">Ajouter un ingrédient</string>
+    <string name="create_remove_ingredient">Retirer cet ingrédient</string>
+    <string name="create_step_label">Étape %1$d</string>
+    <string name="create_step_title_label">Titre (facultatif)</string>
+    <string name="create_step_text_label">Instruction</string>
+    <string name="create_add_step">Ajouter une étape</string>
+    <string name="create_remove_step">Retirer cette étape</string>
+    <string name="create_organizers_helper">Seuls les catégories et tags déjà présents sur votre instance sont proposés ; créez les autres depuis Mealie.</string>
+    <string name="create_no_organizer">Rien sur cette instance pour l\'instant.</string>
+
+    <!-- Brouillons -->
+    <string name="drafts_empty_title">Aucun brouillon</string>
+    <string name="drafts_empty_message">Une recette que vous commencez à écrire reste ici jusqu\'à sa création sur Mealie.</string>
+    <string name="drafts_untitled">Recette sans titre</string>
+    <string name="drafts_updated_at">Modifié le %1$s</string>
+    <string name="drafts_delete_title">Supprimer ce brouillon ?</string>
+    <string name="drafts_delete_message">Le brouillon n\'existe que sur cet appareil et ne pourra pas être récupéré.</string>
 
     <!-- Réglages -->
-    <string name="settings_title">Réglages</string>
+    <string name="settings_app_title">Réglages de l\'application</string>
+    <string name="settings_app_summary">Langue, thème, affichage et mode cuisine.</string>
+    <string name="settings_mealie_title">Réglages Mealie</string>
+    <string name="settings_mealie_summary">Instance, compte et préférences de votre foyer.</string>
     <string name="settings_section_connection">Connexion</string>
     <string name="settings_instance">Instance Mealie</string>
     <string name="settings_account">Compte</string>
@@ -256,10 +337,20 @@
     <string name="settings_layout_list">Liste</string>
     <string name="settings_keep_screen_on">Garder l\'écran allumé en cuisine</string>
     <string name="settings_keep_screen_on_summary">L\'écran reste allumé tant que le mode cuisine est ouvert.</string>
-    <string name="settings_section_mealie">Votre instance Mealie</string>
+    <string name="settings_section_household">Votre foyer</string>
     <string name="settings_first_day_of_week">Premier jour de la semaine</string>
     <string name="settings_show_nutrition">Afficher la nutrition</string>
-    <string name="settings_mealie_preferences_hint">Ces préférences appartiennent à votre foyer et se modifient depuis Mealie.</string>
+    <string name="settings_show_nutrition_summary">Afficher le tableau nutritionnel sur toutes les recettes du foyer.</string>
+    <string name="settings_show_assets">Afficher les pièces jointes</string>
+    <string name="settings_show_assets_summary">Afficher les fichiers joints à une recette.</string>
+    <string name="settings_disable_comments">Désactiver les commentaires</string>
+    <string name="settings_disable_comments_summary">Masquer les commentaires sur les recettes du foyer.</string>
+    <string name="settings_recipe_public">Recettes publiques</string>
+    <string name="settings_recipe_public_summary">Les nouvelles recettes sont consultables sans être connecté.</string>
+    <string name="settings_private_household">Foyer privé</string>
+    <string name="settings_private_household_summary">Garder le foyer en dehors des pages publiques du groupe.</string>
+    <string name="settings_household_read_only">Seul un gestionnaire du foyer peut modifier ces préférences. Demandez ce droit à un administrateur de votre instance.</string>
+    <string name="settings_household_unavailable">Ces préférences n\'ont pas pu être lues depuis votre instance.</string>
     <string name="settings_section_about">À propos</string>
     <string name="settings_app_version">Version d\'Umai</string>
     <string name="settings_server_version">Version de Mealie</string>
@@ -269,8 +360,6 @@
     <string name="unit_hour_short">h</string>
     <string name="unit_minute_short">min</string>
     <string name="value_unknown">—</string>
-    <string name="value_yes">Oui</string>
-    <string name="value_no">Non</string>
 
     <!-- Descriptions d\'accessibilité -->
     <string name="cd_recipe_image">Photo de %1$s</string>
@@ -284,17 +373,26 @@
     <plurals name="plural_servings">
         <item quantity="one">%1$d portion</item>
         <item quantity="other">%1$d portions</item>
+        <item quantity="many">%1$d de portions</item>
     </plurals>
     <plurals name="plural_recipes">
         <item quantity="one">%1$d recette</item>
         <item quantity="other">%1$d recettes</item>
+        <item quantity="many">%1$d de recettes</item>
     </plurals>
     <plurals name="plural_active_filters">
         <item quantity="one">%1$d filtre actif</item>
         <item quantity="other">%1$d filtres actifs</item>
+        <item quantity="many">%1$d de filtres actifs</item>
     </plurals>
     <plurals name="plural_items">
         <item quantity="one">%1$d élément</item>
         <item quantity="other">%1$d éléments</item>
+        <item quantity="many">%1$d d\'éléments</item>
+    </plurals>
+    <plurals name="plural_drafts">
+        <item quantity="one">%1$d brouillon</item>
+        <item quantity="other">%1$d brouillons</item>
+        <item quantity="many">%1$d de brouillons</item>
     </plurals>
 </resources>

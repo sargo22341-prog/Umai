@@ -214,6 +214,15 @@ fun FilterSheet(
                         modifier = Modifier.padding(top = 12.dp),
                     )
                 }
+
+                item {
+                    Text(
+                        text = stringResource(R.string.filter_calories_unsupported),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
             }
 
             HorizontalDivider()

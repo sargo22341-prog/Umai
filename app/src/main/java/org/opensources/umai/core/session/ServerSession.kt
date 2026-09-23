@@ -21,6 +21,10 @@ data class ServerSession(
     val userId: String?,
     val userDisplayName: String?,
     val serverVersion: String?,
+    /** Mealie lets an administrator delete anyone's comment. */
+    val isAdmin: Boolean = false,
+    /** Cache key of the profile picture, refreshed on every upload. */
+    val avatarCacheKey: String? = null,
 ) {
     val isCleartext: Boolean get() = baseUrl.startsWith("http://", ignoreCase = true)
 

@@ -1,17 +1,23 @@
 package org.opensources.umai.core.network.api
 
+import okhttp3.MultipartBody
 import org.opensources.umai.core.network.dto.AppInfoDto
 import org.opensources.umai.core.network.dto.CreateMealPlanEntryDto
+import org.opensources.umai.core.network.dto.CreateRecipeDto
 import org.opensources.umai.core.network.dto.HouseholdPreferencesDto
+import org.opensources.umai.core.network.dto.HouseholdStatisticsDto
 import org.opensources.umai.core.network.dto.IngredientFoodListDto
 import org.opensources.umai.core.network.dto.LabelDto
 import org.opensources.umai.core.network.dto.MealPlanEntryDto
 import org.opensources.umai.core.network.dto.PaginationDto
 import org.opensources.umai.core.network.dto.RecipeCategoryDto
+import org.opensources.umai.core.network.dto.RecipeCommentCreateDto
+import org.opensources.umai.core.network.dto.RecipeCommentDto
 import org.opensources.umai.core.network.dto.RecipeDetailDto
 import org.opensources.umai.core.network.dto.RecipeSummaryDto
 import org.opensources.umai.core.network.dto.RecipeTagDto
 import org.opensources.umai.core.network.dto.RecipeToolDto
+import org.opensources.umai.core.network.dto.ScrapeRecipeDto
 import org.opensources.umai.core.network.dto.ShoppingListAddRecipeDto
 import org.opensources.umai.core.network.dto.ShoppingListCreateDto
 import org.opensources.umai.core.network.dto.ShoppingListDto
@@ -21,16 +27,20 @@ import org.opensources.umai.core.network.dto.ShoppingListItemUpdateDto
 import org.opensources.umai.core.network.dto.ShoppingListItemsCollectionDto
 import org.opensources.umai.core.network.dto.ShoppingListSummaryDto
 import org.opensources.umai.core.network.dto.TokenResponseDto
+import org.opensources.umai.core.network.dto.UpdateHouseholdPreferencesDto
 import org.opensources.umai.core.network.dto.UpdateMealPlanEntryDto
 import org.opensources.umai.core.network.dto.UserDto
 import org.opensources.umai.core.network.dto.UserRatingsDto
+import org.opensources.umai.core.network.dto.UserUpdateDto
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.PUT
+import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -65,6 +75,25 @@ interface MealieApi {
     @GET("api/households/preferences")
     suspend fun householdPreferences(): HouseholdPreferencesDto
 
+    @PUT("api/households/preferences")
+    suspend fun updateHouseholdPreferences(
+        @Body body: UpdateHouseholdPreferencesDto,
+    ): HouseholdPreferencesDto
+
+    @GET("api/households/statistics")
+    suspend fun householdStatistics(): HouseholdStatisticsDto
+
+    @PUT("api/users/{id}")
+    suspend fun updateUser(@Path("id") id: String, @Body body: UserUpdateDto)
+
+    /** The part is named `profile`, as required by the OpenAPI body schema. */
+    @Multipart
+    @POST("api/users/{id}/image")
+    suspend fun updateUserImage(
+        @Path("id") id: String,
+        @Part profile: MultipartBody.Part,
+    )
+
     // ---- Recipes ----------------------------------------------------------
 
     @GET("api/recipes")
@@ -92,6 +121,35 @@ interface MealieApi {
 
     @GET("api/recipes/{slug}")
     suspend fun recipe(@Path("slug") slug: String): RecipeDetailDto
+
+    /** Creates an empty recipe and answers with its slug. */
+    @POST("api/recipes")
+    suspend fun createRecipe(@Body body: CreateRecipeDto): String
+
+    /** Scrapes a web page into a new recipe and answers with its slug. */
+    @POST("api/recipes/create/url")
+    suspend fun createRecipeFromUrl(@Body body: ScrapeRecipeDto): String
+
+    /** Takes the same shape as the detail response; sends the whole recipe. */
+    @PUT("api/recipes/{slug}")
+    suspend fun updateRecipe(
+        @Path("slug") slug: String,
+        @Body body: RecipeDetailDto,
+    ): RecipeDetailDto
+
+    @DELETE("api/recipes/{slug}")
+    suspend fun deleteRecipe(@Path("slug") slug: String)
+
+    // ---- Comments ---------------------------------------------------------
+
+    @GET("api/recipes/{slug}/comments")
+    suspend fun recipeComments(@Path("slug") slug: String): List<RecipeCommentDto>
+
+    @POST("api/comments")
+    suspend fun createComment(@Body body: RecipeCommentCreateDto): RecipeCommentDto
+
+    @DELETE("api/comments/{id}")
+    suspend fun deleteComment(@Path("id") id: String)
 
     // ---- Organizers (filter sources) --------------------------------------
 

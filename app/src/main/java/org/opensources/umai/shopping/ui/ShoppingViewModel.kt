@@ -23,6 +23,7 @@ data class ShoppingUiState(
     val list: ShoppingList? = null,
     val loadingLists: Boolean = true,
     val loadingList: Boolean = false,
+    val refreshing: Boolean = false,
     val error: NetworkError? = null,
 ) {
     val hasNoList: Boolean get() = !loadingLists && lists.isEmpty()
@@ -34,23 +35,51 @@ class ShoppingViewModel(private val repository: ShoppingRepository) : ViewModel(
     private val _state = MutableStateFlow(ShoppingUiState())
     val state: StateFlow<ShoppingUiState> = _state.asStateFlow()
 
+    private var hasLoadedOnce = false
+
     init {
         loadLists()
     }
 
-    fun loadLists() {
-        _state.update { it.copy(loadingLists = true, error = null) }
+    /**
+     * Called every time the tab comes back into view.
+     *
+     * A list can have grown while the user was on a recipe page — or in the
+     * Mealie web UI — and the ViewModel outlives the screen, so coming back has
+     * to ask the server again. The very first display is already covered by the
+     * initial load.
+     */
+    fun onScreenShown() {
+        if (hasLoadedOnce) refresh()
+    }
+
+    fun refresh() = loadLists(refreshing = true)
+
+    fun loadLists() = loadLists(refreshing = false)
+
+    private fun loadLists(refreshing: Boolean) {
+        _state.update {
+            it.copy(loadingLists = !refreshing, refreshing = refreshing, error = null)
+        }
         viewModelScope.launch {
             when (val result = repository.lists()) {
-                is ApiResult.Failure ->
-                    _state.update { it.copy(loadingLists = false, error = result.error) }
+                is ApiResult.Failure -> _state.update {
+                    it.copy(loadingLists = false, refreshing = false, error = result.error)
+                }
                 is ApiResult.Success -> {
+                    hasLoadedOnce = true
                     val lists = result.value
                     val selected = _state.value.selectedListId?.takeIf { id ->
                         lists.any { it.id == id }
                     } ?: lists.firstOrNull()?.id
                     _state.update {
-                        it.copy(lists = lists, selectedListId = selected, loadingLists = false, error = null)
+                        it.copy(
+                            lists = lists,
+                            selectedListId = selected,
+                            loadingLists = false,
+                            refreshing = false,
+                            error = null,
+                        )
                     }
                     selected?.let { selectList(it) }
                 }

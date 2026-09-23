@@ -96,8 +96,6 @@ class CookingStateTest {
         food = null,
         note = null,
         sectionTitle = null,
-        foodId = null,
-        unitId = null,
     )
 
     private fun step(id: String, text: String, refs: List<String>, images: List<String> = emptyList()) =
@@ -154,8 +152,12 @@ class CookingViewModelTest {
         fake.shutdown()
     }
 
-    private fun viewModel(keepScreenOn: Boolean = true): CookingViewModel = CookingViewModel(
+    private fun viewModel(
+        keepScreenOn: Boolean = true,
+        servings: Int = 0,
+    ): CookingViewModel = CookingViewModel(
         slug = "test",
+        servings = servings,
         recipeRepository = RecipeRepository({ fake.api() }),
         keepScreenOn = flowOf(keepScreenOn),
     )

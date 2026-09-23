@@ -1,6 +1,5 @@
 package org.opensources.umai.recipe.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -8,13 +7,9 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -30,59 +25,10 @@ import androidx.compose.ui.unit.dp
 import org.opensources.umai.R
 import org.opensources.umai.core.format.rememberDateFormatter
 import org.opensources.umai.core.model.MealType
-import org.opensources.umai.core.model.ShoppingListSummary
 import org.opensources.umai.planning.ui.label
 import org.opensources.umai.planning.ui.rememberPlanningWeek
 import java.time.LocalDate
 import java.time.format.FormatStyle
-
-/**
- * Sends the ingredients of a recipe to one of the Mealie shopping lists, using
- * Mealie's own "add recipe to list" endpoint rather than copying items.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ShoppingListPicker(
-    lists: List<ShoppingListSummary>,
-    onDismiss: () -> Unit,
-    onSelect: (ShoppingListSummary) -> Unit,
-) {
-    val sheetState = rememberModalBottomSheetState()
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(
-            modifier = Modifier
-                .navigationBarsPadding()
-                .padding(bottom = 16.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.shopping_choose_list),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp),
-            )
-
-            if (lists.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.shopping_no_lists_message),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-                )
-            } else {
-                lists.forEach { list ->
-                    ListItem(
-                        headlineContent = { Text(list.name) },
-                        leadingContent = {
-                            Icon(Icons.Outlined.ShoppingCart, contentDescription = null)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onSelect(list) },
-                    )
-                }
-            }
-        }
-    }
-}
 
 /** Picks a day of the visible week and a meal slot for the recipe. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
