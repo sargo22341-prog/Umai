@@ -20,3 +20,4 @@ liste des commits. Détails : [docs/release.md](docs/release.md).
 - Nouveau logo : un bol de ramen sur fond crème, aussi affiché au démarrage.
 - Mode cuisine : la vidéo de l'étape tourne en boucle sur son passage, sans son ni boutons, et se met en pause quand l'app passe en arrière-plan.
 - Accueil : carrousel « À découvrir » de 5 recettes tirées au hasard, en grand et animé, renouvelé à chaque rafraîchissement.
+- Les pages avec barre d'onglets utilisent tout l'espace jusqu'à la barre, sans marge vide au-dessus.
