@@ -1,5 +1,6 @@
 package org.opensources.umai.recipe.data
 
+import org.opensources.umai.core.model.MAX_RATING_STARS
 import org.opensources.umai.core.model.Paged
 import org.opensources.umai.core.model.Recipe
 import org.opensources.umai.core.model.RecipeSummary
@@ -7,9 +8,11 @@ import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.network.apiCall
 import org.opensources.umai.core.network.api.MealieApi
+import org.opensources.umai.core.network.dto.UserRatingUpdateDto
 import org.opensources.umai.search.domain.RecipeFilters
 import org.opensources.umai.search.domain.RecipeSort
 import org.opensources.umai.search.domain.buildQueryFilter
+import kotlin.math.roundToInt
 
 /**
  * Recipe access on top of the Mealie API. Owns the translation from Umai's
@@ -27,6 +30,7 @@ class RecipeRepository(
         query: String?,
         filters: RecipeFilters,
         page: Int,
+        sort: RecipeSort = RecipeSort.Default,
         perPage: Int = DEFAULT_PAGE_SIZE,
         paginationSeed: String? = null,
     ): ApiResult<Paged<RecipeSummary>> {
@@ -54,10 +58,10 @@ class RecipeRepository(
                 requireAllTags = filters.requireAllTags.takeIf { filters.tagIds.size > 1 },
                 requireAllTools = filters.requireAllTools.takeIf { filters.toolIds.size > 1 },
                 requireAllFoods = filters.requireAllFoods.takeIf { filters.foodIds.size > 1 },
-                orderBy = filters.sort.orderBy,
-                orderDirection = filters.sort.direction,
+                orderBy = sort.orderBy,
+                orderDirection = sort.direction,
                 queryFilter = filters.buildQueryFilter(favorites),
-                paginationSeed = paginationSeed.takeIf { filters.sort == RecipeSort.RANDOM },
+                paginationSeed = paginationSeed.takeIf { sort.isRandom },
             ).toPaged { it.toDomain() }
         }
     }
@@ -87,6 +91,33 @@ class RecipeRepository(
             if (favorite) api.addFavorite(userId, slug) else api.removeFavorite(userId, slug)
         }
     }
+
+    /**
+     * The rating the signed-in user gave this recipe, `null` when they never
+     * rated it. Mealie answers 404 for a recipe the user has no entry for.
+     */
+    suspend fun ownRating(recipeId: String): ApiResult<Int?> {
+        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
+        return when (val result = apiCall { api.ownRating(recipeId) }) {
+            is ApiResult.Success -> ApiResult.Success(result.value.rating?.toStars())
+            is ApiResult.Failure ->
+                if (result.error == NetworkError.NotFound) ApiResult.Success(null) else result
+        }
+    }
+
+    /**
+     * Rates the recipe for the signed-in user. Mealie stores the rating and the
+     * favourite flag on the same row, so the current flag is sent along with it
+     * rather than left for the server to guess.
+     */
+    suspend fun setRating(slug: String, stars: Int, isFavorite: Boolean): ApiResult<Unit> {
+        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
+        val userId = currentUserId() ?: return ApiResult.Failure(NetworkError.Unauthorized)
+        val rating = stars.coerceIn(1, MAX_RATING_STARS).toDouble()
+        return apiCall { api.setRating(userId, slug, UserRatingUpdateDto(rating, isFavorite)) }
+    }
+
+    private fun Double.toStars(): Int? = roundToInt().takeIf { it in 1..MAX_RATING_STARS }
 
     companion object {
         const val DEFAULT_PAGE_SIZE = 24

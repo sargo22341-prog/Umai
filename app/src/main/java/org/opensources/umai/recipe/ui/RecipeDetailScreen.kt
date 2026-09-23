@@ -1,12 +1,14 @@
 package org.opensources.umai.recipe.ui
 
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -49,8 +51,11 @@ import org.opensources.umai.core.ui.component.title
 @Composable
 fun RecipeDetailScreen(
     slug: String,
+    recipeUpdated: Boolean,
+    onRecipeUpdateSeen: () -> Unit,
     onBack: () -> Unit,
     onStartCooking: (String, Int) -> Unit,
+    onEdit: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val container = LocalAppContainer.current
@@ -60,6 +65,14 @@ fun RecipeDetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
     val context = LocalContext.current
+
+    // Coming back from the editor: the recipe on screen is out of date.
+    LaunchedEffect(recipeUpdated) {
+        if (recipeUpdated) {
+            viewModel.refresh()
+            onRecipeUpdateSeen()
+        }
+    }
 
     var listSheetVisible by remember { mutableStateOf(false) }
     var planPickerVisible by remember { mutableStateOf(false) }
@@ -72,6 +85,7 @@ fun RecipeDetailScreen(
         is RecipeEvent.AddedToList -> stringResource(R.string.recipe_added_to_list, event.listName)
         RecipeEvent.AddedToPlan -> stringResource(R.string.recipe_added_to_plan)
         RecipeEvent.FavoritesNeedAccount -> stringResource(R.string.recipe_favorite_needs_account)
+        RecipeEvent.RatingNeedsAccount -> stringResource(R.string.recipe_rating_needs_account)
         is RecipeEvent.Failed -> "${event.error.title()}\n${event.error.message()}"
     }
 
@@ -112,6 +126,8 @@ fun RecipeDetailScreen(
         onBack = onBack,
         onStartCooking = onStartCooking,
         onToggleFavorite = viewModel::toggleFavorite,
+        onRate = viewModel::setRating,
+        onEdit = onEdit,
         onOpenShoppingLists = {
             viewModel.loadShoppingLists()
             listSheetVisible = true
@@ -138,7 +154,7 @@ fun RecipeDetailScreen(
 }
 
 /** Stateless recipe page, driven by [RecipeDetailUiState]. */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun RecipeDetailScaffold(
     state: RecipeDetailUiState,
@@ -147,6 +163,8 @@ fun RecipeDetailScaffold(
     onBack: () -> Unit,
     onStartCooking: (String, Int) -> Unit,
     onToggleFavorite: () -> Unit,
+    onRate: (Int) -> Unit,
+    onEdit: (String) -> Unit,
     onOpenShoppingLists: () -> Unit,
     onOpenPlanPicker: () -> Unit,
     onRetry: () -> Unit,
@@ -180,23 +198,8 @@ fun RecipeDetailScaffold(
                     }
                 },
                 actions = {
-                    if (state.recipe != null) {
-                        IconButton(onClick = onToggleFavorite) {
-                            Icon(
-                                imageVector = if (state.isFavorite) {
-                                    Icons.Filled.Favorite
-                                } else {
-                                    Icons.Outlined.FavoriteBorder
-                                },
-                                contentDescription = stringResource(
-                                    if (state.isFavorite) {
-                                        R.string.recipe_favorite_remove
-                                    } else {
-                                        R.string.recipe_favorite_add
-                                    },
-                                ),
-                            )
-                        }
+                    val recipe = state.recipe
+                    if (recipe != null) {
                         IconButton(onClick = onOpenShoppingLists) {
                             Icon(
                                 imageVector = Icons.Outlined.ShoppingCart,
@@ -209,6 +212,12 @@ fun RecipeDetailScaffold(
                                 contentDescription = stringResource(R.string.recipe_add_to_plan),
                             )
                         }
+                        IconButton(onClick = { onEdit(recipe.slug) }) {
+                            Icon(
+                                imageVector = Icons.Outlined.Edit,
+                                contentDescription = stringResource(R.string.recipe_edit),
+                            )
+                        }
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -216,7 +225,8 @@ fun RecipeDetailScaffold(
         },
         floatingActionButton = {
             val recipe = state.recipe
-            if (recipe != null && recipe.steps.isNotEmpty()) {
+            // Hidden while typing a comment: it would sit on top of the field.
+            if (recipe != null && recipe.steps.isNotEmpty() && !WindowInsets.isImeVisible) {
                 ExtendedFloatingActionButton(
                     onClick = { onStartCooking(recipe.slug, state.servings) },
                     icon = { Icon(Icons.Rounded.Restaurant, contentDescription = null) },
@@ -248,6 +258,8 @@ fun RecipeDetailScaffold(
                         stepImageUrl = stepImageUrl,
                         contentPadding = padding,
                         onServingsChange = onServingsChange,
+                        onToggleFavorite = onToggleFavorite,
+                        onRate = onRate,
                         onPostComment = onPostComment,
                         onDeleteComment = onDeleteComment,
                         onOpenSource = onOpenSource,

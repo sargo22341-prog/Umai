@@ -27,11 +27,13 @@ import org.opensources.umai.organizer.data.OrganizerRepository
 import org.opensources.umai.recipe.data.RecipeRepository
 import org.opensources.umai.search.domain.RecipeFilters
 import org.opensources.umai.search.domain.RecipeSort
+import org.opensources.umai.search.domain.SortField
 import kotlin.random.Random
 
 data class SearchUiState(
     val query: String = "",
     val filters: RecipeFilters = RecipeFilters.None,
+    val sort: RecipeSort = RecipeSort.Default,
     val results: PagedItems<RecipeSummary> = PagedItems(),
     val loading: Boolean = false,
     val refreshing: Boolean = false,
@@ -40,8 +42,12 @@ data class SearchUiState(
     val hasQueried: Boolean = false,
     val layout: RecipeLayout = RecipeLayout.GRID,
 ) {
-    /** Nothing typed and no filter set: show the invitation instead of a blank list. */
-    val isIdle: Boolean get() = query.isBlank() && filters.isEmpty
+    /**
+     * Nothing typed, no filter set and the default order: show the invitation
+     * instead of a blank list. Choosing an order is a request to browse, so it
+     * lists every recipe in that order.
+     */
+    val isIdle: Boolean get() = isIdleSearch(query, filters, sort)
     val isEmptyResult: Boolean
         get() = hasQueried && !loading && error == null && results.items.isEmpty()
 }
@@ -64,6 +70,7 @@ class SearchViewModel(
 
     private val queryFlow = MutableStateFlow("")
     private val filtersFlow = MutableStateFlow(RecipeFilters.None)
+    private val sortFlow = MutableStateFlow(RecipeSort.Default)
 
     private val _state = MutableStateFlow(SearchUiState())
     val state: StateFlow<SearchUiState> = _state.asStateFlow()
@@ -80,9 +87,11 @@ class SearchViewModel(
     @OptIn(kotlinx.coroutines.FlowPreview::class)
     private fun observeQuery() {
         viewModelScope.launch {
-            combine(queryFlow.debounce(DEBOUNCE_MS), filtersFlow) { query, filters -> query to filters }
+            combine(queryFlow.debounce(DEBOUNCE_MS), filtersFlow, sortFlow) { query, filters, sort ->
+                SearchRequest(query, filters, sort)
+            }
                 .distinctUntilChanged()
-                .collect { (query, filters) -> runSearch(query, filters) }
+                .collect { runSearch(it) }
         }
     }
 
@@ -107,10 +116,17 @@ class SearchViewModel(
 
     fun resetFilters() = applyFilters(RecipeFilters.None)
 
-    fun retry() = runSearch(_state.value.query, _state.value.filters)
+    /** A second tap on the current column reverses its direction. */
+    fun selectSort(field: SortField) {
+        val sort = _state.value.sort.select(field)
+        _state.update { it.copy(sort = sort) }
+        sortFlow.value = sort
+    }
+
+    fun retry() = runSearch(currentRequest())
 
     /** Runs the same query again, for the pull-to-refresh gesture. */
-    fun refresh() = runSearch(_state.value.query, _state.value.filters, refreshing = true)
+    fun refresh() = runSearch(currentRequest(), refreshing = true)
 
     fun loadMore() {
         val current = _state.value
@@ -121,6 +137,7 @@ class SearchViewModel(
             val result = recipeRepository.search(
                 query = current.query,
                 filters = current.filters,
+                sort = current.sort,
                 page = current.results.page + 1,
                 paginationSeed = paginationSeed,
             )
@@ -179,10 +196,12 @@ class SearchViewModel(
         }
     }
 
-    private fun runSearch(query: String, filters: RecipeFilters, refreshing: Boolean = false) {
+    private fun currentRequest() = _state.value.let { SearchRequest(it.query, it.filters, it.sort) }
+
+    private fun runSearch(request: SearchRequest, refreshing: Boolean = false) {
         searchJob?.cancel()
 
-        if (query.isBlank() && filters.isEmpty) {
+        if (request.isIdle) {
             _state.update {
                 it.copy(
                     results = PagedItems(),
@@ -196,13 +215,14 @@ class SearchViewModel(
             return
         }
 
-        if (filters.sort == RecipeSort.RANDOM) paginationSeed = newSeed()
+        if (request.sort.isRandom) paginationSeed = newSeed()
         _state.update { it.copy(loading = !refreshing, refreshing = refreshing, error = null) }
 
         searchJob = viewModelScope.launch {
             val result = recipeRepository.search(
-                query = query,
-                filters = filters,
+                query = request.query,
+                filters = request.filters,
+                sort = request.sort,
                 page = 1,
                 paginationSeed = paginationSeed,
             )
@@ -240,3 +260,15 @@ class SearchViewModel(
         }
     }
 }
+
+/** What a search depends on; a change to any part of it runs a new search. */
+private data class SearchRequest(
+    val query: String,
+    val filters: RecipeFilters,
+    val sort: RecipeSort,
+) {
+    val isIdle: Boolean get() = isIdleSearch(query, filters, sort)
+}
+
+private fun isIdleSearch(query: String, filters: RecipeFilters, sort: RecipeSort): Boolean =
+    query.isBlank() && filters.isEmpty && sort == RecipeSort.Default

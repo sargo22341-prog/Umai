@@ -192,3 +192,9 @@ data class IngredientFoodListDto(
     val pluralName: String? = null,
     val label: LabelDto? = null,
 )
+
+/** Mirrors `UpdateImageResponse`: the new cache token of the recipe picture. */
+@Serializable
+data class UpdateImageResponseDto(
+    val image: String = "",
+)

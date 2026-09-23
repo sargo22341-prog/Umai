@@ -21,19 +21,74 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import org.opensources.umai.R
+import org.opensources.umai.core.image.CropRegion
 import org.opensources.umai.core.model.Organizer
 import org.opensources.umai.recipe.domain.RecipeDraft
 
-/** Stage one: what the recipe is, how many it serves and how long it takes. */
+/** The callbacks the recipe form raises, grouped so the signatures stay readable. */
+@Immutable
+class RecipeFormActions(
+    val onNameChange: (String) -> Unit,
+    val onDescriptionChange: (String) -> Unit,
+    val onServingsChange: (Int) -> Unit,
+    val onPrepTimeChange: (String) -> Unit,
+    val onCookTimeChange: (String) -> Unit,
+    val onTotalTimeChange: (String) -> Unit,
+    val onIngredientChange: (Int, String) -> Unit,
+    val onAddIngredient: () -> Unit,
+    val onRemoveIngredient: (Int) -> Unit,
+    val onStepTitleChange: (Int, String) -> Unit,
+    val onStepTextChange: (Int, String) -> Unit,
+    val onAddStep: () -> Unit,
+    val onRemoveStep: (Int) -> Unit,
+    val onToggleCategory: (Organizer) -> Unit,
+    val onToggleTag: (Organizer) -> Unit,
+    val onImagePicked: (String, CropRegion) -> Unit,
+    val onRemoveImage: () -> Unit,
+    val onShowSection: (RecipeFormSection) -> Unit,
+) {
+    constructor(editing: RecipeDraftEditing) : this(
+        onNameChange = editing::onNameChange,
+        onDescriptionChange = editing::onDescriptionChange,
+        onServingsChange = editing::onServingsChange,
+        onPrepTimeChange = editing::onPrepTimeChange,
+        onCookTimeChange = editing::onCookTimeChange,
+        onTotalTimeChange = editing::onTotalTimeChange,
+        onIngredientChange = editing::onIngredientChange,
+        onAddIngredient = editing::addIngredient,
+        onRemoveIngredient = editing::removeIngredient,
+        onStepTitleChange = editing::onStepTitleChange,
+        onStepTextChange = editing::onStepTextChange,
+        onAddStep = editing::addStep,
+        onRemoveStep = editing::removeStep,
+        onToggleCategory = editing::toggleCategory,
+        onToggleTag = editing::toggleTag,
+        onImagePicked = editing::setImage,
+        onRemoveImage = editing::removeImage,
+        onShowSection = editing::showSection,
+    )
+}
+
+internal fun RecipeFormSection.labelRes(): Int = when (this) {
+    RecipeFormSection.BASICS -> R.string.create_step_basics
+    RecipeFormSection.IMAGE -> R.string.create_step_image
+    RecipeFormSection.INGREDIENTS -> R.string.recipe_ingredients
+    RecipeFormSection.INSTRUCTIONS -> R.string.recipe_instructions
+    RecipeFormSection.ORGANIZERS -> R.string.create_step_organizers
+}
+
+/** What the recipe is, how many it serves and how long it takes. */
 @Composable
-internal fun BasicsStep(draft: RecipeDraft, actions: RecipeCreateActions) {
+internal fun BasicsSection(draft: RecipeDraft, actions: RecipeFormActions) {
     // An untouched field is not a mistake: the requirement is stated in the
     // helper text, and the last step keeps its button disabled until it is met.
     OutlinedTextField(
@@ -124,9 +179,9 @@ private fun ServingsStepper(servings: Int, onChange: (Int) -> Unit) {
     }
 }
 
-/** Stage two: one free-text line per ingredient, as Mealie's own editor does. */
+/** One free-text line per ingredient, as Mealie's own editor does. */
 @Composable
-internal fun IngredientsStep(draft: RecipeDraft, actions: RecipeCreateActions) {
+internal fun IngredientsSection(draft: RecipeDraft, actions: RecipeFormActions) {
     Text(
         text = stringResource(R.string.create_ingredients_helper),
         style = MaterialTheme.typography.bodySmall,
@@ -145,7 +200,7 @@ internal fun IngredientsStep(draft: RecipeDraft, actions: RecipeCreateActions) {
                 label = { Text(stringResource(R.string.create_ingredient_label, index + 1)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
-                    capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+                    capitalization = KeyboardCapitalization.Sentences,
                     imeAction = ImeAction.Next,
                 ),
             )
@@ -167,9 +222,9 @@ internal fun IngredientsStep(draft: RecipeDraft, actions: RecipeCreateActions) {
     }
 }
 
-/** Stage three: the instructions, each with an optional heading. */
+/** The instructions, each with an optional heading. */
 @Composable
-internal fun InstructionsStep(draft: RecipeDraft, actions: RecipeCreateActions) {
+internal fun InstructionsSection(draft: RecipeDraft, actions: RecipeFormActions) {
     draft.steps.forEachIndexed { index, step ->
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -206,7 +261,7 @@ internal fun InstructionsStep(draft: RecipeDraft, actions: RecipeCreateActions) 
                 minLines = 3,
                 maxLines = 8,
                 keyboardOptions = KeyboardOptions(
-                    capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+                    capitalization = KeyboardCapitalization.Sentences,
                     keyboardType = KeyboardType.Text,
                 ),
             )
@@ -222,11 +277,16 @@ internal fun InstructionsStep(draft: RecipeDraft, actions: RecipeCreateActions) 
     }
 }
 
-/** Stage four: the categories and tags that already exist on the instance. */
-@OptIn(ExperimentalLayoutApi::class)
+/** The categories and tags that already exist on the instance. */
 @Composable
-internal fun OrganizersStep(state: RecipeCreateUiState, actions: RecipeCreateActions) {
-    if (state.loadingOrganizers) {
+internal fun OrganizersSection(
+    draft: RecipeDraft,
+    categories: List<Organizer>,
+    tags: List<Organizer>,
+    loading: Boolean,
+    actions: RecipeFormActions,
+) {
+    if (loading) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(24.dp),
             horizontalArrangement = Arrangement.Center,
@@ -244,15 +304,15 @@ internal fun OrganizersStep(state: RecipeCreateUiState, actions: RecipeCreateAct
 
     OrganizerPicker(
         title = stringResource(R.string.filter_categories),
-        options = state.categories,
-        selectedIds = state.draft.categories.map { it.id }.toSet(),
+        options = categories,
+        selectedIds = draft.categories.map { it.id }.toSet(),
         onToggle = actions.onToggleCategory,
     )
 
     OrganizerPicker(
         title = stringResource(R.string.filter_tags),
-        options = state.tags,
-        selectedIds = state.draft.tags.map { it.id }.toSet(),
+        options = tags,
+        selectedIds = draft.tags.map { it.id }.toSet(),
         onToggle = actions.onToggleTag,
     )
 }

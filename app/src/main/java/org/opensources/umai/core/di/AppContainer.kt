@@ -4,6 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import org.opensources.umai.core.image.DeviceImageCropper
 import org.opensources.umai.core.network.LocalNetworkAccess
 import org.opensources.umai.core.network.MealieMedia
 import org.opensources.umai.core.session.AuthRepository
@@ -14,8 +15,8 @@ import org.opensources.umai.core.settings.LocaleController
 import org.opensources.umai.home.data.RecentRecipesStore
 import org.opensources.umai.organizer.data.OrganizerRepository
 import org.opensources.umai.planning.data.MealPlanRepository
-import org.opensources.umai.profile.data.AvatarImageSource
 import org.opensources.umai.profile.data.ProfileRepository
+import org.opensources.umai.recipe.data.DeviceRecipeImageFiles
 import org.opensources.umai.recipe.data.RecipeCommentRepository
 import org.opensources.umai.recipe.data.RecipeDraftStore
 import org.opensources.umai.recipe.data.RecipeEditRepository
@@ -60,9 +61,11 @@ class AppContainer(context: Context) {
     val organizerRepository = OrganizerRepository(apiProvider)
     val mealPlanRepository = MealPlanRepository(apiProvider)
     val shoppingRepository = ShoppingRepository(apiProvider)
-    val profileRepository = ProfileRepository(apiProvider, AvatarImageSource(appContext))
+    private val imageCropper = DeviceImageCropper(appContext)
+    val profileRepository = ProfileRepository(apiProvider, imageCropper)
     val recentRecipesStore = RecentRecipesStore(appContext)
-    val recipeDraftStore = RecipeDraftStore(appContext)
+    val recipeImageFiles = DeviceRecipeImageFiles(appContext, imageCropper)
+    val recipeDraftStore = RecipeDraftStore(appContext, recipeImageFiles)
 
     val imageUrls = ImageUrlResolver(sessionManager)
 

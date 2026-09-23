@@ -12,36 +12,44 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.opensources.umai.core.di.AppContainer
+import org.opensources.umai.core.image.CropRegion
 import org.opensources.umai.core.model.Organizer
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.organizer.data.OrganizerRepository
 import org.opensources.umai.recipe.data.RecipeDraftStore
 import org.opensources.umai.recipe.data.RecipeEditRepository
-import org.opensources.umai.recipe.domain.DraftOrganizer
-import org.opensources.umai.recipe.domain.DraftStep
+import org.opensources.umai.recipe.data.RecipeImageFiles
 import org.opensources.umai.recipe.domain.RecipeDraft
 import java.util.UUID
 
-/** The four stages of the form, in order. */
-enum class RecipeCreateStep { BASICS, INGREDIENTS, INSTRUCTIONS, ORGANIZERS }
+/** How the form was left, once the draft is safely written. */
+sealed interface RecipeCreateExit {
+    /** [draftSaved] is false when nothing had been typed, so nothing was kept. */
+    data class Left(val draftSaved: Boolean) : RecipeCreateExit
+
+    /** [imageSaved] is false when Mealie refused the picture of the new recipe. */
+    data class Created(val slug: String, val imageSaved: Boolean) : RecipeCreateExit
+}
 
 data class RecipeCreateUiState(
     val draft: RecipeDraft = RecipeDraft(id = ""),
-    val step: RecipeCreateStep = RecipeCreateStep.BASICS,
+    val step: RecipeFormSection = RecipeFormSection.BASICS,
     val categories: List<Organizer> = emptyList(),
     val tags: List<Organizer> = emptyList(),
     val loadingOrganizers: Boolean = false,
+    val processingImage: Boolean = false,
+    val imageFailed: Boolean = false,
     val creating: Boolean = false,
     val error: NetworkError? = null,
-    /** Set once Mealie has created the recipe; the screen then navigates to it. */
-    val createdSlug: String? = null,
+    /** Set once the form may close; the screen then navigates away. */
+    val exit: RecipeCreateExit? = null,
 ) {
-    val isFirstStep: Boolean get() = step == RecipeCreateStep.BASICS
-    val isLastStep: Boolean get() = step == RecipeCreateStep.ORGANIZERS
-    val canCreate: Boolean get() = draft.canBeCreated && !creating
-    val stepNumber: Int get() = RecipeCreateStep.entries.indexOf(step) + 1
-    val stepCount: Int get() = RecipeCreateStep.entries.size
+    val isFirstStep: Boolean get() = step == RecipeFormSection.entries.first()
+    val isLastStep: Boolean get() = step == RecipeFormSection.entries.last()
+    val canCreate: Boolean get() = draft.canBeCreated && !creating && !processingImage
+    val stepNumber: Int get() = RecipeFormSection.entries.indexOf(step) + 1
+    val stepCount: Int get() = RecipeFormSection.entries.size
 }
 
 /**
@@ -56,7 +64,8 @@ class RecipeCreateViewModel(
     private val draftStore: RecipeDraftStore,
     private val editRepository: RecipeEditRepository,
     private val organizerRepository: OrganizerRepository,
-) : ViewModel() {
+    private val imageFiles: RecipeImageFiles,
+) : ViewModel(), RecipeDraftEditing {
 
     private val _state = MutableStateFlow(RecipeCreateUiState())
     val state: StateFlow<RecipeCreateUiState> = _state.asStateFlow()
@@ -95,88 +104,92 @@ class RecipeCreateViewModel(
         }
     }
 
-    fun onNameChange(value: String) = edit { it.copy(name = value) }
-
-    fun onDescriptionChange(value: String) = edit { it.copy(description = value) }
-
-    fun onServingsChange(value: Int) = edit { it.copy(servings = value.coerceIn(0, 999)) }
-
-    fun onPrepTimeChange(value: String) = edit { it.copy(prepTime = value) }
-
-    fun onCookTimeChange(value: String) = edit { it.copy(cookTime = value) }
-
-    fun onTotalTimeChange(value: String) = edit { it.copy(totalTime = value) }
-
-    fun onIngredientChange(index: Int, value: String) = edit { draft ->
-        draft.copy(ingredients = draft.ingredients.replaceAt(index, value))
+    override fun editDraft(change: (RecipeDraft) -> RecipeDraft) {
+        _state.update { current ->
+            val updated = change(current.draft)
+            pendingDraft.value = updated
+            current.copy(draft = updated)
+        }
     }
 
-    fun addIngredient() = edit { it.copy(ingredients = it.ingredients + "") }
-
-    fun removeIngredient(index: Int) = edit { it.copy(ingredients = it.ingredients.removeAt(index)) }
-
-    fun onStepTitleChange(index: Int, value: String) = edit { draft ->
-        draft.copy(steps = draft.steps.updateAt(index) { it.copy(title = value) })
+    /** The picture is framed and stored at once: the picker's access to it does not last. */
+    override fun setImage(sourceUri: String, region: CropRegion) {
+        if (_state.value.processingImage) return
+        _state.update { it.copy(processingImage = true, imageFailed = false) }
+        viewModelScope.launch {
+            val path = imageFiles.save(sourceUri, region)
+            if (path == null) {
+                _state.update { it.copy(processingImage = false, imageFailed = true) }
+                return@launch
+            }
+            val previous = _state.value.draft.imagePath
+            editDraft { it.copy(imagePath = path) }
+            _state.update { it.copy(processingImage = false) }
+            previous?.let(imageFiles::delete)
+        }
     }
 
-    fun onStepTextChange(index: Int, value: String) = edit { draft ->
-        draft.copy(steps = draft.steps.updateAt(index) { it.copy(text = value) })
+    override fun removeImage() {
+        val previous = _state.value.draft.imagePath ?: return
+        editDraft { it.copy(imagePath = null) }
+        imageFiles.delete(previous)
     }
 
-    fun addStep() = edit { it.copy(steps = it.steps + DraftStep()) }
-
-    fun removeStep(index: Int) = edit { it.copy(steps = it.steps.removeAt(index)) }
-
-    fun toggleCategory(organizer: Organizer) = edit { draft ->
-        draft.copy(categories = draft.categories.toggle(organizer))
-    }
-
-    fun toggleTag(organizer: Organizer) = edit { draft ->
-        draft.copy(tags = draft.tags.toggle(organizer))
-    }
-
-    fun goToStep(step: RecipeCreateStep) {
-        _state.update { it.copy(step = step) }
-        if (step == RecipeCreateStep.ORGANIZERS) loadOrganizers()
+    override fun showSection(section: RecipeFormSection) {
+        _state.update { it.copy(step = section) }
+        if (section == RecipeFormSection.ORGANIZERS) loadOrganizers()
     }
 
     fun next() {
-        val index = RecipeCreateStep.entries.indexOf(_state.value.step)
-        RecipeCreateStep.entries.getOrNull(index + 1)?.let { goToStep(it) }
+        val index = RecipeFormSection.entries.indexOf(_state.value.step)
+        RecipeFormSection.entries.getOrNull(index + 1)?.let(::showSection)
     }
 
     fun previous() {
-        val index = RecipeCreateStep.entries.indexOf(_state.value.step)
-        RecipeCreateStep.entries.getOrNull(index - 1)?.let { goToStep(it) }
+        val index = RecipeFormSection.entries.indexOf(_state.value.step)
+        RecipeFormSection.entries.getOrNull(index - 1)?.let(::showSection)
     }
 
-    /** Persists at once, for when the user asks to leave and come back later. */
-    fun saveDraftNow() {
+    /**
+     * Leaves the form, by the back button or the save button alike. The draft
+     * is written before the screen is allowed to close: the ViewModel is gone
+     * right after, and a write still pending in the debounce would be lost.
+     */
+    fun leave() {
+        if (_state.value.exit != null || _state.value.creating) return
         val draft = _state.value.draft
-        if (draft.id.isBlank() || draft.isBlank) return
-        viewModelScope.launch { draftStore.save(draft) }
+        val keep = draft.id.isNotBlank() && !draft.isBlank
+        viewModelScope.launch {
+            if (keep) draftStore.save(draft)
+            _state.update { it.copy(exit = RecipeCreateExit.Left(draftSaved = keep)) }
+        }
     }
 
     fun create() {
         val draft = _state.value.draft
-        if (!draft.canBeCreated || _state.value.creating) return
+        if (!_state.value.canCreate) return
         _state.update { it.copy(creating = true, error = null) }
         viewModelScope.launch {
-            when (val result = editRepository.create(draft)) {
+            val image = draft.imagePath?.let { imageFiles.read(it) }
+            when (val result = editRepository.create(draft, image)) {
                 is ApiResult.Failure -> _state.update { it.copy(creating = false, error = result.error) }
                 is ApiResult.Success -> {
                     // The recipe now lives on Mealie; keeping the draft would
-                    // only invite a duplicate.
+                    // only invite a duplicate. Its picture goes with it.
                     draftStore.delete(draft.id)
-                    _state.update { it.copy(creating = false, createdSlug = result.value) }
+                    val created = result.value
+                    _state.update {
+                        it.copy(
+                            creating = false,
+                            exit = RecipeCreateExit.Created(created.slug, created.imageSaved),
+                        )
+                    }
                 }
             }
         }
     }
 
     fun dismissError() = _state.update { it.copy(error = null) }
-
-    fun consumeCreatedSlug() = _state.update { it.copy(createdSlug = null) }
 
     private fun loadOrganizers() {
         if (_state.value.categories.isNotEmpty() || _state.value.loadingOrganizers) return
@@ -194,14 +207,6 @@ class RecipeCreateViewModel(
         }
     }
 
-    private fun edit(change: (RecipeDraft) -> RecipeDraft) {
-        _state.update { current ->
-            val updated = change(current.draft)
-            pendingDraft.value = updated
-            current.copy(draft = updated)
-        }
-    }
-
     companion object {
         private const val SAVE_DEBOUNCE_MS = 700L
 
@@ -212,24 +217,9 @@ class RecipeCreateViewModel(
                     draftStore = container.recipeDraftStore,
                     editRepository = container.recipeEditRepository,
                     organizerRepository = container.organizerRepository,
+                    imageFiles = container.recipeImageFiles,
                 )
             }
         }
     }
 }
-
-private fun List<String>.replaceAt(index: Int, value: String): List<String> =
-    if (index !in indices) this else toMutableList().also { it[index] = value }
-
-private fun <T> List<T>.removeAt(index: Int): List<T> =
-    if (index !in indices) this else toMutableList().also { it.removeAt(index) }
-
-private fun List<DraftStep>.updateAt(index: Int, change: (DraftStep) -> DraftStep): List<DraftStep> =
-    if (index !in indices) this else toMutableList().also { it[index] = change(it[index]) }
-
-private fun List<DraftOrganizer>.toggle(organizer: Organizer): List<DraftOrganizer> =
-    if (any { it.id == organizer.id }) {
-        filterNot { it.id == organizer.id }
-    } else {
-        this + DraftOrganizer(organizer.id, organizer.name, organizer.slug)
-    }

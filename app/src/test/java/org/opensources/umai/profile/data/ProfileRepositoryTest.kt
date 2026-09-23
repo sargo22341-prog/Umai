@@ -7,6 +7,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.opensources.umai.core.image.CropRegion
+import org.opensources.umai.core.image.EncodedImage
+import org.opensources.umai.core.image.ImageCropper
 import org.opensources.umai.core.model.HouseholdPreferences
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.FakeMealieServer
@@ -15,9 +18,16 @@ import java.time.DayOfWeek
 
 class ProfileRepositoryTest {
 
-    /** Stands in for the system photo picker, which needs no server. */
-    private class FakeAvatarImages(private val image: AvatarImage?) : AvatarImageReader {
-        override suspend fun read(uri: String): AvatarImage? = image
+    /** Stands in for the device decoder, and remembers what it was asked to crop. */
+    private class FakeCropper(private val image: EncodedImage?) : ImageCropper {
+        var lastRegion: CropRegion? = null
+        var lastMaxSide: Int? = null
+
+        override suspend fun crop(sourceUri: String, region: CropRegion, maxSide: Int): EncodedImage? {
+            lastRegion = region
+            lastMaxSide = maxSide
+            return image
+        }
     }
 
     private lateinit var fake: FakeMealieServer
@@ -30,8 +40,8 @@ class ProfileRepositoryTest {
     @After
     fun tearDown() = fake.shutdown()
 
-    private fun repository(image: AvatarImage? = null) =
-        ProfileRepository({ fake.api() }, FakeAvatarImages(image))
+    private fun repository(cropper: FakeCropper = FakeCropper(image = null)) =
+        ProfileRepository({ fake.api() }, cropper)
 
     @Test
     fun `the signed-in account is read with its rights`() = runTest {
@@ -130,11 +140,16 @@ class ProfileRepositoryTest {
 
     @Test
     fun `a new avatar is uploaded as a multipart profile field`() = runTest {
-        val repository = repository(AvatarImage("jpeg".toByteArray(), "image/jpeg", "profile.jpg"))
+        val cropper = FakeCropper(EncodedImage("jpeg".toByteArray(), "image/jpeg", "jpg"))
+        val region = CropRegion(0.1f, 0.2f, 0.5f, 0.5f)
         fake.enqueueJson("{}")
         fake.enqueueJson(USER)
 
-        val refreshed = repository.updateAvatar("u1", "content://picker/1")
+        val refreshed = repository(cropper).updateAvatar("u1", "content://picker/1", region)
+
+        // The square the user framed is what gets cropped, at a modest size.
+        assertEquals(region, cropper.lastRegion)
+        assertEquals(512, cropper.lastMaxSide)
 
         val upload = fake.takeRequest()
         assertEquals("POST", upload.method)
@@ -150,7 +165,7 @@ class ProfileRepositoryTest {
 
     @Test
     fun `a picture that cannot be read never reaches the server`() = runTest {
-        val result = repository(image = null).updateAvatar("u1", "content://picker/1")
+        val result = repository().updateAvatar("u1", "content://picker/1", CropRegion.Full)
 
         assertEquals(NetworkError.InvalidResponse, (result as ApiResult.Failure).error)
         assertEquals(0, fake.server.requestCount)

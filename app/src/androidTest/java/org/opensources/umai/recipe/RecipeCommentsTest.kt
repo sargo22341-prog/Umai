@@ -14,12 +14,14 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.opensources.umai.R
 import org.opensources.umai.TestData
 import org.opensources.umai.core.model.RecipeComment
+import org.opensources.umai.core.settings.RecipeDisplayOptions
 import org.opensources.umai.core.ui.theme.UmaiTheme
 import org.opensources.umai.recipe.ui.RecipeDetailScaffold
 import org.opensources.umai.recipe.ui.RecipeDetailUiState
@@ -53,6 +55,8 @@ class RecipeCommentsTest {
                     onBack = {},
                     onStartCooking = { _, _ -> },
                     onToggleFavorite = {},
+                    onRate = {},
+                    onEdit = {},
                     onOpenShoppingLists = {},
                     onOpenPlanPicker = {},
                     onRetry = {},
@@ -151,5 +155,27 @@ class RecipeCommentsTest {
         render(base.copy(commentsSupported = false, currentUserId = null))
 
         rule.onNodeWithText(string(R.string.recipe_comments)).assertDoesNotExist()
+    }
+
+    @Test
+    fun theFieldToAddACommentComesAfterTheExistingOnes() {
+        render(base.copy(comments = listOf(TestData.comment(text = "Trop bon"))))
+
+        // Both are measured at the same scroll position, the end of the page.
+        val field = rule.onNodeWithText(string(R.string.recipe_comment_placeholder))
+            .performScrollTo()
+            .fetchSemanticsNode()
+            .boundsInRoot
+        val comment = rule.onNodeWithText("Trop bon").fetchSemanticsNode().boundsInRoot
+
+        assertTrue("the field sits below the comments", field.top >= comment.bottom)
+    }
+
+    @Test
+    fun commentsCanBeHiddenFromTheSettings() {
+        render(base.copy(display = RecipeDisplayOptions(showComments = false)))
+
+        rule.onNodeWithText(string(R.string.recipe_comments)).assertDoesNotExist()
+        rule.onNodeWithText(string(R.string.recipe_comment_placeholder)).assertDoesNotExist()
     }
 }

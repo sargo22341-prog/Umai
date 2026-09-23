@@ -109,25 +109,16 @@
     <string name="filter_require_all">Match all of them</string>
     <string name="filter_rating">Minimum rating</string>
     <string name="filter_rating_any">Any</string>
-    <string name="filter_rating_value">%1$d stars and above</string>
     <string name="filter_favorites">Favourites only</string>
     <string name="filter_servings">Servings</string>
-    <string name="filter_servings_min">At least</string>
-    <string name="filter_servings_max">At most</string>
     <string name="filter_added">Added</string>
     <string name="filter_added_any">Any time</string>
     <string name="filter_added_week">Last 7 days</string>
     <string name="filter_added_month">Last 30 days</string>
     <string name="filter_added_year">Last year</string>
-    <string name="filter_sort">Sort by</string>
-    <string name="sort_recent">Most recent</string>
-    <string name="sort_oldest">Oldest</string>
-    <string name="sort_name_asc">Name (A→Z)</string>
-    <string name="sort_name_desc">Name (Z→A)</string>
     <string name="sort_rating">Rating</string>
     <string name="sort_last_made">Last cooked</string>
     <string name="sort_random">Surprise me</string>
-    <string name="filter_search_list">Filter this list</string>
     <string name="filter_no_match">Nothing matches</string>
     <string name="filter_food_hint">Type at least two letters to look an ingredient up.</string>
     <string name="filter_time_unsupported">Mealie stores preparation and cooking times as free text, so they cannot be filtered by duration.</string>
@@ -273,7 +264,7 @@
     <string name="import_hint">If the page is not recognised, Mealie creates a recipe with what it managed to read; you can then finish it by hand.</string>
 
     <!-- Recipe creation -->
-    <string name="create_save_draft">Save the draft</string>
+    <string name="create_save_draft">Save the draft and close</string>
     <string name="create_step_position">Step %1$d of %2$d — %3$s</string>
     <string name="create_step_basics">The basics</string>
     <string name="create_step_organizers">Categories and tags</string>
@@ -392,5 +383,74 @@
     <plurals name="plural_drafts">
         <item quantity="one">%1$d draft</item>
         <item quantity="other">%1$d drafts</item>
+    </plurals>
+
+    <!-- Rating, sorting, recipe page settings, pictures and recipe editing -->
+    <string name="filter_search_categories">Type a category</string>
+    <string name="filter_search_tags">Type a tag</string>
+    <string name="filter_search_foods">Type an ingredient</string>
+    <string name="filter_remove_entry">Remove %1$s</string>
+    <string name="sort_created">Date added</string>
+    <string name="sort_name">Name</string>
+    <string name="sort_ascending">Ascending</string>
+    <string name="sort_descending">Descending</string>
+    <string name="recipe_edit">Edit the recipe</string>
+    <string name="recipe_rating_needs_account">Rating a recipe needs a user account; an API token alone is not enough.</string>
+    <string name="recipe_rating_none">Not rated yet</string>
+    <string name="settings_section_recipe_page">Recipe page</string>
+    <string name="settings_recipe_times">Times</string>
+    <string name="settings_recipe_times_summary">Preparation, cooking and total times</string>
+    <string name="settings_recipe_nutrition">Nutrition</string>
+    <string name="settings_recipe_nutrition_summary">Nutrition facts, when the recipe has some</string>
+    <string name="settings_recipe_source">Original link</string>
+    <string name="settings_recipe_source_summary">The page the recipe was imported from</string>
+    <string name="settings_recipe_comments">Comments</string>
+    <string name="settings_recipe_comments_summary">What the household wrote, and the field to add a comment</string>
+    <string name="crop_title">Frame the picture</string>
+    <string name="crop_hint">Pinch to zoom and drag to move. What is inside the frame is kept.</string>
+    <string name="crop_zoom">Zoom</string>
+    <string name="crop_confirm">Use this picture</string>
+    <string name="crop_image">Picture being framed</string>
+    <string name="crop_unreadable">This picture cannot be opened.</string>
+    <string name="image_source_title">Choose a picture</string>
+    <string name="image_source_gallery">Photo gallery</string>
+    <string name="image_source_camera">Take a photo</string>
+    <string name="image_source_files">Browse files</string>
+    <string name="image_camera_unavailable">No camera app is available on this device.</string>
+    <string name="create_step_image">Photo</string>
+    <string name="create_image_helper">Optional: the photo shown at the top of the recipe. You frame it before it is kept.</string>
+    <string name="create_image_preview">Photo of the recipe</string>
+    <string name="create_image_pick">Add a photo</string>
+    <string name="create_image_change">Change the photo</string>
+    <string name="create_image_remove">Remove</string>
+    <string name="create_image_failed">This picture could not be prepared. Try another one.</string>
+    <string name="edit_title">Edit the recipe</string>
+    <string name="edit_save">Save</string>
+    <string name="edit_discard_title">Discard the changes?</string>
+    <string name="edit_discard_message">What you changed has not been saved to Mealie.</string>
+    <string name="edit_discard_confirm">Discard</string>
+    <string name="edit_keep_editing">Keep editing</string>
+    <string name="notice_draft_saved">Draft saved</string>
+    <string name="notice_recipe_saved">Recipe saved</string>
+    <string name="notice_recipe_created_without_image">Recipe created without its photo: add it from the editor</string>
+    <plurals name="filter_rating_stars">
+        <item quantity="one">%1$d star</item>
+        <item quantity="other">%1$d stars</item>
+    </plurals>
+    <plurals name="filter_rating_at_least">
+        <item quantity="one">%1$d star and more</item>
+        <item quantity="other">%1$d stars and more</item>
+    </plurals>
+    <plurals name="recipe_rating_own">
+        <item quantity="one">Your rating: %1$d star</item>
+        <item quantity="other">Your rating: %1$d stars</item>
+    </plurals>
+    <plurals name="recipe_rating_average">
+        <item quantity="one">Household average: %1$d star</item>
+        <item quantity="other">Household average: %1$d stars</item>
+    </plurals>
+    <plurals name="recipe_rate">
+        <item quantity="one">Rate %1$d star</item>
+        <item quantity="other">Rate %1$d stars</item>
     </plurals>
 </resources>

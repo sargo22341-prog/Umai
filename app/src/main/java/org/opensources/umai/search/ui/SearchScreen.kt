@@ -2,6 +2,7 @@ package org.opensources.umai.search.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -46,6 +47,7 @@ import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.model.Food
 import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.search.domain.RecipeFilters
+import org.opensources.umai.search.domain.SortField
 import org.opensources.umai.core.ui.component.EmptyView
 import org.opensources.umai.core.ui.component.LoadingView
 import org.opensources.umai.core.ui.component.NetworkErrorView
@@ -72,6 +74,7 @@ fun SearchScreen(
         onClearQuery = viewModel::clearQuery,
         onApplyFilters = viewModel::applyFilters,
         onResetFilters = viewModel::resetFilters,
+        onSelectSort = viewModel::selectSort,
         onLoadFilterOptions = viewModel::loadFilterOptions,
         onFoodQueryChange = viewModel::searchFoods,
         onFoodSelected = viewModel::rememberSelectedFood,
@@ -94,6 +97,7 @@ fun SearchScreen(
     onClearQuery: () -> Unit,
     onApplyFilters: (RecipeFilters) -> Unit,
     onResetFilters: () -> Unit,
+    onSelectSort: (SortField) -> Unit,
     onLoadFilterOptions: () -> Unit,
     onFoodQueryChange: (String) -> Unit,
     onFoodSelected: (Food) -> Unit,
@@ -137,7 +141,7 @@ fun SearchScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            androidx.compose.foundation.layout.Column(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
                 SearchField(
                     query = state.query,
                     activeFilterCount = state.filters.activeCount,
@@ -150,6 +154,8 @@ fun SearchScreen(
                     },
                 )
 
+                SortBar(sort = state.sort, onSelect = onSelectSort)
+
                 if (state.filters.activeCount > 0) {
                     ActiveFiltersRow(
                         count = state.filters.activeCount,
@@ -158,7 +164,7 @@ fun SearchScreen(
                 }
 
                 val error = state.error
-        when {
+                when {
                     state.loading && state.results.items.isEmpty() -> LoadingView()
 
                     error != null && state.results.items.isEmpty() ->

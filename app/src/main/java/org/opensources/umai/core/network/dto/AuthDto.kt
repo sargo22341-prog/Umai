@@ -67,6 +67,13 @@ data class UserRatingsDto(
     val ratings: List<UserRatingSummaryDto> = emptyList(),
 )
 
+/** Mirrors `UserRatingUpdate`; both fields are always sent. */
+@Serializable
+data class UserRatingUpdateDto(
+    val rating: Double?,
+    val isFavorite: Boolean?,
+)
+
 /**
  * Mirrors `ReadHouseholdPreferences`. Every field of `UpdateHouseholdPreferences`
  * is kept, because `PUT /api/households/preferences` replaces the whole object:

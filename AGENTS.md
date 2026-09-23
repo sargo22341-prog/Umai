@@ -85,14 +85,15 @@ org.opensources.umai
 ├── setup/       ui
 ├── home/        data · ui
 ├── search/      domain · ui
-├── recipe/      data · ui
+├── recipe/      data · domain · ui
 ├── cooking/     ui
 ├── planning/    data · ui
 ├── shopping/    data · ui
 ├── settings/    ui
+├── profile/     data · ui
 ├── organizer/   data
 ├── navigation/
-└── core/        di · format · markdown · model · network(api, dto) · session · settings · ui(component, theme)
+└── core/        di · format · image · markdown · model · network(api, dto) · session · settings · ui(component, theme)
 ```
 
 * Une nouvelle fonctionnalité crée son propre paquet racine, avec ses sous-paquets
@@ -360,6 +361,18 @@ demande explicite.** Changements petits et cohérents.
 
 **Fichiers interdits au dépôt** : binaire généré, secret, `local.properties`, fichier
 temporaire, code généré massif inutilisé, police sans licence explicite.
+
+**Notes de version.** Toute modification de l'application (fonctionnalité, correction,
+changement visible) ajoute **une courte phrase** dans `RELEASE_NOTES.md`, sous la ligne
+`<!-- notes -->`, au format `- …`, dans le même changement. Ne jamais toucher à l'en-tête
+ni au marqueur. La CI publie ces lignes comme description de la GitHub Release puis
+**vide la liste** dans le commit `Version X.Y.Z` à chaque montée de version : ne pas la
+vider à la main. Un changement purement interne (tests, doc, CI) n'a pas besoin de note.
+
+**Version et release.** La version vit dans `app/version.properties` et n'est montée que
+par la CI (`.github/workflows/ci.yml`, à chaque push sur `main`) : ne pas la modifier à la
+main. Fonctionnement, secrets de signature et limites : `docs/release.md`. La clé de
+signature et son mot de passe ne sont jamais dans le dépôt ni demandés par l'agent.
 
 **Serveur Mealie de test.** Ne **rien** supprimer ni modifier sur l'instance fournie.
 Créer une donnée de test puis la supprimer soi-même est acceptable ; éditer ou

@@ -52,6 +52,9 @@ data object RecipeDraftsRoute
 @Serializable
 data class RecipeRoute(val slug: String)
 
+@Serializable
+data class RecipeEditRoute(val slug: String)
+
 /**
  * [servings] carries the number of servings the reader selected on the recipe
  * page, so the cooking mode scales the ingredients the same way. Zero means

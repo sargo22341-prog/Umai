@@ -4,6 +4,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -24,6 +26,7 @@ import org.opensources.umai.TestData
 import org.opensources.umai.core.model.Recipe
 import org.opensources.umai.core.model.RecipeComment
 import org.opensources.umai.core.network.NetworkError
+import org.opensources.umai.core.settings.RecipeDisplayOptions
 import org.opensources.umai.core.ui.theme.UmaiTheme
 import org.opensources.umai.recipe.ui.RecipeDetailScaffold
 import org.opensources.umai.recipe.ui.RecipeDetailUiState
@@ -47,6 +50,9 @@ class RecipeDetailScreenTest {
         onServingsChange: (Int) -> Unit = {},
         onPostComment: (String) -> Unit = {},
         onDeleteComment: (RecipeComment) -> Unit = {},
+        onToggleFavorite: () -> Unit = {},
+        onRate: (Int) -> Unit = {},
+        onEdit: (String) -> Unit = {},
         imageUrl: (Recipe) -> String? = { "https://mealie.lan/photo.webp" },
     ) {
         rule.setContent {
@@ -57,7 +63,9 @@ class RecipeDetailScreenTest {
                     snackbarHostState = SnackbarHostState(),
                     onBack = onBack,
                     onStartCooking = onStartCooking,
-                    onToggleFavorite = {},
+                    onToggleFavorite = onToggleFavorite,
+                    onRate = onRate,
+                    onEdit = onEdit,
                     onOpenShoppingLists = {},
                     onOpenPlanPicker = {},
                     onRetry = onRetry,
@@ -196,5 +204,99 @@ class RecipeDetailScreenTest {
         rule.onNodeWithContentDescription(string(R.string.action_back)).performClick()
 
         assertTrue(back)
+    }
+
+    @Test
+    fun theFavouriteAndTheStarsSitBetweenTheTitleAndTheText() {
+        var favorite = false
+        var rated: Int? = null
+        render(
+            RecipeDetailUiState(recipe = recipe, loading = false),
+            onToggleFavorite = { favorite = true },
+            onRate = { rated = it },
+        )
+
+        rule.onNodeWithContentDescription(string(R.string.recipe_favorite_add)).performClick()
+        rule.onNodeWithContentDescription(
+            context.resources.getQuantityString(R.plurals.recipe_rate, 4, 4),
+        ).performClick()
+
+        assertTrue(favorite)
+        assertEquals(4, rated)
+    }
+
+    @Test
+    fun theReadersOwnRatingIsAnnounced() {
+        render(RecipeDetailUiState(recipe = recipe, loading = false, ownRating = 3))
+
+        rule.onNode(
+            SemanticsMatcher.expectValue(
+                SemanticsProperties.StateDescription,
+                context.resources.getQuantityString(R.plurals.recipe_rating_own, 3, 3),
+            ),
+        ).assertExists()
+    }
+
+    @Test
+    fun anUnratedRecipeSaysSo() {
+        render(RecipeDetailUiState(recipe = recipe, loading = false))
+
+        rule.onNode(
+            SemanticsMatcher.expectValue(
+                SemanticsProperties.StateDescription,
+                string(R.string.recipe_rating_none),
+            ),
+        ).assertExists()
+    }
+
+    @Test
+    fun thePencilOpensTheEditor() {
+        var edited: String? = null
+        render(RecipeDetailUiState(recipe = recipe, loading = false), onEdit = { edited = it })
+
+        rule.onNodeWithContentDescription(string(R.string.recipe_edit)).performClick()
+
+        assertEquals(recipe.slug, edited)
+    }
+
+    @Test
+    fun timesCanBeHiddenFromTheSettings() {
+        render(
+            RecipeDetailUiState(
+                recipe = recipe,
+                loading = false,
+                display = RecipeDisplayOptions(showTimes = false),
+            ),
+        )
+
+        rule.onNodeWithText("25 ${string(R.string.unit_minute_short)}").assertDoesNotExist()
+    }
+
+    @Test
+    fun theOriginalLinkCanBeHiddenFromTheSettings() {
+        val withSource = TestData.recipe(
+            summary = TestData.summary().copy(sourceUrl = "https://example.org/curry"),
+        )
+
+        render(
+            RecipeDetailUiState(
+                recipe = withSource,
+                loading = false,
+                display = RecipeDisplayOptions(showSource = false),
+            ),
+        )
+
+        rule.onNodeWithText(string(R.string.recipe_open_source)).assertDoesNotExist()
+    }
+
+    @Test
+    fun theOriginalLinkIsShownByDefault() {
+        val withSource = TestData.recipe(
+            summary = TestData.summary().copy(sourceUrl = "https://example.org/curry"),
+        )
+
+        render(RecipeDetailUiState(recipe = withSource, loading = false))
+
+        rule.onNodeWithText(string(R.string.recipe_open_source)).performScrollTo().assertIsDisplayed()
     }
 }

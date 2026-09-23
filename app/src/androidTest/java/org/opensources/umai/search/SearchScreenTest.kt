@@ -1,7 +1,10 @@
 package org.opensources.umai.search
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -21,6 +24,8 @@ import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.ui.theme.UmaiTheme
 import org.opensources.umai.search.domain.RecipeFilters
+import org.opensources.umai.search.domain.RecipeSort
+import org.opensources.umai.search.domain.SortField
 import org.opensources.umai.search.ui.FilterOptionsState
 import org.opensources.umai.search.ui.SearchScreen
 import org.opensources.umai.search.ui.SearchUiState
@@ -45,6 +50,7 @@ class SearchScreenTest {
         onResetFilters: () -> Unit = {},
         onRecipeClick: (String) -> Unit = {},
         onRetry: () -> Unit = {},
+        onSelectSort: (SortField) -> Unit = {},
     ) {
         rule.setContent {
             UmaiTheme {
@@ -56,6 +62,7 @@ class SearchScreenTest {
                     onClearQuery = onClearQuery,
                     onApplyFilters = {},
                     onResetFilters = onResetFilters,
+                    onSelectSort = onSelectSort,
                     onLoadFilterOptions = {},
                     onFoodQueryChange = {},
                     onFoodSelected = {},
@@ -207,5 +214,43 @@ class SearchScreenTest {
         rule.onNodeWithContentDescription(string(R.string.cd_open_filters)).performClick()
 
         rule.onNodeWithText(string(R.string.filter_title)).assertIsDisplayed()
+    }
+
+    @Test
+    fun theOrderIsChosenOnTheSearchScreenItself() {
+        var picked: SortField? = null
+        render(SearchUiState(), onSelectSort = { picked = it })
+
+        rule.onNodeWithText(string(R.string.sort_name)).performClick()
+
+        assertEquals(SortField.NAME, picked)
+    }
+
+    @Test
+    fun theSelectedOrderAnnouncesItsDirection() {
+        render(SearchUiState(sort = RecipeSort(SortField.NAME, descending = false)))
+
+        rule.onNode(
+            hasText(string(R.string.sort_name)) and
+                SemanticsMatcher.expectValue(
+                    SemanticsProperties.StateDescription,
+                    string(R.string.sort_ascending),
+                ),
+            useUnmergedTree = false,
+        ).assertExists()
+    }
+
+    @Test
+    fun choosingAnOrderListsRecipesInsteadOfTheInvitation() {
+        render(
+            SearchUiState(
+                sort = RecipeSort(SortField.RATING, descending = true),
+                results = results(TestData.summary(name = "Tarte")),
+                hasQueried = true,
+            ),
+        )
+
+        rule.onNodeWithText(string(R.string.search_start_title)).assertDoesNotExist()
+        rule.onNodeWithText("Tarte").assertIsDisplayed()
     }
 }

@@ -9,15 +9,20 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
@@ -30,9 +35,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -61,13 +73,34 @@ internal fun RecipeContent(
     stepImageUrl: (String, String) -> String?,
     contentPadding: PaddingValues,
     onServingsChange: (Int) -> Unit,
+    onToggleFavorite: () -> Unit,
+    onRate: (Int) -> Unit,
     onPostComment: (String) -> Unit,
     onDeleteComment: (RecipeComment) -> Unit,
     onOpenSource: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val listState = rememberLazyListState()
+    var commentFieldFocused by remember { mutableStateOf(false) }
+    val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
+
+    // While a comment is typed, the end of the page — the field — follows the
+    // keyboard frame by frame as it slides in, so what is typed stays in sight.
+    LaunchedEffect(commentFieldFocused, imeBottom) {
+        if (!commentFieldFocused || imeBottom == 0) return@LaunchedEffect
+        // The list takes the new keyboard height into account one frame later.
+        withFrameNanos { }
+        listState.scrollToItem(listState.layoutInfo.totalItemsCount - 1)
+    }
+
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        state = listState,
+        // The list shrinks with the keyboard, following its animation, so the
+        // comment field at the very end can always be scrolled above it.
+        modifier = modifier
+            .fillMaxSize()
+            .consumeWindowInsets(contentPadding)
+            .imePadding(),
         contentPadding = PaddingValues(
             top = contentPadding.calculateTopPadding(),
             bottom = contentPadding.calculateBottomPadding() + 96.dp,
@@ -95,6 +128,14 @@ internal fun RecipeContent(
             ) {
                 Text(text = recipe.name, style = MaterialTheme.typography.headlineSmall)
 
+                RecipeRatingRow(
+                    isFavorite = state.isFavorite,
+                    rating = state.shownRating,
+                    ratingIsOwn = state.ownRating != null,
+                    onToggleFavorite = onToggleFavorite,
+                    onRate = onRate,
+                )
+
                 if (recipe.summary.description.isNotBlank()) {
                     MarkdownText(
                         markdown = recipe.summary.description,
@@ -102,7 +143,7 @@ internal fun RecipeContent(
                     )
                 }
 
-                RecipeFacts(recipe)
+                RecipeFacts(recipe, showTimes = state.display.showTimes)
                 OrganizerChips(recipe)
             }
         }
@@ -159,13 +200,15 @@ internal fun RecipeContent(
             }
         }
 
-        recipe.nutrition?.takeIf { recipe.showNutrition || !it.isEmpty }?.let { nutrition ->
-            item { HorizontalDivider(Modifier.padding(horizontal = 20.dp)) }
-            item { SectionTitle(stringResource(R.string.recipe_nutrition)) }
-            item { NutritionTable(nutrition) }
-        }
+        recipe.nutrition
+            ?.takeIf { state.display.showNutrition && (recipe.showNutrition || !it.isEmpty) }
+            ?.let { nutrition ->
+                item { HorizontalDivider(Modifier.padding(horizontal = 20.dp)) }
+                item { SectionTitle(stringResource(R.string.recipe_nutrition)) }
+                item { NutritionTable(nutrition) }
+            }
 
-        recipe.summary.sourceUrl?.let { url ->
+        recipe.summary.sourceUrl?.takeIf { state.display.showSource }?.let { url ->
             item { HorizontalDivider(Modifier.padding(horizontal = 20.dp)) }
             item {
                 Surface(
@@ -203,6 +246,7 @@ internal fun RecipeContent(
                 state = state,
                 onPostComment = onPostComment,
                 onDeleteComment = onDeleteComment,
+                onFieldFocusChange = { commentFieldFocused = it },
             )
         }
     }
@@ -293,22 +337,25 @@ private fun IngredientsHeader(
 /**
  * Mealie's own editor labels `performTime` "cook time" and never fills the
  * `cookTime` column, which only a scraped recipe carries; the cooking time is
- * therefore read from `performTime` first.
+ * therefore read from `performTime` first. [showTimes] follows the reader's
+ * settings; the yield is not a duration and stays.
  */
 @Composable
-private fun RecipeFacts(recipe: Recipe) {
+private fun RecipeFacts(recipe: Recipe, showTimes: Boolean) {
     val hourUnit = stringResource(R.string.unit_hour_short)
     val minuteUnit = stringResource(R.string.unit_minute_short)
     val cookTime = recipe.summary.performTime ?: recipe.summary.cookTime
     val facts = buildList {
-        DurationText.format(recipe.summary.totalTime, hourUnit, minuteUnit)?.let {
-            add(stringResource(R.string.recipe_time_total) to it)
-        }
-        DurationText.format(recipe.summary.prepTime, hourUnit, minuteUnit)?.let {
-            add(stringResource(R.string.recipe_time_prep) to it)
-        }
-        DurationText.format(cookTime, hourUnit, minuteUnit)?.let {
-            add(stringResource(R.string.recipe_time_cook) to it)
+        if (showTimes) {
+            DurationText.format(recipe.summary.totalTime, hourUnit, minuteUnit)?.let {
+                add(stringResource(R.string.recipe_time_total) to it)
+            }
+            DurationText.format(recipe.summary.prepTime, hourUnit, minuteUnit)?.let {
+                add(stringResource(R.string.recipe_time_prep) to it)
+            }
+            DurationText.format(cookTime, hourUnit, minuteUnit)?.let {
+                add(stringResource(R.string.recipe_time_cook) to it)
+            }
         }
         recipe.summary.yieldText?.let {
             add(stringResource(R.string.recipe_yield) to it)

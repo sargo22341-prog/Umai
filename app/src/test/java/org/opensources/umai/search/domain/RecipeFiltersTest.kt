@@ -24,15 +24,6 @@ class RecipeFiltersTest {
     }
 
     @Test
-    fun `servings bounds are combined`() {
-        val filters = RecipeFilters(minServings = 2, maxServings = 6)
-        assertEquals(
-            "recipeServings >= 2 AND recipeServings <= 6",
-            filters.buildQueryFilter(emptyList(), today),
-        )
-    }
-
-    @Test
     fun `added within a week becomes a createdAt comparison`() {
         val filters = RecipeFilters(addedWithin = AddedWithin.WEEK)
         assertEquals("""createdAt > "2026-09-15"""", filters.buildQueryFilter(emptyList(), today))
@@ -56,11 +47,11 @@ class RecipeFiltersTest {
     fun `several filters are joined with AND`() {
         val filters = RecipeFilters(
             minRating = 3,
-            minServings = 4,
+            favoritesOnly = true,
             addedWithin = AddedWithin.MONTH,
         )
         assertEquals(
-            """rating >= 3 AND recipeServings >= 4 AND createdAt > "2026-08-23"""",
+            """rating >= 3 AND createdAt > "2026-08-23" AND id IN ["00000000-0000-0000-0000-000000000000"]""",
             filters.buildQueryFilter(emptyList(), today),
         )
     }
@@ -90,11 +81,37 @@ class RecipeFiltersTest {
     }
 
     @Test
-    fun `sort options map to real Mealie columns`() {
-        assertEquals("createdAt" to "desc", RecipeSort.RECENT.orderBy to RecipeSort.RECENT.direction)
-        assertEquals("name" to "asc", RecipeSort.NAME_ASC.orderBy to RecipeSort.NAME_ASC.direction)
-        assertEquals("rating", RecipeSort.RATING.orderBy)
-        assertEquals("lastMade", RecipeSort.LAST_MADE.orderBy)
-        assertEquals("random", RecipeSort.RANDOM.orderBy)
+    fun `sort columns map to real Mealie columns`() {
+        assertEquals("createdAt", SortField.CREATED.orderBy)
+        assertEquals("name", SortField.NAME.orderBy)
+        assertEquals("rating", SortField.RATING.orderBy)
+        assertEquals("lastMade", SortField.LAST_MADE.orderBy)
+        assertEquals("random", SortField.RANDOM.orderBy)
+    }
+
+    @Test
+    fun `the default order lists the newest recipes first`() {
+        assertEquals("createdAt" to "desc", RecipeSort.Default.orderBy to RecipeSort.Default.direction)
+    }
+
+    @Test
+    fun `picking the current column again reverses its direction`() {
+        val ascending = RecipeSort.Default.select(SortField.CREATED)
+        assertEquals("asc", ascending.direction)
+        assertEquals("desc", ascending.select(SortField.CREATED).direction)
+    }
+
+    @Test
+    fun `picking another column starts from its natural direction`() {
+        assertEquals("asc", RecipeSort.Default.select(SortField.NAME).direction)
+        val byName = RecipeSort(SortField.NAME, descending = true)
+        assertEquals("desc", byName.select(SortField.RATING).direction)
+    }
+
+    @Test
+    fun `the random order has no direction to reverse`() {
+        val random = RecipeSort.Default.select(SortField.RANDOM)
+        assertTrue(random.isRandom)
+        assertEquals(random, random.select(SortField.RANDOM))
     }
 }

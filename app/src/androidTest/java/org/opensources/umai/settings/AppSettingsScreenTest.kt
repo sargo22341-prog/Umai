@@ -21,6 +21,8 @@ import org.opensources.umai.BuildConfig
 import org.opensources.umai.R
 import org.opensources.umai.core.settings.AppLanguage
 import org.opensources.umai.core.settings.AppPreferences
+import org.opensources.umai.core.settings.RecipeDisplayOptions
+import org.opensources.umai.core.settings.RecipeSection
 import org.opensources.umai.core.settings.ThemeMode
 import org.opensources.umai.core.ui.theme.UmaiTheme
 import org.opensources.umai.settings.ui.AppSettingsScreen
@@ -42,6 +44,7 @@ class AppSettingsScreenTest {
         onLanguageChange: (AppLanguage) -> Unit = {},
         onThemeChange: (ThemeMode) -> Unit = {},
         onBack: () -> Unit = {},
+        onRecipeSectionChange: (RecipeSection, Boolean) -> Unit = { _, _ -> },
     ) {
         rule.setContent {
             UmaiTheme {
@@ -54,6 +57,7 @@ class AppSettingsScreenTest {
                     onLayoutChange = {},
                     onDynamicColorChange = {},
                     onKeepScreenOnChange = {},
+                    onRecipeSectionChange = onRecipeSectionChange,
                 )
             }
         }
@@ -128,5 +132,41 @@ class AppSettingsScreenTest {
         rule.onNodeWithContentDescription(string(R.string.action_back)).performClick()
 
         assertTrue(back)
+    }
+
+    @Test
+    fun theRecipePageSectionsCanEachBeHidden() {
+        var changed: Pair<RecipeSection, Boolean>? = null
+        render(onRecipeSectionChange = { section, visible -> changed = section to visible })
+
+        // A lazy list only composes what is near the screen: each row is scrolled to.
+        listOf(
+            R.string.settings_recipe_times,
+            R.string.settings_recipe_source,
+            R.string.settings_recipe_comments,
+            R.string.settings_recipe_nutrition,
+        ).forEach { title ->
+            rule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(string(title)))
+            rule.onNodeWithText(string(title)).assertExists()
+        }
+        rule.onNodeWithText(string(R.string.settings_recipe_nutrition)).performClick()
+
+        // Everything is shown by default, so the first tap hides the section.
+        assertEquals(RecipeSection.NUTRITION to false, changed)
+    }
+
+    @Test
+    fun aHiddenSectionIsShownAsOff() {
+        var changed: Pair<RecipeSection, Boolean>? = null
+        render(
+            preferences = AppPreferences(recipeDisplay = RecipeDisplayOptions(showComments = false)),
+            onRecipeSectionChange = { section, visible -> changed = section to visible },
+        )
+
+        rule.onNode(hasScrollToNodeAction())
+            .performScrollToNode(hasText(string(R.string.settings_recipe_comments)))
+        rule.onNodeWithText(string(R.string.settings_recipe_comments)).performClick()
+
+        assertEquals(RecipeSection.COMMENTS to true, changed)
     }
 }

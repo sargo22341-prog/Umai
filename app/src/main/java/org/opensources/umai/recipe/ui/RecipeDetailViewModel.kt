@@ -4,12 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.opensources.umai.core.di.AppContainer
+import org.opensources.umai.core.model.MAX_RATING_STARS
 import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.model.Recipe
 import org.opensources.umai.core.model.RecipeComment
@@ -19,12 +22,14 @@ import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.session.AuthMode
 import org.opensources.umai.core.session.SessionManager
+import org.opensources.umai.core.settings.RecipeDisplayOptions
 import org.opensources.umai.home.data.RecentRecipesStore
 import org.opensources.umai.planning.data.MealPlanRepository
 import org.opensources.umai.recipe.data.RecipeCommentRepository
 import org.opensources.umai.recipe.data.RecipeRepository
 import org.opensources.umai.shopping.data.ShoppingRepository
 import java.time.LocalDate
+import kotlin.math.roundToInt
 
 /** One-shot messages shown as a snackbar. */
 sealed interface RecipeEvent {
@@ -32,6 +37,7 @@ sealed interface RecipeEvent {
     data object AddedToPlan : RecipeEvent
     data class Failed(val error: NetworkError) : RecipeEvent
     data object FavoritesNeedAccount : RecipeEvent
+    data object RatingNeedsAccount : RecipeEvent
 }
 
 data class RecipeDetailUiState(
@@ -40,7 +46,12 @@ data class RecipeDetailUiState(
     val refreshing: Boolean = false,
     val error: NetworkError? = null,
     val isFavorite: Boolean = false,
+    /** Favourites and ratings both need a user account on the Mealie side. */
     val favoritesSupported: Boolean = true,
+    /** The stars the signed-in user gave; `null` until they rate the recipe. */
+    val ownRating: Int? = null,
+    /** Which optional sections the reader chose to see, from the app settings. */
+    val display: RecipeDisplayOptions = RecipeDisplayOptions(),
     val shoppingLists: List<ShoppingListSummary> = emptyList(),
     val loadingShoppingLists: Boolean = false,
     /**
@@ -70,8 +81,15 @@ data class RecipeDetailUiState(
 
     val canScale: Boolean get() = baseServings != null
 
+    /**
+     * The stars shown on the page: the reader's own rating, or the average of
+     * the household until they rate it themselves.
+     */
+    val shownRating: Int
+        get() = ownRating ?: recipe?.summary?.rating?.roundToInt()?.coerceIn(0, MAX_RATING_STARS) ?: 0
+
     val commentsVisible: Boolean
-        get() = recipe != null && commentsSupported && !recipe.commentsDisabled
+        get() = recipe != null && display.showComments && commentsSupported && !recipe.commentsDisabled
 
     fun canDelete(comment: RecipeComment): Boolean =
         currentUserIsAdmin || (currentUserId != null && comment.authorId == currentUserId)
@@ -85,6 +103,7 @@ class RecipeDetailViewModel(
     private val mealPlanRepository: MealPlanRepository,
     private val recentRecipesStore: RecentRecipesStore,
     sessionManager: SessionManager,
+    displayOptions: Flow<RecipeDisplayOptions>,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
@@ -103,6 +122,9 @@ class RecipeDetailViewModel(
 
     init {
         load()
+        viewModelScope.launch {
+            displayOptions.collect { options -> _state.update { it.copy(display = options) } }
+        }
     }
 
     fun load() = fetch(initial = true)
@@ -129,6 +151,25 @@ class RecipeDetailViewModel(
                     it.copy(isFavorite = !target, event = RecipeEvent.Failed(result.error))
                 }
                 is ApiResult.Success -> Unit
+            }
+        }
+    }
+
+    /** Optimistic, like the favourite: the stars move at once and come back on failure. */
+    fun setRating(stars: Int) {
+        val recipe = _state.value.recipe ?: return
+        if (!_state.value.favoritesSupported) {
+            _state.update { it.copy(event = RecipeEvent.RatingNeedsAccount) }
+            return
+        }
+        val previous = _state.value.ownRating
+        val target = stars.coerceIn(1, MAX_RATING_STARS)
+        if (target == previous) return
+        _state.update { it.copy(ownRating = target) }
+        viewModelScope.launch {
+            val result = recipeRepository.setRating(recipe.slug, target, _state.value.isFavorite)
+            if (result is ApiResult.Failure) {
+                _state.update { it.copy(ownRating = previous, event = RecipeEvent.Failed(result.error)) }
             }
         }
     }
@@ -204,9 +245,11 @@ class RecipeDetailViewModel(
                 is ApiResult.Failure -> _state.update {
                     it.copy(postingComment = false, event = RecipeEvent.Failed(result.error))
                 }
+                // Comments read oldest first, so the new one lands at the end,
+                // right above the field it was typed in.
                 is ApiResult.Success -> {
                     _state.update {
-                        it.copy(postingComment = false, comments = listOf(result.value) + it.comments)
+                        it.copy(postingComment = false, comments = it.comments + result.value)
                     }
                 }
             }
@@ -251,6 +294,7 @@ class RecipeDetailViewModel(
                     }
                     recentRecipesStore.remember(slug)
                     refreshFavorite(recipe.id)
+                    refreshOwnRating(recipe.id)
                     loadComments()
                 }
             }
@@ -262,6 +306,15 @@ class RecipeDetailViewModel(
         when (val result = recipeRepository.favoriteIds()) {
             is ApiResult.Failure -> Unit
             is ApiResult.Success -> _state.update { it.copy(isFavorite = recipeId in result.value) }
+        }
+    }
+
+    private suspend fun refreshOwnRating(recipeId: String) {
+        if (!_state.value.favoritesSupported) return
+        when (val result = recipeRepository.ownRating(recipeId)) {
+            // The average stays on screen: a missing personal rating is no error.
+            is ApiResult.Failure -> Unit
+            is ApiResult.Success -> _state.update { it.copy(ownRating = result.value) }
         }
     }
 
@@ -290,6 +343,7 @@ class RecipeDetailViewModel(
                     mealPlanRepository = container.mealPlanRepository,
                     recentRecipesStore = container.recentRecipesStore,
                     sessionManager = container.sessionManager,
+                    displayOptions = container.preferencesRepository.preferences.map { it.recipeDisplay },
                 )
             }
         }

@@ -16,11 +16,13 @@ import org.junit.Before
 import org.junit.Test
 import org.opensources.umai.core.network.FakeMealieServer
 import org.opensources.umai.core.network.NetworkError
+import org.opensources.umai.core.network.query
 import org.opensources.umai.core.settings.RecipeLayout
 import org.opensources.umai.organizer.data.OrganizerRepository
 import org.opensources.umai.recipe.data.RecipeRepository
 import org.opensources.umai.search.domain.AddedWithin
 import org.opensources.umai.search.domain.RecipeFilters
+import org.opensources.umai.search.domain.SortField
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SearchViewModelTest {
@@ -166,6 +168,36 @@ class SearchViewModelTest {
         val vm = viewModel()
         vm.searchFoods("a")
         assertEquals(0, fake.server.requestCount)
+    }
+
+    @Test
+    fun `choosing an order lists every recipe in that order, without a query`() = runBlocking {
+        fake.enqueueJson(PAGE)
+        val vm = viewModel()
+
+        vm.selectSort(SortField.NAME)
+        val state = vm.awaitResults()
+
+        assertFalse(state.isIdle)
+        assertEquals(2, state.results.items.size)
+        val request = fake.takeRequest()
+        assertEquals("name", request.query("orderBy"))
+        assertEquals("asc", request.query("orderDirection"))
+    }
+
+    @Test
+    fun `choosing the same order again reverses it`() = runBlocking {
+        fake.enqueueJson(PAGE)
+        fake.enqueueJson(PAGE)
+        val vm = viewModel()
+
+        vm.selectSort(SortField.NAME)
+        vm.awaitResults()
+        vm.selectSort(SortField.NAME)
+        withTimeout(TIMEOUT_MS) { vm.state.first { it.sort.descending && !it.loading } }
+
+        assertEquals("asc", fake.takeRequest().query("orderDirection"))
+        assertEquals("desc", fake.takeRequest().query("orderDirection"))
     }
 
     private companion object {

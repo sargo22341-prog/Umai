@@ -16,12 +16,13 @@ import org.opensources.umai.core.network.dto.RecipeCommentCreateDto
  */
 class RecipeCommentRepository(private val apiProvider: () -> MealieApi?) {
 
+    /** Oldest first: the conversation reads top to bottom, towards the field. */
     suspend fun comments(slug: String): ApiResult<List<RecipeComment>> {
         val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
         return apiCall {
             api.recipeComments(slug)
                 .mapNotNull { it.toDomain() }
-                .sortedByDescending { it.createdAt }
+                .sortedBy { it.createdAt }
         }
     }
 

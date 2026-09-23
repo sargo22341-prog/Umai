@@ -19,10 +19,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -43,19 +44,13 @@ internal fun LazyListScope.recipeComments(
     state: RecipeDetailUiState,
     onPostComment: (String) -> Unit,
     onDeleteComment: (RecipeComment) -> Unit,
+    onFieldFocusChange: (Boolean) -> Unit,
 ) {
     item {
         Text(
             text = stringResource(R.string.recipe_comments),
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
             style = MaterialTheme.typography.titleMedium,
-        )
-    }
-
-    item {
-        CommentField(
-            posting = state.postingComment,
-            onSend = onPostComment,
         )
     }
 
@@ -87,23 +82,35 @@ internal fun LazyListScope.recipeComments(
             )
         }
     }
+
+    // After the comments, like the reply box of a conversation.
+    item(key = COMMENT_FIELD_KEY) {
+        CommentField(
+            posting = state.postingComment,
+            onSend = onPostComment,
+            onFocusChange = onFieldFocusChange,
+        )
+    }
 }
 
+/** The field that adds a comment; the page keeps it above the keyboard while it has the focus. */
 @Composable
-private fun CommentField(posting: Boolean, onSend: (String) -> Unit) {
-    var draft by remember { mutableStateOf("") }
+private fun CommentField(posting: Boolean, onSend: (String) -> Unit, onFocusChange: (Boolean) -> Unit) {
+    var draft by rememberSaveable { mutableStateOf("") }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 20.dp, end = 8.dp),
+            .padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         OutlinedTextField(
             value = draft,
             onValueChange = { draft = it },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .onFocusChanged { onFocusChange(it.isFocused) },
             placeholder = { Text(stringResource(R.string.recipe_comment_placeholder)) },
             enabled = !posting,
             minLines = 1,
@@ -182,6 +189,8 @@ private fun CommentRow(
         }
     }
 }
+
+private const val COMMENT_FIELD_KEY = "comment-field"
 
 private fun RecipeComment.dateLabel(formatter: DateTimeFormatter): String? =
     createdAt?.toLocalDate()?.format(formatter)

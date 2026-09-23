@@ -1,14 +1,28 @@
 package org.opensources.umai.navigation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
+import org.opensources.umai.core.ui.component.NoticePill
+import org.opensources.umai.recipe.ui.RecipeEditScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
@@ -63,6 +77,14 @@ private fun MainNavigation(session: ServerSession, modifier: Modifier = Modifier
     val selectedTab = TopLevelTab.entries.firstOrNull { it.matches(destination) }
     val searchSelected = destination?.hasRoute(SearchRoute::class) == true
 
+    var notice by remember { mutableStateOf<AppNotice?>(null) }
+    LaunchedEffect(notice) {
+        if (notice != null) {
+            delay(NOTICE_MILLIS)
+            notice = null
+        }
+    }
+
     Scaffold(
         modifier = modifier,
         contentWindowInsets = WindowInsets(0),
@@ -78,94 +100,140 @@ private fun MainNavigation(session: ServerSession, modifier: Modifier = Modifier
             }
         },
     ) { padding ->
-        NavHost(
-            navController = navController,
-            startDestination = HomeRoute,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = padding.calculateBottomPadding()),
-            enterTransition = NavTransitions.enter,
-            exitTransition = NavTransitions.exit,
-            popEnterTransition = NavTransitions.popEnter,
-            popExitTransition = NavTransitions.popExit,
-        ) {
-            composable<HomeRoute> {
-                HomeScreen(
-                    onRecipeClick = { navController.navigate(RecipeRoute(it)) },
-                    onSearchClick = { navController.switchTab(SearchRoute) },
-                )
+        Box(modifier = Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding())) {
+            NavHost(
+                navController = navController,
+                startDestination = HomeRoute,
+                // Painted in the app theme: the window behind follows the system theme, and pixel
+                // rounding may leave a hairline between the two sliding screens.
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+                enterTransition = { screenEnter() },
+                exitTransition = { screenExit() },
+                popEnterTransition = { screenPopEnter() },
+                popExitTransition = { screenPopExit() },
+                // The back gesture has its own transitions (a fade and shrink by default): same slide.
+                predictivePopEnterTransition = { screenPopEnter() },
+                predictivePopExitTransition = { screenPopExit() },
+            ) {
+                composable<HomeRoute> {
+                    HomeScreen(
+                        onRecipeClick = { navController.navigate(RecipeRoute(it)) },
+                        onSearchClick = { navController.switchTab(SearchRoute) },
+                    )
+                }
+
+                composable<SearchRoute> {
+                    SearchScreen(onRecipeClick = { navController.navigate(RecipeRoute(it)) })
+                }
+
+                composable<PlanningRoute> {
+                    PlanningScreen(onRecipeClick = { navController.navigate(RecipeRoute(it)) })
+                }
+
+                composable<ShoppingRoute> { ShoppingScreen() }
+
+                composable<ProfileRoute> {
+                    ProfileScreen(
+                        onOpenAppSettings = { navController.navigate(AppSettingsRoute) },
+                        onOpenMealieSettings = { navController.navigate(MealieSettingsRoute) },
+                        onImportRecipe = { navController.navigate(RecipeImportRoute) },
+                        onCreateRecipe = { navController.navigate(RecipeCreateRoute()) },
+                        onOpenDrafts = { navController.navigate(RecipeDraftsRoute) },
+                    )
+                }
+
+                composable<AppSettingsRoute> {
+                    AppSettingsScreen(onBack = { navController.popBackStack() })
+                }
+
+                composable<MealieSettingsRoute> {
+                    MealieSettingsScreen(onBack = { navController.popBackStack() })
+                }
+
+                composable<RecipeImportRoute> {
+                    RecipeImportScreen(
+                        onBack = { navController.popBackStack() },
+                        onImported = { navController.openCreatedRecipe(it) },
+                    )
+                }
+
+                composable<RecipeCreateRoute> { entry ->
+                    val route: RecipeCreateRoute = entry.toRoute()
+                    RecipeCreateScreen(
+                        draftId = route.draftId,
+                        onLeft = { draftSaved ->
+                            if (navController.popIfCurrent(entry) && draftSaved) {
+                                notice = AppNotice.DRAFT_SAVED
+                            }
+                        },
+                        onCreated = { slug, imageSaved ->
+                            if (navController.isCurrent(entry)) {
+                                navController.openCreatedRecipe(slug)
+                                if (!imageSaved) notice = AppNotice.RECIPE_CREATED_WITHOUT_IMAGE
+                            }
+                        },
+                    )
+                }
+
+                composable<RecipeDraftsRoute> {
+                    RecipeDraftsScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenDraft = { navController.navigate(RecipeCreateRoute(it)) },
+                    )
+                }
+
+                composable<RecipeRoute> { entry ->
+                    val route: RecipeRoute = entry.toRoute()
+                    val recipeUpdated by entry.savedStateHandle
+                        .getStateFlow(RECIPE_UPDATED, false)
+                        .collectAsStateWithLifecycle()
+                    RecipeDetailScreen(
+                        slug = route.slug,
+                        recipeUpdated = recipeUpdated,
+                        onRecipeUpdateSeen = { entry.savedStateHandle[RECIPE_UPDATED] = false },
+                        onBack = { navController.popBackStack() },
+                        onStartCooking = { slug, servings ->
+                            navController.navigate(CookingRoute(slug, servings))
+                        },
+                        onEdit = { navController.navigate(RecipeEditRoute(it)) },
+                    )
+                }
+
+                composable<RecipeEditRoute> { entry ->
+                    val route: RecipeEditRoute = entry.toRoute()
+                    RecipeEditScreen(
+                        slug = route.slug,
+                        onBack = { navController.popIfCurrent(entry) },
+                        onSaved = { slug ->
+                            if (navController.popIfCurrent(entry)) {
+                                navController.showSavedRecipe(editedSlug = route.slug, savedSlug = slug)
+                                notice = AppNotice.RECIPE_SAVED
+                            }
+                        },
+                    )
+                }
+
+                composable<CookingRoute> { entry ->
+                    val route: CookingRoute = entry.toRoute()
+                    CookingScreen(
+                        slug = route.slug,
+                        servings = route.servings,
+                        onExit = { navController.popBackStack() },
+                    )
+                }
             }
 
-            composable<SearchRoute> {
-                SearchScreen(onRecipeClick = { navController.navigate(RecipeRoute(it)) })
-            }
-
-            composable<PlanningRoute> {
-                PlanningScreen(onRecipeClick = { navController.navigate(RecipeRoute(it)) })
-            }
-
-            composable<ShoppingRoute> { ShoppingScreen() }
-
-            composable<ProfileRoute> {
-                ProfileScreen(
-                    onOpenAppSettings = { navController.navigate(AppSettingsRoute) },
-                    onOpenMealieSettings = { navController.navigate(MealieSettingsRoute) },
-                    onImportRecipe = { navController.navigate(RecipeImportRoute) },
-                    onCreateRecipe = { navController.navigate(RecipeCreateRoute()) },
-                    onOpenDrafts = { navController.navigate(RecipeDraftsRoute) },
-                )
-            }
-
-            composable<AppSettingsRoute> {
-                AppSettingsScreen(onBack = { navController.popBackStack() })
-            }
-
-            composable<MealieSettingsRoute> {
-                MealieSettingsScreen(onBack = { navController.popBackStack() })
-            }
-
-            composable<RecipeImportRoute> {
-                RecipeImportScreen(
-                    onBack = { navController.popBackStack() },
-                    onImported = { navController.openCreatedRecipe(it) },
-                )
-            }
-
-            composable<RecipeCreateRoute> { entry ->
-                val route: RecipeCreateRoute = entry.toRoute()
-                RecipeCreateScreen(
-                    draftId = route.draftId,
-                    onBack = { navController.popBackStack() },
-                    onCreated = { navController.openCreatedRecipe(it) },
-                )
-            }
-
-            composable<RecipeDraftsRoute> {
-                RecipeDraftsScreen(
-                    onBack = { navController.popBackStack() },
-                    onOpenDraft = { navController.navigate(RecipeCreateRoute(it)) },
-                )
-            }
-
-            composable<RecipeRoute> { entry ->
-                val route: RecipeRoute = entry.toRoute()
-                RecipeDetailScreen(
-                    slug = route.slug,
-                    onBack = { navController.popBackStack() },
-                    onStartCooking = { slug, servings ->
-                        navController.navigate(CookingRoute(slug, servings))
-                    },
-                )
-            }
-
-            composable<CookingRoute> { entry ->
-                val route: CookingRoute = entry.toRoute()
-                CookingScreen(
-                    slug = route.slug,
-                    servings = route.servings,
-                    onExit = { navController.popBackStack() },
-                )
-            }
+            NoticePill(
+                message = notice?.let { stringResource(it.messageRes) },
+                success = notice?.success ?: true,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    // Above the tab bar when there is one, above the system bar otherwise.
+                    .then(if (destination.isFullScreen()) Modifier.navigationBarsPadding() else Modifier)
+                    .padding(bottom = 16.dp),
+            )
         }
     }
 }
@@ -188,6 +256,7 @@ private fun NavDestination?.isFullScreen(): Boolean = this != null && (
         hasRoute(MealieSettingsRoute::class) ||
         hasRoute(RecipeImportRoute::class) ||
         hasRoute(RecipeCreateRoute::class) ||
+        hasRoute(RecipeEditRoute::class) ||
         hasRoute(RecipeDraftsRoute::class)
     )
 
@@ -212,6 +281,37 @@ private fun NavHostController.openCreatedRecipe(slug: String) {
         popUpTo(ProfileRoute) { inclusive = false }
     }
 }
+
+/**
+ * A screen that closes itself once its work is done asks for it from an
+ * effect, which runs again after a rotation: only the screen on top may pop,
+ * so it never closes the one below by mistake.
+ */
+private fun NavHostController.isCurrent(entry: NavBackStackEntry): Boolean =
+    currentBackStackEntry?.id == entry.id
+
+private fun NavHostController.popIfCurrent(entry: NavBackStackEntry): Boolean =
+    isCurrent(entry) && popBackStack()
+
+/**
+ * Back on the recipe page the editor was opened from, once it closed: that
+ * page reloads, or after a rename is replaced by the page at the new address,
+ * since the old one no longer exists on Mealie.
+ */
+private fun NavHostController.showSavedRecipe(editedSlug: String, savedSlug: String) {
+    if (savedSlug == editedSlug) {
+        currentBackStackEntry?.savedStateHandle?.set(RECIPE_UPDATED, true)
+    } else {
+        navigate(RecipeRoute(savedSlug)) {
+            popUpTo<RecipeRoute> { inclusive = true }
+        }
+    }
+}
+
+/** Set on the recipe page's entry when the editor saved changes to it. */
+private const val RECIPE_UPDATED = "recipe_updated"
+
+private const val NOTICE_MILLIS = 2_500L
 
 private fun AppContainer.profileTabInfo(session: ServerSession): ProfileTabInfo {
     val name = session.userDisplayName?.takeIf { it.isNotBlank() }

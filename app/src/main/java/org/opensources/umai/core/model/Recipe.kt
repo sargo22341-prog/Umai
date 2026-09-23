@@ -1,5 +1,8 @@
 package org.opensources.umai.core.model
 
+/** Mealie rates recipes from one to five stars. */
+const val MAX_RATING_STARS = 5
+
 /** A recipe as listed by `GET /api/recipes`. */
 data class RecipeSummary(
     val id: String,

@@ -1,8 +1,5 @@
 package org.opensources.umai.profile.ui
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,7 +53,10 @@ import org.opensources.umai.core.model.HouseholdStatistics
 import org.opensources.umai.core.model.UserProfile
 import org.opensources.umai.core.ui.component.LoadingView
 import org.opensources.umai.core.ui.component.NetworkErrorView
+import org.opensources.umai.core.ui.component.CropFrame
+import org.opensources.umai.core.ui.component.ImagePicker
 import org.opensources.umai.core.ui.component.UserAvatar
+import org.opensources.umai.core.ui.component.rememberImagePickerState
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
 
@@ -78,14 +78,19 @@ fun ProfileScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    val pickImage = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia(),
-    ) { uri -> uri?.let { viewModel.updateAvatar(it.toString()) } }
+    val imagePicker = rememberImagePickerState()
+    ImagePicker(
+        state = imagePicker,
+        frame = CropFrame.AVATAR,
+        onImageReady = viewModel::updateAvatar,
+        onCameraUnavailable = viewModel::onCameraUnavailable,
+    )
 
     val event = state.event
     val message: String? = when (event) {
         null -> null
         ProfileEvent.AvatarUpdated -> stringResource(R.string.profile_avatar_updated)
+        ProfileEvent.CameraUnavailable -> stringResource(R.string.image_camera_unavailable)
         is ProfileEvent.Failed -> "${event.error.title()}\n${event.error.message()}"
     }
     LaunchedEffect(event) {
@@ -102,11 +107,7 @@ fun ProfileScreen(
         avatarUrl = { user -> container.imageUrls.userAvatar(user.id, user.cacheKey) },
         onRefresh = viewModel::refresh,
         onRetry = viewModel::retry,
-        onPickAvatar = {
-            pickImage.launch(
-                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-            )
-        },
+        onPickAvatar = imagePicker::open,
         onOpenAppSettings = onOpenAppSettings,
         onOpenMealieSettings = onOpenMealieSettings,
         onImportRecipe = onImportRecipe,

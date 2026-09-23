@@ -1,5 +1,7 @@
 package org.opensources.umai.recipe.ui
 
+import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,7 +30,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -42,17 +43,19 @@ import org.opensources.umai.R
 import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
+import java.io.File
 
 /**
- * Writes a recipe in four stages rather than in one long form, so each screen
- * stays readable on a phone. Everything typed is kept as a draft, which is why
- * leaving is never destructive.
+ * Writes a recipe in stages rather than in one long form, so each screen stays
+ * readable on a phone. Everything typed is kept as a draft, which is why
+ * leaving is never destructive: the back button, the back gesture and the save
+ * button all write the draft, then close the form.
  */
 @Composable
 fun RecipeCreateScreen(
     draftId: String?,
-    onBack: () -> Unit,
-    onCreated: (String) -> Unit,
+    onLeft: (draftSaved: Boolean) -> Unit,
+    onCreated: (slug: String, imageSaved: Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val container = LocalAppContainer.current
@@ -62,74 +65,29 @@ fun RecipeCreateScreen(
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    val slug = state.createdSlug
-    LaunchedEffect(slug) {
-        if (slug != null) {
-            viewModel.consumeCreatedSlug()
-            onCreated(slug)
+    LaunchedEffect(state.exit) {
+        when (val exit = state.exit) {
+            null -> Unit
+            is RecipeCreateExit.Left -> onLeft(exit.draftSaved)
+            is RecipeCreateExit.Created -> onCreated(exit.slug, exit.imageSaved)
         }
     }
 
+    BackHandler(onBack = viewModel::leave)
+
     // Bound once to the ViewModel: rebuilding the callbacks on every state
     // change would make the whole form recompose for a single keystroke.
-    val actions = remember(viewModel) { RecipeCreateActions(viewModel) }
+    val actions = remember(viewModel) { RecipeFormActions(viewModel) }
 
     RecipeCreateScreen(
         state = state,
         actions = actions,
-        onBack = {
-            viewModel.saveDraftNow()
-            onBack()
-        },
-        modifier = modifier,
-    )
-}
-
-/** The callbacks the form raises, grouped so the signature stays readable. */
-@Immutable
-class RecipeCreateActions(
-    val onNameChange: (String) -> Unit,
-    val onDescriptionChange: (String) -> Unit,
-    val onServingsChange: (Int) -> Unit,
-    val onPrepTimeChange: (String) -> Unit,
-    val onCookTimeChange: (String) -> Unit,
-    val onTotalTimeChange: (String) -> Unit,
-    val onIngredientChange: (Int, String) -> Unit,
-    val onAddIngredient: () -> Unit,
-    val onRemoveIngredient: (Int) -> Unit,
-    val onStepTitleChange: (Int, String) -> Unit,
-    val onStepTextChange: (Int, String) -> Unit,
-    val onAddStep: () -> Unit,
-    val onRemoveStep: (Int) -> Unit,
-    val onToggleCategory: (org.opensources.umai.core.model.Organizer) -> Unit,
-    val onToggleTag: (org.opensources.umai.core.model.Organizer) -> Unit,
-    val onNext: () -> Unit,
-    val onPrevious: () -> Unit,
-    val onCreate: () -> Unit,
-    val onSaveDraft: () -> Unit,
-    val onDismissError: () -> Unit,
-) {
-    constructor(viewModel: RecipeCreateViewModel) : this(
-        onNameChange = viewModel::onNameChange,
-        onDescriptionChange = viewModel::onDescriptionChange,
-        onServingsChange = viewModel::onServingsChange,
-        onPrepTimeChange = viewModel::onPrepTimeChange,
-        onCookTimeChange = viewModel::onCookTimeChange,
-        onTotalTimeChange = viewModel::onTotalTimeChange,
-        onIngredientChange = viewModel::onIngredientChange,
-        onAddIngredient = viewModel::addIngredient,
-        onRemoveIngredient = viewModel::removeIngredient,
-        onStepTitleChange = viewModel::onStepTitleChange,
-        onStepTextChange = viewModel::onStepTextChange,
-        onAddStep = viewModel::addStep,
-        onRemoveStep = viewModel::removeStep,
-        onToggleCategory = viewModel::toggleCategory,
-        onToggleTag = viewModel::toggleTag,
-        onNext = viewModel::next,
+        onLeave = viewModel::leave,
         onPrevious = viewModel::previous,
+        onNext = viewModel::next,
         onCreate = viewModel::create,
-        onSaveDraft = viewModel::saveDraftNow,
         onDismissError = viewModel::dismissError,
+        modifier = modifier,
     )
 }
 
@@ -138,8 +96,12 @@ class RecipeCreateActions(
 @Composable
 fun RecipeCreateScreen(
     state: RecipeCreateUiState,
-    actions: RecipeCreateActions,
-    onBack: () -> Unit,
+    actions: RecipeFormActions,
+    onLeave: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onCreate: () -> Unit,
+    onDismissError: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -148,7 +110,7 @@ fun RecipeCreateScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.profile_create_recipe)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = onLeave) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = stringResource(R.string.action_back),
@@ -156,7 +118,7 @@ fun RecipeCreateScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = actions.onSaveDraft) {
+                    IconButton(onClick = onLeave) {
                         Icon(
                             imageVector = Icons.Outlined.Save,
                             contentDescription = stringResource(R.string.create_save_draft),
@@ -168,9 +130,9 @@ fun RecipeCreateScreen(
         bottomBar = {
             StepControls(
                 state = state,
-                onPrevious = actions.onPrevious,
-                onNext = actions.onNext,
-                onCreate = actions.onCreate,
+                onPrevious = onPrevious,
+                onNext = onNext,
+                onCreate = onCreate,
             )
         },
     ) { padding ->
@@ -192,15 +154,28 @@ fun RecipeCreateScreen(
                 state.error?.let { error ->
                     ErrorBanner(
                         message = "${error.title()}\n${error.message()}",
-                        onDismiss = actions.onDismissError,
+                        onDismiss = onDismissError,
                     )
                 }
 
                 when (state.step) {
-                    RecipeCreateStep.BASICS -> BasicsStep(state.draft, actions)
-                    RecipeCreateStep.INGREDIENTS -> IngredientsStep(state.draft, actions)
-                    RecipeCreateStep.INSTRUCTIONS -> InstructionsStep(state.draft, actions)
-                    RecipeCreateStep.ORGANIZERS -> OrganizersStep(state, actions)
+                    RecipeFormSection.BASICS -> BasicsSection(state.draft, actions)
+                    RecipeFormSection.IMAGE -> ImageSection(
+                        imageUrl = state.draft.imagePath?.let { Uri.fromFile(File(it)).toString() },
+                        processing = state.processingImage,
+                        canRemove = state.draft.imagePath != null,
+                        failed = state.imageFailed,
+                        actions = actions,
+                    )
+                    RecipeFormSection.INGREDIENTS -> IngredientsSection(state.draft, actions)
+                    RecipeFormSection.INSTRUCTIONS -> InstructionsSection(state.draft, actions)
+                    RecipeFormSection.ORGANIZERS -> OrganizersSection(
+                        draft = state.draft,
+                        categories = state.categories,
+                        tags = state.tags,
+                        loading = state.loadingOrganizers,
+                        actions = actions,
+                    )
                 }
 
                 Spacer(Modifier.size(12.dp))
@@ -284,7 +259,7 @@ private fun StepControls(
 }
 
 @Composable
-private fun ErrorBanner(message: String, onDismiss: () -> Unit) {
+internal fun ErrorBanner(message: String, onDismiss: () -> Unit) {
     Surface(
         onClick = onDismiss,
         modifier = Modifier.fillMaxWidth(),
@@ -298,11 +273,4 @@ private fun ErrorBanner(message: String, onDismiss: () -> Unit) {
             color = MaterialTheme.colorScheme.onErrorContainer,
         )
     }
-}
-
-internal fun RecipeCreateStep.labelRes(): Int = when (this) {
-    RecipeCreateStep.BASICS -> R.string.create_step_basics
-    RecipeCreateStep.INGREDIENTS -> R.string.recipe_ingredients
-    RecipeCreateStep.INSTRUCTIONS -> R.string.recipe_instructions
-    RecipeCreateStep.ORGANIZERS -> R.string.create_step_organizers
 }

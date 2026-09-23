@@ -1,7 +1,14 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.compose.compiler)
+}
+
+// Kept outside this script so the CI can bump it on every push to main (docs/release.md).
+val appVersion = Properties().apply {
+    load(providers.fileContents(layout.projectDirectory.file("version.properties")).asText.get().reader())
 }
 
 android {
@@ -12,8 +19,8 @@ android {
         applicationId = "org.opensources.umai"
         minSdk = 37
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = checkNotNull(appVersion.getProperty("versionCode")).toInt()
+        versionName = checkNotNull(appVersion.getProperty("versionName"))
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

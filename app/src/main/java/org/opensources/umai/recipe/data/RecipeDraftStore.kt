@@ -24,7 +24,7 @@ private val Context.draftDataStore: DataStore<Preferences> by preferencesDataSto
  * Umai is allowed to own. A draft that cannot be decoded — an older shape, a
  * truncated write — is dropped rather than crashing the list.
  */
-class RecipeDraftStore(context: Context) {
+class RecipeDraftStore(context: Context, private val imageFiles: RecipeImageFiles) {
 
     private val dataStore = context.applicationContext.draftDataStore
 
@@ -48,10 +48,15 @@ class RecipeDraftStore(context: Context) {
         }
     }
 
+    /** Removes the draft and the picture it kept on the device. */
     suspend fun delete(id: String) {
+        var removed: RecipeDraft? = null
         dataStore.edit { prefs ->
-            prefs[KeyDrafts] = json.encodeToString(decode(prefs[KeyDrafts]).filterNot { it.id == id })
+            val current = decode(prefs[KeyDrafts])
+            removed = current.firstOrNull { it.id == id }
+            prefs[KeyDrafts] = json.encodeToString(current.filterNot { it.id == id })
         }
+        removed?.imagePath?.let(imageFiles::delete)
     }
 
     private fun decode(raw: String?): List<RecipeDraft> {

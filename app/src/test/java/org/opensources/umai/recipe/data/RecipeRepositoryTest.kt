@@ -14,6 +14,7 @@ import org.opensources.umai.core.network.queryValues
 import org.opensources.umai.search.domain.AddedWithin
 import org.opensources.umai.search.domain.RecipeFilters
 import org.opensources.umai.search.domain.RecipeSort
+import org.opensources.umai.search.domain.SortField
 
 class RecipeRepositoryTest {
 
@@ -123,8 +124,9 @@ class RecipeRepositoryTest {
         fake.enqueueJson(PAGE)
         repository.search(
             query = null,
-            filters = RecipeFilters(sort = RecipeSort.RANDOM),
+            filters = RecipeFilters.None,
             page = 1,
+            sort = RecipeSort(SortField.RANDOM, descending = true),
             paginationSeed = "12345",
         )
         val request = fake.takeRequest()
@@ -135,8 +137,17 @@ class RecipeRepositoryTest {
     @Test
     fun `the seed is not sent for a deterministic sort`() = runTest {
         fake.enqueueJson(PAGE)
-        repository.search(null, RecipeFilters(sort = RecipeSort.NAME_ASC), page = 1, paginationSeed = "12345")
-        assertEquals(null, fake.takeRequest().query("paginationSeed"))
+        repository.search(
+            query = null,
+            filters = RecipeFilters.None,
+            page = 1,
+            sort = RecipeSort(SortField.NAME, descending = false),
+            paginationSeed = "12345",
+        )
+        val request = fake.takeRequest()
+        assertEquals(null, request.query("paginationSeed"))
+        assertEquals("name", request.query("orderBy"))
+        assertEquals("asc", request.query("orderDirection"))
     }
 
     @Test
@@ -210,6 +221,48 @@ class RecipeRepositoryTest {
         val tokenOnly = RecipeRepository(apiProvider = { fake.api() }, currentUserId = { null })
         val result = tokenOnly.setFavorite("x", favorite = true)
         assertEquals(NetworkError.Unauthorized, (result as ApiResult.Failure).error)
+    }
+
+    @Test
+    fun `the reader's own rating is read for the recipe`() = runTest {
+        fake.enqueueJson("""{"recipeId":"r1","rating":4.0,"isFavorite":false}""")
+
+        val rating = repository.ownRating("r1")
+
+        assertEquals(4, (rating as ApiResult.Success).value)
+        assertEquals("/api/users/self/ratings/r1", fake.takeRequest().url.encodedPath)
+    }
+
+    @Test
+    fun `a recipe the reader never rated has no rating rather than an error`() = runTest {
+        fake.enqueueError(404)
+
+        assertEquals(null, (repository.ownRating("r1") as ApiResult.Success).value)
+    }
+
+    @Test
+    fun `rating sends the stars along with the favourite flag`() = runTest {
+        fake.enqueueJson("null")
+
+        val result = repository.setRating("poulet-au-curry", stars = 5, isFavorite = true)
+
+        assertTrue(result is ApiResult.Success)
+        val request = fake.takeRequest()
+        assertEquals("POST", request.method)
+        assertEquals("/api/users/user-1/ratings/poulet-au-curry", request.url.encodedPath)
+        val body = request.body?.utf8().orEmpty()
+        assertTrue(body.contains(""""rating":5.0"""))
+        assertTrue(body.contains(""""isFavorite":true"""))
+    }
+
+    @Test
+    fun `a rating cannot be given without a user id`() = runTest {
+        val tokenOnly = RecipeRepository(apiProvider = { fake.api() }, currentUserId = { null })
+
+        val result = tokenOnly.setRating("x", stars = 3, isFavorite = false)
+
+        assertEquals(NetworkError.Unauthorized, (result as ApiResult.Failure).error)
+        assertEquals(0, fake.server.requestCount)
     }
 
     private companion object {

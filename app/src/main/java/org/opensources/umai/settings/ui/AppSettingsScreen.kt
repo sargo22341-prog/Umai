@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,7 +29,9 @@ import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.session.SessionState
 import org.opensources.umai.core.settings.AppLanguage
 import org.opensources.umai.core.settings.AppPreferences
+import org.opensources.umai.core.settings.RecipeDisplayOptions
 import org.opensources.umai.core.settings.RecipeLayout
+import org.opensources.umai.core.settings.RecipeSection
 import org.opensources.umai.core.settings.ThemeMode
 
 @Composable
@@ -47,6 +50,7 @@ fun AppSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         onLayoutChange = viewModel::setLayout,
         onDynamicColorChange = viewModel::setDynamicColor,
         onKeepScreenOnChange = viewModel::setKeepScreenOn,
+        onRecipeSectionChange = viewModel::setRecipeSectionVisible,
         modifier = modifier,
     )
 }
@@ -63,6 +67,7 @@ fun AppSettingsScreen(
     onLayoutChange: (RecipeLayout) -> Unit,
     onDynamicColorChange: (Boolean) -> Unit,
     onKeepScreenOnChange: (Boolean) -> Unit,
+    onRecipeSectionChange: (RecipeSection, Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -159,6 +164,18 @@ fun AppSettingsScreen(
             }
 
             item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
+            item { SettingsSectionHeader(stringResource(R.string.settings_section_recipe_page)) }
+
+            items(RecipeSection.entries, key = { it.name }) { section ->
+                SettingsSwitchRow(
+                    title = stringResource(section.titleRes()),
+                    summary = stringResource(section.summaryRes()),
+                    checked = preferences.recipeDisplay.isVisible(section),
+                    onCheckedChange = { onRecipeSectionChange(section, it) },
+                )
+            }
+
+            item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
             item { SettingsSectionHeader(stringResource(R.string.settings_section_about)) }
 
             item {
@@ -181,4 +198,25 @@ fun AppSettingsScreen(
             }
         }
     }
+}
+
+private fun RecipeDisplayOptions.isVisible(section: RecipeSection): Boolean = when (section) {
+    RecipeSection.TIMES -> showTimes
+    RecipeSection.NUTRITION -> showNutrition
+    RecipeSection.SOURCE -> showSource
+    RecipeSection.COMMENTS -> showComments
+}
+
+private fun RecipeSection.titleRes(): Int = when (this) {
+    RecipeSection.TIMES -> R.string.settings_recipe_times
+    RecipeSection.NUTRITION -> R.string.settings_recipe_nutrition
+    RecipeSection.SOURCE -> R.string.settings_recipe_source
+    RecipeSection.COMMENTS -> R.string.settings_recipe_comments
+}
+
+private fun RecipeSection.summaryRes(): Int = when (this) {
+    RecipeSection.TIMES -> R.string.settings_recipe_times_summary
+    RecipeSection.NUTRITION -> R.string.settings_recipe_nutrition_summary
+    RecipeSection.SOURCE -> R.string.settings_recipe_source_summary
+    RecipeSection.COMMENTS -> R.string.settings_recipe_comments_summary
 }

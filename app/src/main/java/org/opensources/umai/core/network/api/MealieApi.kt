@@ -1,6 +1,8 @@
 package org.opensources.umai.core.network.api
 
+import kotlinx.serialization.json.JsonObject
 import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import org.opensources.umai.core.network.dto.AppInfoDto
 import org.opensources.umai.core.network.dto.CreateMealPlanEntryDto
 import org.opensources.umai.core.network.dto.CreateRecipeDto
@@ -30,6 +32,9 @@ import org.opensources.umai.core.network.dto.TokenResponseDto
 import org.opensources.umai.core.network.dto.UpdateHouseholdPreferencesDto
 import org.opensources.umai.core.network.dto.UpdateMealPlanEntryDto
 import org.opensources.umai.core.network.dto.UserDto
+import org.opensources.umai.core.network.dto.UpdateImageResponseDto
+import org.opensources.umai.core.network.dto.UserRatingSummaryDto
+import org.opensources.umai.core.network.dto.UserRatingUpdateDto
 import org.opensources.umai.core.network.dto.UserRatingsDto
 import org.opensources.umai.core.network.dto.UserUpdateDto
 import retrofit2.http.Body
@@ -137,6 +142,29 @@ interface MealieApi {
         @Body body: RecipeDetailDto,
     ): RecipeDetailDto
 
+    /**
+     * The recipe exactly as Mealie holds it. An edit sends this document back
+     * with only the edited fields replaced, so nothing Umai does not model —
+     * nutrition, assets, settings, extras — is lost on the way.
+     */
+    @GET("api/recipes/{slug}")
+    suspend fun recipeDocument(@Path("slug") slug: String): JsonObject
+
+    @PUT("api/recipes/{slug}")
+    suspend fun replaceRecipe(
+        @Path("slug") slug: String,
+        @Body body: JsonObject,
+    ): RecipeDetailDto
+
+    /** Parts named `image` and `extension`, as required by the OpenAPI body schema. */
+    @Multipart
+    @PUT("api/recipes/{slug}/image")
+    suspend fun updateRecipeImage(
+        @Path("slug") slug: String,
+        @Part image: MultipartBody.Part,
+        @Part("extension") extension: RequestBody,
+    ): UpdateImageResponseDto
+
     @DELETE("api/recipes/{slug}")
     suspend fun deleteRecipe(@Path("slug") slug: String)
 
@@ -196,6 +224,16 @@ interface MealieApi {
 
     @GET("api/users/self/ratings")
     suspend fun ratings(): UserRatingsDto
+
+    @GET("api/users/self/ratings/{recipeId}")
+    suspend fun ownRating(@Path("recipeId") recipeId: String): UserRatingSummaryDto
+
+    @POST("api/users/{id}/ratings/{slug}")
+    suspend fun setRating(
+        @Path("id") userId: String,
+        @Path("slug") slug: String,
+        @Body body: UserRatingUpdateDto,
+    )
 
     @POST("api/users/{id}/favorites/{slug}")
     suspend fun addFavorite(@Path("id") userId: String, @Path("slug") slug: String)

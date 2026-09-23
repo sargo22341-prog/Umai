@@ -4,18 +4,47 @@ import org.opensources.umai.core.format.ApiDates
 import java.time.LocalDate
 
 /**
- * Ordering options backed by real Mealie `orderBy` columns.
+ * The columns a search can be ordered by, each backed by a real Mealie
+ * `orderBy` value. [descendingByDefault] is the direction a first tap picks:
+ * newest, best rated or most recently cooked first, but names from A to Z.
  */
-enum class RecipeSort(val orderBy: String, val direction: String) {
-    RECENT("createdAt", "desc"),
-    OLDEST("createdAt", "asc"),
-    NAME_ASC("name", "asc"),
-    NAME_DESC("name", "desc"),
-    RATING("rating", "desc"),
-    LAST_MADE("lastMade", "desc"),
+enum class SortField(val orderBy: String, val descendingByDefault: Boolean) {
+    CREATED("createdAt", descendingByDefault = true),
+    NAME("name", descendingByDefault = false),
+    RATING("rating", descendingByDefault = true),
+    LAST_MADE("lastMade", descendingByDefault = true),
 
-    /** Mealie also needs a `paginationSeed` for this one. */
-    RANDOM("random", "desc"),
+    /** Has no direction, and Mealie also needs a `paginationSeed` for it. */
+    RANDOM("random", descendingByDefault = true),
+    ;
+
+    val hasDirection: Boolean get() = this != RANDOM
+}
+
+/**
+ * How the results are ordered. It is kept apart from [RecipeFilters]: it
+ * changes the order of the results, never which recipes match.
+ */
+data class RecipeSort(val column: SortField, val descending: Boolean) {
+
+    val orderBy: String get() = column.orderBy
+    val direction: String get() = if (descending) "desc" else "asc"
+    val isRandom: Boolean get() = column == SortField.RANDOM
+
+    /**
+     * Picking the current column again reverses it; picking another one starts
+     * from that column's natural direction.
+     */
+    fun select(target: SortField): RecipeSort = when {
+        target != column -> RecipeSort(target, target.descendingByDefault)
+        target.hasDirection -> copy(descending = !descending)
+        else -> this
+    }
+
+    companion object {
+        /** Newest recipes first, as Mealie itself lists them. */
+        val Default = RecipeSort(SortField.CREATED, descending = true)
+    }
 }
 
 /** How recently a recipe was added to the instance. */
@@ -33,7 +62,8 @@ enum class AddedWithin(val days: Long?) {
  *
  * Preparation, cooking and total times are deliberately absent: Mealie stores
  * them as free text ("15 minutes", "PT1H"), so they cannot be compared
- * numerically server-side.
+ * numerically server-side. Servings are absent too: the reader scales them on
+ * the recipe page, so the count a recipe was written for says little.
  */
 data class RecipeFilters(
     val categoryIds: Set<String> = emptySet(),
@@ -46,10 +76,7 @@ data class RecipeFilters(
     val requireAllFoods: Boolean = false,
     val minRating: Int? = null,
     val favoritesOnly: Boolean = false,
-    val minServings: Int? = null,
-    val maxServings: Int? = null,
     val addedWithin: AddedWithin = AddedWithin.ANY,
-    val sort: RecipeSort = RecipeSort.RECENT,
 ) {
     val activeCount: Int
         get() = listOf(
@@ -59,8 +86,6 @@ data class RecipeFilters(
             foodIds.isNotEmpty(),
             minRating != null,
             favoritesOnly,
-            minServings != null,
-            maxServings != null,
             addedWithin != AddedWithin.ANY,
         ).count { it }
 
@@ -86,8 +111,6 @@ fun RecipeFilters.buildQueryFilter(
     val clauses = mutableListOf<String>()
 
     minRating?.let { clauses += "rating >= $it" }
-    minServings?.let { clauses += "recipeServings >= $it" }
-    maxServings?.let { clauses += "recipeServings <= $it" }
 
     addedWithin.days?.let { days ->
         clauses += """createdAt > "${ApiDates.format(today.minusDays(days))}""""

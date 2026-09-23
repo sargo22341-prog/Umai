@@ -16,6 +16,7 @@ import org.opensources.umai.core.settings.AppPreferences
 import org.opensources.umai.core.settings.AppPreferencesRepository
 import org.opensources.umai.core.settings.LocaleController
 import org.opensources.umai.core.settings.RecipeLayout
+import org.opensources.umai.core.settings.RecipeSection
 import org.opensources.umai.core.settings.ThemeMode
 
 /** Preferences that belong to the app itself and never leave the device. */
@@ -49,6 +50,10 @@ class AppSettingsViewModel(
 
     fun setKeepScreenOn(enabled: Boolean) = viewModelScope.launch {
         preferencesRepository.setKeepScreenOnWhileCooking(enabled)
+    }
+
+    fun setRecipeSectionVisible(section: RecipeSection, visible: Boolean) = viewModelScope.launch {
+        preferencesRepository.setRecipeSectionVisible(section, visible)
     }
 
     companion object {

@@ -1,0 +1,165 @@
+# Compilation, Lint et tests JVM sur chaque pull request et chaque push.
+# Pas de job émulateur : l'émulateur Android 17 plante sur les runners Linux ; les tests instrumentés
+# se lancent sur un appareil (AGENTS.md §12).
+# Sur main : montée de version, APK release signé, commit + tag vX.Y.Z et GitHub Release
+# dont le texte vient de RELEASE_NOTES.md (liste vidée dans le commit de version).
+# Fonctionnement, secrets requis et limites : docs/release.md.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Partie de la version à incrémenter
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Compilation et tests
+    # Gitea/Forgejo Actions lisent aussi .github/workflows : le dépôt miroir local n'exécute rien.
+    if: github.server_url == 'https://github.com'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Compiler, analyser et lancer les tests JVM
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:compileDebugAndroidTestKotlin --console=plain
+
+      - name: Conserver les rapports de tests et de Lint
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rapports-de-tests
+          path: |
+            app/build/reports/tests/
+            app/build/reports/lint-results-debug.html
+
+  release:
+    name: Montée de version et APK signé
+    needs: [verify]
+    if: github.server_url == 'https://github.com' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # Deux montées de version en parallèle produiraient le même numéro.
+    concurrency:
+      group: release-main
+      cancel-in-progress: false
+    env:
+      KEYSTORE_BASE64: ${{ secrets.UMAI_KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.UMAI_KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.UMAI_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.UMAI_KEY_PASSWORD }}
+    steps:
+      - name: Vérifier les secrets de signature
+        run: |
+          # Jamais de release non signée : sans clé, le job s'arrête avant toute montée de version.
+          missing=()
+          [[ -n "$KEYSTORE_BASE64" ]] || missing+=(UMAI_KEYSTORE_BASE64)
+          [[ -n "$KEYSTORE_PASSWORD" ]] || missing+=(UMAI_KEYSTORE_PASSWORD)
+          if (( ${#missing[@]} )); then
+            echo "::error::Secrets manquants : ${missing[*]} (voir docs/release.md)"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Monter la version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump || 'patch' }}
+        run: |
+          bash scripts/bump-version.sh "$BUMP"
+          tag="v$(sed -n 's/^versionName=//p' app/version.properties)"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
+            echo "::error::Le tag $tag existe déjà."
+            exit 1
+          fi
+
+      - name: Relever puis vider les notes de version
+        id: notes
+        run: |
+          # Les notes partent dans la release ; la liste vidée part dans le commit de version.
+          notes="$RUNNER_TEMP/release-notes.md"
+          bash scripts/release-notes.sh extract "$notes"
+          bash scripts/release-notes.sh reset
+          echo "path=$notes" >> "$GITHUB_OUTPUT"
+
+      - name: Compiler l'APK release
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease --console=plain
+
+      - name: Signer et vérifier l'APK
+        id: apk
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+        run: |
+          keystore="$RUNNER_TEMP/umai-release.keystore"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore"
+
+          build_tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)
+          unsigned=$(ls app/build/outputs/apk/release/*-release-unsigned.apk)
+          apk="$RUNNER_TEMP/umai-$VERSION_NAME.apk"
+
+          args=(--ks "$keystore" --ks-key-alias "${KEY_ALIAS:-umai}" --ks-pass env:KEYSTORE_PASSWORD)
+          if [[ -n "$KEY_PASSWORD" ]]; then
+            args+=(--key-pass env:KEY_PASSWORD)
+          fi
+          "$build_tools/apksigner" sign "${args[@]}" --out "$apk" "$unsigned"
+          "$build_tools/apksigner" verify --print-certs "$apk"
+
+          echo "path=$apk" >> "$GITHUB_OUTPUT"
+
+      - name: Supprimer la clé du runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/umai-release.keystore"
+
+      - name: Commit et tag de la version
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Version $VERSION_NAME [skip ci]"
+          git tag -a "v$VERSION_NAME" -m "umai $VERSION_NAME"
+          # Atomique : si main a avancé pendant le build, ni le commit ni le tag ne sont poussés.
+          git push --atomic origin "HEAD:$GITHUB_REF_NAME" "v$VERSION_NAME"
+
+      - name: Publier la GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+          APK: ${{ steps.apk.outputs.path }}
+          NOTES: ${{ steps.notes.outputs.path }}
+        run: |
+          if [[ -s "$NOTES" ]]; then
+            notes=(--notes-file "$NOTES")
+          else
+            notes=(--generate-notes)
+          fi
+          gh release create "v$VERSION_NAME" "$APK" --title "umai $VERSION_NAME" "${notes[@]}"

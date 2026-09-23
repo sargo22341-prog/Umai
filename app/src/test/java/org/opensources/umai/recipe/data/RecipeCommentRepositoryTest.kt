@@ -25,14 +25,15 @@ class RecipeCommentRepositoryTest {
     fun tearDown() = fake.shutdown()
 
     @Test
-    fun `the comments of a recipe are read newest first`() = runTest {
+    fun `the comments of a recipe are read oldest first, like a conversation`() = runTest {
         fake.enqueueJson(COMMENTS)
 
         val comments = (repository.comments("poulet") as ApiResult.Success).value
 
         assertEquals(2, comments.size)
-        assertEquals("Trop bon", comments[0].text)
-        assertEquals("Hiroo", comments[0].authorName)
+        assertEquals("A refaire", comments[0].text)
+        assertEquals("Trop bon", comments[1].text)
+        assertEquals("Hiroo", comments[1].authorName)
         assertEquals("/api/recipes/poulet/comments", fake.takeRequest().url.encodedPath)
     }
 

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.opensources.umai.core.di.AppContainer
+import org.opensources.umai.core.image.CropRegion
 import org.opensources.umai.core.model.HouseholdStatistics
 import org.opensources.umai.core.model.UserProfile
 import org.opensources.umai.core.network.ApiResult
@@ -22,6 +23,7 @@ import org.opensources.umai.recipe.domain.RecipeDraft
 /** One-shot messages shown as a snackbar. */
 sealed interface ProfileEvent {
     data object AvatarUpdated : ProfileEvent
+    data object CameraUnavailable : ProfileEvent
     data class Failed(val error: NetworkError) : ProfileEvent
 }
 
@@ -59,12 +61,12 @@ class ProfileViewModel(
 
     fun retry() = load(initial = true)
 
-    /** [imageUri] comes from the system photo picker, as a string. */
-    fun updateAvatar(imageUri: String) {
+    /** [imageUri] is the picked picture, [region] the square the user framed in it. */
+    fun updateAvatar(imageUri: String, region: CropRegion) {
         val user = _state.value.user ?: return
         _state.update { it.copy(uploadingAvatar = true) }
         viewModelScope.launch {
-            when (val result = profileRepository.updateAvatar(user.id, imageUri)) {
+            when (val result = profileRepository.updateAvatar(user.id, imageUri, region)) {
                 is ApiResult.Failure -> _state.update {
                     it.copy(uploadingAvatar = false, event = ProfileEvent.Failed(result.error))
                 }
@@ -77,6 +79,8 @@ class ProfileViewModel(
             }
         }
     }
+
+    fun onCameraUnavailable() = _state.update { it.copy(event = ProfileEvent.CameraUnavailable) }
 
     fun consumeEvent() = _state.update { it.copy(event = null) }
 
