@@ -1,6 +1,7 @@
 package org.opensources.umai.settings.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,6 +18,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -67,6 +69,7 @@ fun MealieSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         onRecipePublicChange = viewModel::setRecipePublic,
         onPrivateHouseholdChange = viewModel::setPrivateHousehold,
         onDismissSaveError = viewModel::dismissSaveError,
+        onSyncCalorieTags = viewModel::syncCalorieTags,
         modifier = modifier,
     )
 }
@@ -89,6 +92,7 @@ fun MealieSettingsScreen(
     onPrivateHouseholdChange: (Boolean) -> Unit,
     onDismissSaveError: () -> Unit,
     modifier: Modifier = Modifier,
+    onSyncCalorieTags: () -> Unit = {},
 ) {
     var signOutDialogVisible by remember { mutableStateOf(false) }
 
@@ -237,7 +241,41 @@ fun MealieSettingsScreen(
                         )
                     }
                 }
+
+                item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
+                item { SettingsSectionHeader(stringResource(R.string.settings_section_recipes)) }
+                item { CalorieSyncBlock(sync = state.calorieSync, onSync = onSyncCalorieTags) }
             }
+        }
+    }
+}
+
+@Composable
+private fun CalorieSyncBlock(sync: CalorieSync, onSync: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(text = stringResource(R.string.settings_calorie_tags), style = MaterialTheme.typography.bodyLarge)
+        Text(
+            text = stringResource(R.string.settings_calorie_tags_summary),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedButton(onClick = onSync, enabled = !sync.running) {
+            Text(stringResource(if (sync.running) R.string.settings_calorie_tags_running else R.string.settings_calorie_tags_action))
+        }
+        if (sync.running && sync.total > 0) {
+            LinearProgressIndicator(progress = { sync.processed.toFloat() / sync.total }, modifier = Modifier.fillMaxWidth())
+        }
+        sync.error?.let { error ->
+            Text(text = "${error.title()}\n${error.message()}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
+        if (sync.finished && sync.error == null) {
+            Text(
+                text = stringResource(R.string.settings_calorie_tags_done, sync.total, sync.changed, sync.failed),
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }

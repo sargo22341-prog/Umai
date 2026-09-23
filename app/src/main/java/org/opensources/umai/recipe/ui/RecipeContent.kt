@@ -71,6 +71,7 @@ internal fun RecipeContent(
     state: RecipeDetailUiState,
     imageUrl: String?,
     stepImageUrl: (String, String) -> String?,
+    stepPhotoUrl: (String) -> String?,
     contentPadding: PaddingValues,
     onServingsChange: (Int) -> Unit,
     onToggleFavorite: () -> Unit,
@@ -158,6 +159,20 @@ internal fun RecipeContent(
             )
         }
 
+        recipe.ingredientsPhoto?.let { file ->
+            item {
+                RemoteImage(
+                    url = stepPhotoUrl(file),
+                    contentDescription = stringResource(R.string.cd_ingredients_photo),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp)
+                        .aspectRatio(4f / 3f)
+                        .clip(MaterialTheme.shapes.medium),
+                )
+            }
+        }
+
         if (recipe.ingredients.isEmpty()) {
             item { Hint(stringResource(R.string.recipe_no_ingredients)) }
         } else {
@@ -179,6 +194,7 @@ internal fun RecipeContent(
                     step = recipe.steps[index],
                     recipeId = recipe.id,
                     stepImageUrl = stepImageUrl,
+                    stepPhotoUrl = stepPhotoUrl,
                 )
             }
         }
@@ -446,6 +462,7 @@ private fun StepBlock(
     step: RecipeStep,
     recipeId: String,
     stepImageUrl: (String, String) -> String?,
+    stepPhotoUrl: (String) -> String?,
 ) {
     Column(
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
@@ -478,9 +495,11 @@ private fun StepBlock(
             }
         }
 
-        step.images.forEachIndexed { imageIndex, source ->
+        // The photo of the step comes first, then the pictures of its text.
+        val urls = listOfNotNull(step.photo?.let(stepPhotoUrl)) + step.images.map { stepImageUrl(recipeId, it) }
+        urls.forEachIndexed { imageIndex, url ->
             RemoteImage(
-                url = stepImageUrl(recipeId, source),
+                url = url,
                 contentDescription = stringResource(R.string.cd_step_image, index + 1),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -488,7 +507,7 @@ private fun StepBlock(
                     .aspectRatio(16f / 9f)
                     .clip(MaterialTheme.shapes.medium),
             )
-            if (imageIndex < step.images.lastIndex) Spacer(Modifier.height(8.dp))
+            if (imageIndex < urls.lastIndex) Spacer(Modifier.height(8.dp))
         }
     }
 }

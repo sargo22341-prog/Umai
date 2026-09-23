@@ -2,12 +2,17 @@ package org.opensources.umai.recipe.ui
 
 import org.opensources.umai.core.image.CropRegion
 import org.opensources.umai.core.model.Organizer
+import org.opensources.umai.recipe.domain.DraftIngredient
 import org.opensources.umai.recipe.domain.DraftOrganizer
 import org.opensources.umai.recipe.domain.DraftStep
+import org.opensources.umai.recipe.domain.IngredientLinker
 import org.opensources.umai.recipe.domain.RecipeDraft
 
 /** The sections of the recipe form, in the order the creation walks through them. */
 enum class RecipeFormSection { BASICS, IMAGE, INGREDIENTS, INSTRUCTIONS, ORGANIZERS }
+
+/** The outcome of the last automatic linking: [added] new links, [total] links in all. */
+data class IngredientLinkResult(val added: Int, val total: Int)
 
 /**
  * The edits the recipe form makes to a [RecipeDraft], shared by the creation
@@ -22,7 +27,16 @@ interface RecipeDraftEditing {
 
     fun removeImage()
 
+    /** Frames a new photo for the step at [index], saved with the recipe. */
+    fun setStepPhoto(index: Int, sourceUri: String, region: CropRegion)
+
+    /** Drops the photo framed on the device for the step; one already on Mealie stays. */
+    fun removeStepPhoto(index: Int)
+
     fun showSection(section: RecipeFormSection)
+
+    /** Reports the outcome of [linkIngredients]. */
+    fun onIngredientsLinked(result: IngredientLinkResult)
 
     fun onNameChange(value: String) = editDraft { it.copy(name = value) }
 
@@ -36,13 +50,27 @@ interface RecipeDraftEditing {
 
     fun onTotalTimeChange(value: String) = editDraft { it.copy(totalTime = value) }
 
+    /** A retyped line keeps its reference, so its links stay; its food no longer says what it is. */
     fun onIngredientChange(index: Int, value: String) = editDraft { draft ->
-        draft.copy(ingredients = draft.ingredients.replaceAt(index, value))
+        draft.copy(
+            ingredients = draft.ingredients.updateAt(index) {
+                if (it.text == value) it else it.copy(text = value, food = null)
+            },
+        )
     }
 
-    fun addIngredient() = editDraft { it.copy(ingredients = it.ingredients + "") }
+    fun addIngredient() = editDraft { it.copy(ingredients = it.ingredients + DraftIngredient()) }
 
-    fun removeIngredient(index: Int) = editDraft { it.copy(ingredients = it.ingredients.removeAt(index)) }
+    /** The steps stop pointing at a line that is removed. */
+    fun removeIngredient(index: Int) = editDraft { draft ->
+        val removed = draft.ingredients.getOrNull(index) ?: return@editDraft draft
+        draft.copy(
+            ingredients = draft.ingredients.removeAt(index),
+            steps = draft.steps.map { step ->
+                step.copy(ingredientReferences = step.ingredientReferences - removed.referenceId)
+            },
+        )
+    }
 
     fun onStepTitleChange(index: Int, value: String) = editDraft { draft ->
         draft.copy(steps = draft.steps.updateAt(index) { it.copy(title = value) })
@@ -55,6 +83,25 @@ interface RecipeDraftEditing {
     fun addStep() = editDraft { it.copy(steps = it.steps + DraftStep()) }
 
     fun removeStep(index: Int) = editDraft { it.copy(steps = it.steps.removeAt(index)) }
+
+    /** Adds the links the steps' wording suggests to the ones they already have. */
+    fun linkIngredients() {
+        var outcome = IngredientLinkResult(0, 0)
+        editDraft { draft ->
+            val result = IngredientLinker.link(draft.ingredients, draft.steps)
+            outcome = IngredientLinkResult(result.added, result.total)
+            draft.copy(steps = result.steps)
+        }
+        onIngredientsLinked(outcome)
+    }
+
+    fun unlinkIngredient(stepIndex: Int, referenceId: String) = editDraft { draft ->
+        draft.copy(
+            steps = draft.steps.updateAt(stepIndex) { step ->
+                step.copy(ingredientReferences = step.ingredientReferences - referenceId)
+            },
+        )
+    }
 
     fun toggleCategory(organizer: Organizer) = editDraft { draft ->
         draft.copy(categories = draft.categories.toggle(organizer))
@@ -69,14 +116,11 @@ interface RecipeDraftEditing {
     }
 }
 
-private fun List<String>.replaceAt(index: Int, value: String): List<String> =
-    if (index !in indices) this else toMutableList().also { it[index] = value }
+internal fun <T> List<T>.updateAt(index: Int, change: (T) -> T): List<T> =
+    if (index !in indices) this else toMutableList().also { it[index] = change(it[index]) }
 
 private fun <T> List<T>.removeAt(index: Int): List<T> =
     if (index !in indices) this else toMutableList().also { it.removeAt(index) }
-
-private fun List<DraftStep>.updateAt(index: Int, change: (DraftStep) -> DraftStep): List<DraftStep> =
-    if (index !in indices) this else toMutableList().also { it[index] = change(it[index]) }
 
 private fun List<DraftOrganizer>.toggle(organizer: Organizer): List<DraftOrganizer> =
     if (any { it.id == organizer.id }) {

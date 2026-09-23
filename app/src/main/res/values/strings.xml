@@ -122,7 +122,6 @@
     <string name="filter_no_match">Nothing matches</string>
     <string name="filter_food_hint">Type at least two letters to look an ingredient up.</string>
     <string name="filter_time_unsupported">Mealie stores preparation and cooking times as free text, so they cannot be filtered by duration.</string>
-    <string name="filter_calories_unsupported">Nutrition values, calories included, are stored as free text too: the server would compare them letter by letter, so filtering by calories is not offered.</string>
 
     <!-- Recipe detail -->
     <string name="recipe_ingredients">Ingredients</string>
@@ -452,5 +451,87 @@
     <plurals name="recipe_rate">
         <item quantity="one">Rate %1$d star</item>
         <item quantity="other">Rate %1$d stars</item>
+    </plurals>
+
+    <!-- Sharing to the app -->
+    <string name="share_import_label">Import into Umai</string>
+
+    <!-- Import: duplicates and providers -->
+    <string name="import_checking">Checking the instance…</string>
+    <string name="import_fetching_media">Fetching the video and photos…</string>
+    <string name="import_provider_hint">%1$s page: its step-by-step video and step photos will be fetched too.</string>
+    <string name="import_duplicate_title">Already on your instance</string>
+    <string name="import_duplicate_message">“%1$s” was imported from this page already.</string>
+    <string name="import_duplicate_open">Open it</string>
+    <string name="import_duplicate_anyway">Import anyway</string>
+    <string name="notice_recipe_imported_without_media">Recipe imported, but its video and photos could not be fetched</string>
+
+    <!-- Providers -->
+    <string name="providers_title">Recipe providers</string>
+    <string name="providers_summary">Videos and step photos from the websites you import from.</string>
+    <string name="providers_intro">Some websites publish more than a recipe: a video cut step by step, photos of the steps. Mealie does not keep them; the app fetches them for the providers below.</string>
+    <string name="provider_unknown">This provider is not available.</string>
+    <string name="provider_jow_description">Jow publishes a video for most of its recipes, cut step by step. The cooking mode plays the part of each step, and the photos of the steps are fetched when Jow gives some.</string>
+    <string name="provider_section_import">Import</string>
+    <string name="provider_import_media">Fetch the video and step photos</string>
+    <string name="provider_import_media_summary">When a recipe of this provider is imported, the chapters of its video and its step photos are saved with it on Mealie. The video itself is played from the provider.</string>
+
+    <!-- Ingredients linked to steps -->
+    <string name="links_helper">Each step can list the ingredients it uses: the cooking mode shows them with the step. Linking finds the ingredients each step mentions and keeps the links already there.</string>
+    <string name="links_action">Link ingredients to steps</string>
+    <string name="links_step_ingredients">Ingredients of this step</string>
+    <string name="links_remove">Remove the link to %1$s</string>
+
+    <!-- Step photos -->
+    <string name="step_photo_add">Add a photo</string>
+    <string name="step_photo_change">Change the photo</string>
+    <string name="cd_ingredients_photo">Photo of the ingredients</string>
+
+    <!-- Cooking mode: video and end -->
+    <string name="cd_step_video">Video of step %1$d</string>
+    <string name="cooking_video_failed">The video of this step cannot be played.</string>
+    <string name="cooking_video_replay">Replay the step</string>
+    <string name="cooking_video_play">Play</string>
+    <string name="cooking_video_pause">Pause</string>
+    <string name="cooking_video_mute">Turn the sound off</string>
+    <string name="cooking_video_unmute">Turn the sound on</string>
+    <string name="cooking_mark_cooked">Mark as cooked</string>
+    <string name="cooking_mark_cooked_summary">Adds it to the recipe timeline on Mealie and updates the date it was last made.</string>
+    <string name="cooking_leave">Leave</string>
+    <string name="cooking_timeline_subject">Recipe cooked</string>
+    <string name="notice_recipe_cooked">Recipe marked as cooked</string>
+
+    <!-- Calorie filter -->
+    <string name="filter_calories">Calories</string>
+    <string name="filter_calories_up_to">Up to %1$d kcal</string>
+    <string name="filter_calories_unknown">No calories</string>
+    <string name="filter_calories_hint">Calories are free text in Mealie: the filter relies on the “calorie-…” tag each recipe with calories carries. Recipes are tagged when they are created, edited or imported.</string>
+    <string name="settings_section_recipes">Recipes</string>
+    <string name="settings_calorie_tags">Calorie tags</string>
+    <string name="settings_calorie_tags_summary">Gives every recipe with calories the “calorie-…” tag the calorie filter relies on, and fixes the ones that changed. Recipes already right are left alone.</string>
+    <string name="settings_calorie_tags_action">Update the calorie tags</string>
+    <string name="settings_calorie_tags_running">Updating…</string>
+    <string name="settings_calorie_tags_done">%1$d recipes checked, %2$d updated, %3$d failed.</string>
+
+    <!-- Planning: week to shopping list -->
+    <string name="week_shopping_title">Add the week to a shopping list</string>
+    <string name="week_shopping_step">Step %1$d of %2$d — %3$s</string>
+    <string name="week_shopping_step_recipes">Meals</string>
+    <string name="week_shopping_step_servings">Servings</string>
+    <string name="week_shopping_step_ingredients">Ingredients</string>
+    <string name="week_shopping_meals">Planned recipes</string>
+    <string name="week_shopping_no_recipe">No recipe is planned on these days.</string>
+    <string name="week_shopping_no_servings">No serving count: quantities are sent as written.</string>
+    <plurals name="week_shopping_done">
+        <item quantity="one">%1$d recipe added to “%2$s”.</item>
+        <item quantity="other">%1$d recipes added to “%2$s”.</item>
+    </plurals>
+    <plurals name="links_found">
+        <item quantity="one">%1$d new link found.</item>
+        <item quantity="other">%1$d new links found.</item>
+    </plurals>
+    <plurals name="links_total">
+        <item quantity="one">%1$d link in all.</item>
+        <item quantity="other">%1$d links in all.</item>
     </plurals>
 </resources>

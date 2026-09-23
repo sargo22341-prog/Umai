@@ -168,7 +168,12 @@ fun RecipeCreateScreen(
                         actions = actions,
                     )
                     RecipeFormSection.INGREDIENTS -> IngredientsSection(state.draft, actions)
-                    RecipeFormSection.INSTRUCTIONS -> InstructionsSection(state.draft, actions)
+                    RecipeFormSection.INSTRUCTIONS -> InstructionsSection(
+                        draft = state.draft,
+                        state = state.steps,
+                        photoUrl = { step -> step.photoPath?.let { Uri.fromFile(File(it)).toString() } },
+                        actions = actions,
+                    )
                     RecipeFormSection.ORGANIZERS -> OrganizersSection(
                         draft = state.draft,
                         categories = state.categories,

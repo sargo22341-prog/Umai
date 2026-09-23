@@ -48,7 +48,7 @@ class RecipeDraftStore(context: Context, private val imageFiles: RecipeImageFile
         }
     }
 
-    /** Removes the draft and the picture it kept on the device. */
+    /** Removes the draft and the pictures it kept on the device. */
     suspend fun delete(id: String) {
         var removed: RecipeDraft? = null
         dataStore.edit { prefs ->
@@ -56,7 +56,7 @@ class RecipeDraftStore(context: Context, private val imageFiles: RecipeImageFile
             removed = current.firstOrNull { it.id == id }
             prefs[KeyDrafts] = json.encodeToString(current.filterNot { it.id == id })
         }
-        removed?.imagePath?.let(imageFiles::delete)
+        removed?.devicePhotoPaths?.forEach(imageFiles::delete)
     }
 
     private fun decode(raw: String?): List<RecipeDraft> {

@@ -23,7 +23,9 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FormatListNumbered
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -36,10 +38,12 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,10 +63,14 @@ import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.format.IngredientText
 import org.opensources.umai.core.markdown.MarkdownText
 import org.opensources.umai.core.model.RecipeIngredient
+import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.ui.component.EmptyView
 import org.opensources.umai.core.ui.component.LoadingView
 import org.opensources.umai.core.ui.component.NetworkErrorView
 import org.opensources.umai.core.ui.component.RemoteImage
+import org.opensources.umai.core.ui.component.message
+import org.opensources.umai.core.ui.component.title
+import org.opensources.umai.recipe.domain.StepClip
 
 /**
  * Step-by-step cooking mode: one step fills the screen, navigation is reduced
@@ -74,6 +82,7 @@ fun CookingScreen(
     slug: String,
     servings: Int,
     onExit: () -> Unit,
+    onCooked: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val container = LocalAppContainer.current
@@ -83,16 +92,26 @@ fun CookingScreen(
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    LaunchedEffect(state.markedCooked) {
+        if (state.markedCooked) onCooked()
+    }
+
+    val cookedSubject = stringResource(R.string.cooking_timeline_subject)
+    val recipeId = state.recipe?.id.orEmpty()
     CookingScreen(
         state = state,
+        clip = state.chapter?.let { chapter ->
+            state.video?.videoUrl?.let { StepClip(it, chapter.start, chapter.end) }
+        },
         onExit = onExit,
         onPrevious = viewModel::previous,
         onNext = viewModel::next,
         onGoToStep = viewModel::goToStep,
         onRetry = viewModel::load,
-        stepImageUrl = { source ->
-            container.imageUrls.stepImage(state.recipe?.id.orEmpty(), source)
-        },
+        onMarkCooked = { viewModel.markCooked(cookedSubject) },
+        onDismissMarkError = viewModel::dismissMarkError,
+        stepImageUrl = { source -> container.imageUrls.stepImage(recipeId, source) },
+        stepPhotoUrl = { file -> container.imageUrls.recipeAsset(recipeId, file, state.recipe?.mediaVersion) },
         modifier = modifier,
     )
 }
@@ -102,17 +121,39 @@ fun CookingScreen(
 @Composable
 fun CookingScreen(
     state: CookingUiState,
+    clip: StepClip?,
     onExit: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onGoToStep: (Int) -> Unit,
     onRetry: () -> Unit,
+    onMarkCooked: () -> Unit,
+    onDismissMarkError: () -> Unit,
     stepImageUrl: (String) -> String?,
+    stepPhotoUrl: (String) -> String?,
     modifier: Modifier = Modifier,
+    videoContent: @Composable (StepClip, Int) -> Unit = { stepClip, number -> StepVideoPlayer(stepClip, number) },
 ) {
     var stepListVisible by remember { mutableStateOf(false) }
+    var finishing by remember { mutableStateOf(false) }
 
     KeepScreenOn(enabled = state.keepScreenOn)
+
+    if (finishing) {
+        FinishDialog(
+            marking = state.markingCooked,
+            error = state.markError,
+            onMarkCooked = onMarkCooked,
+            onLeave = {
+                finishing = false
+                onExit()
+            },
+            onDismiss = {
+                finishing = false
+                onDismissMarkError()
+            },
+        )
+    }
 
     if (stepListVisible) {
         StepListSheet(
@@ -163,7 +204,7 @@ fun CookingScreen(
                     isLastStep = state.isLastStep,
                     onPrevious = onPrevious,
                     onNext = onNext,
-                    onFinish = onExit,
+                    onFinish = { finishing = true },
                 )
             }
         },
@@ -190,8 +231,15 @@ fun CookingScreen(
                     stepCount = state.stepCount,
                     title = state.step?.title,
                     text = state.step?.text.orEmpty(),
-                    imageSources = state.step?.images.orEmpty(),
-                    stepImageUrl = stepImageUrl,
+                    media = {
+                        clip?.let { videoContent(it, state.currentStep + 1) }
+                        state.step?.photo?.let { file ->
+                            StepImage(url = stepPhotoUrl(file), stepNumber = state.currentStep + 1)
+                        }
+                        state.step?.images.orEmpty().forEach { source ->
+                            StepImage(url = stepImageUrl(source), stepNumber = state.currentStep + 1)
+                        }
+                    },
                     ingredients = state.ingredientsForStep,
                     scale = state.scale,
                 )
@@ -206,8 +254,7 @@ private fun StepContent(
     stepCount: Int,
     title: String?,
     text: String,
-    imageSources: List<String>,
-    stepImageUrl: (String) -> String?,
+    media: @Composable () -> Unit,
     ingredients: List<RecipeIngredient>,
     scale: Double,
     modifier: Modifier = Modifier,
@@ -235,20 +282,10 @@ private fun StepContent(
             Text(text = it, style = MaterialTheme.typography.headlineSmall)
         }
 
-        // Mealie embeds step pictures inside the instruction text; they are
-        // extracted at mapping time and shown here as real images.
-        imageSources.forEach { source ->
-            RemoteImage(
-                url = stepImageUrl(source),
-                contentDescription = stringResource(R.string.cd_step_image, stepIndex + 1),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 160.dp, max = 320.dp)
-                    .clip(MaterialTheme.shapes.large),
-                contentScale = ContentScale.Fit,
-                placeholderIconSize = 40.dp,
-            )
-        }
+        // The video of the step, then its photo and the pictures Mealie embeds
+        // in the instruction text, extracted at mapping time. A step with none
+        // of them shows none: no picture stands in for a missing one.
+        media()
 
         if (text.isNotBlank()) {
             MarkdownText(
@@ -293,6 +330,62 @@ private fun StepContent(
 
         Spacer(Modifier.height(8.dp))
     }
+}
+
+@Composable
+private fun StepImage(url: String?, stepNumber: Int) {
+    RemoteImage(
+        url = url,
+        contentDescription = stringResource(R.string.cd_step_image, stepNumber),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 160.dp, max = 320.dp)
+            .clip(MaterialTheme.shapes.large),
+        contentScale = ContentScale.Fit,
+        placeholderIconSize = 40.dp,
+    )
+}
+
+/** Offered at the end of the recipe: record it as cooked in Mealie, or just leave. */
+@Composable
+private fun FinishDialog(
+    marking: Boolean,
+    error: NetworkError?,
+    onMarkCooked: () -> Unit,
+    onLeave: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = { if (!marking) onDismiss() },
+        title = { Text(stringResource(R.string.cooking_done_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.cooking_done_message))
+                Text(stringResource(R.string.cooking_mark_cooked_summary), style = MaterialTheme.typography.bodySmall)
+                error?.let {
+                    Text(
+                        text = "${it.title()}\n${it.message()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onMarkCooked, enabled = !marking) {
+                if (marking) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Text(stringResource(R.string.cooking_mark_cooked))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onLeave, enabled = !marking) {
+                Text(stringResource(R.string.cooking_leave))
+            }
+        },
+    )
 }
 
 @Composable

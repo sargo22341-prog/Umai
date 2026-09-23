@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.AddShoppingCart
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Delete
@@ -80,10 +81,30 @@ fun PlanningScreen(
     val viewModel: PlanningViewModel = viewModel(factory = PlanningViewModel.factory(container))
     val state by viewModel.state.collectAsStateWithLifecycle()
     val picker by viewModel.picker.collectAsStateWithLifecycle()
+    val weekShopping: WeekShoppingViewModel = viewModel(factory = WeekShoppingViewModel.factory(container))
+    val shopping by weekShopping.state.collectAsStateWithLifecycle()
 
     // The tab keeps its ViewModel while the user walks through other screens,
     // so the plan is asked for again every time the screen comes back.
     LaunchedEffect(Unit) { viewModel.onScreenShown() }
+
+    if (shopping.visible) {
+        WeekShoppingSheet(
+            state = shopping,
+            actions = remember(weekShopping) {
+                WeekShoppingActions(
+                    onDismiss = weekShopping::close,
+                    onToggle = weekShopping::toggle,
+                    onSelectList = weekShopping::selectList,
+                    onServingsChange = weekShopping::setServings,
+                    onToggleIngredient = weekShopping::toggleIngredient,
+                    onBack = weekShopping::back,
+                    onNext = weekShopping::next,
+                    onRetry = weekShopping::retry,
+                )
+            },
+        )
+    }
 
     PlanningScreen(
         state = state,
@@ -100,6 +121,7 @@ fun PlanningScreen(
         onAddNote = viewModel::addNote,
         onDeleteEntry = viewModel::deleteEntry,
         recipeImageUrl = { recipe -> container.imageUrls.thumbnail(recipe.id, recipe.imageToken) },
+        onAddToShopping = { weekShopping.open(state.days.flatMap { state.entriesByDay[it].orEmpty() }) },
         modifier = modifier,
     )
 }
@@ -123,6 +145,7 @@ fun PlanningScreen(
     onDeleteEntry: (MealPlanEntry) -> Unit,
     recipeImageUrl: (RecipeSummary) -> String?,
     modifier: Modifier = Modifier,
+    onAddToShopping: () -> Unit = {},
 ) {
     val listState = rememberLazyListState()
 
@@ -168,6 +191,12 @@ fun PlanningScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.planning_title)) },
                 actions = {
+                    IconButton(onClick = onAddToShopping, enabled = state.hasRecipes) {
+                        Icon(
+                            Icons.Outlined.AddShoppingCart,
+                            contentDescription = stringResource(R.string.week_shopping_title),
+                        )
+                    }
                     IconButton(onClick = onPreviousWeek) {
                         Icon(
                             Icons.Outlined.ChevronLeft,

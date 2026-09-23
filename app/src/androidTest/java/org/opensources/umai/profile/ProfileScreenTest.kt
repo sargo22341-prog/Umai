@@ -54,6 +54,7 @@ class ProfileScreenTest {
                     onPickAvatar = onPickAvatar,
                     onOpenAppSettings = onOpenAppSettings,
                     onOpenMealieSettings = onOpenMealieSettings,
+                    onOpenProviders = {},
                     onImportRecipe = onImportRecipe,
                     onCreateRecipe = onCreateRecipe,
                     onOpenDrafts = onOpenDrafts,

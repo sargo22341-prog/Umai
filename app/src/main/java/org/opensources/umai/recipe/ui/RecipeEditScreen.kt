@@ -49,6 +49,7 @@ import org.opensources.umai.core.ui.component.LoadingView
 import org.opensources.umai.core.ui.component.NetworkErrorView
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
+import org.opensources.umai.recipe.domain.DraftStep
 import java.io.File
 
 /**
@@ -109,6 +110,12 @@ fun RecipeEditScreen(
         state = state,
         actions = actions,
         currentImageUrl = state.recipe?.let { container.imageUrls.original(it.recipeId, it.imageToken) },
+        stepPhotoUrl = { step ->
+            step.photoPath?.let { Uri.fromFile(File(it)).toString() }
+                ?: state.recipe?.let { recipe ->
+                    step.photoFile?.let { container.imageUrls.recipeAsset(recipe.recipeId, it, recipe.mediaVersion) }
+                }
+        },
         onBack = requestLeave,
         onSave = viewModel::save,
         onRetry = viewModel::load,
@@ -124,6 +131,7 @@ fun RecipeEditScreen(
     state: RecipeEditUiState,
     actions: RecipeFormActions,
     currentImageUrl: String?,
+    stepPhotoUrl: (DraftStep) -> String?,
     onBack: () -> Unit,
     onSave: () -> Unit,
     onRetry: () -> Unit,
@@ -211,7 +219,7 @@ fun RecipeEditScreen(
                             actions = actions,
                         )
                         RecipeFormSection.INGREDIENTS -> IngredientsSection(state.draft, actions)
-                        RecipeFormSection.INSTRUCTIONS -> InstructionsSection(state.draft, actions)
+                        RecipeFormSection.INSTRUCTIONS -> InstructionsSection(state.draft, state.steps, stepPhotoUrl, actions)
                         RecipeFormSection.ORGANIZERS -> OrganizersSection(
                             draft = state.draft,
                             categories = state.categories,

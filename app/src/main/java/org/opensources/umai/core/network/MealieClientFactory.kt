@@ -42,19 +42,26 @@ object MealieClientFactory {
 
     private val jsonMediaType = "application/json".toMediaType()
 
+    /**
+     * [instanceHost], when set, is the only host that receives the token and
+     * whose 401 answers invalidate the session. The same client also loads
+     * pictures and media from other sites (a recipe source, a CDN), which must
+     * never see the Mealie credentials nor sign the user out.
+     */
     fun okHttpClient(
         tokenProvider: TokenProvider,
         unauthorizedListener: UnauthorizedListener? = null,
         acceptLanguage: () -> String = { defaultAcceptLanguage() },
+        instanceHost: String? = null,
     ): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
         .callTimeout(60, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
-        .addInterceptor(HeaderInterceptor(tokenProvider, acceptLanguage))
+        .addInterceptor(HeaderInterceptor(tokenProvider, acceptLanguage, instanceHost))
         .apply {
-            unauthorizedListener?.let { addInterceptor(UnauthorizedInterceptor(it)) }
+            unauthorizedListener?.let { addInterceptor(UnauthorizedInterceptor(it, instanceHost)) }
             // Request logging exists only in debug builds, and the Authorization
             // header is redacted so a token can never reach logcat.
             if (BuildConfig.DEBUG) {
@@ -85,13 +92,17 @@ object MealieClientFactory {
 private class HeaderInterceptor(
     private val tokenProvider: TokenProvider,
     private val acceptLanguage: () -> String,
+    private val instanceHost: String?,
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
-        val builder: Request.Builder = chain.request().newBuilder()
+        val request = chain.request()
+        val builder: Request.Builder = request.newBuilder()
             .header("Accept", "application/json")
             .header("Accept-Language", acceptLanguage())
-        tokenProvider.token()?.takeIf { it.isNotBlank() }?.let {
-            builder.header("Authorization", "Bearer $it")
+        if (request.isForInstance(instanceHost)) {
+            tokenProvider.token()?.takeIf { it.isNotBlank() }?.let {
+                builder.header("Authorization", "Bearer $it")
+            }
         }
         return chain.proceed(builder.build())
     }
@@ -99,10 +110,14 @@ private class HeaderInterceptor(
 
 private class UnauthorizedInterceptor(
     private val listener: UnauthorizedListener,
+    private val instanceHost: String?,
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val response = chain.proceed(chain.request())
-        if (response.code == 401) listener.onUnauthorized()
+        if (response.code == 401 && chain.request().isForInstance(instanceHost)) listener.onUnauthorized()
         return response
     }
 }
+
+private fun Request.isForInstance(instanceHost: String?): Boolean =
+    instanceHost == null || url.host.equals(instanceHost, ignoreCase = true)

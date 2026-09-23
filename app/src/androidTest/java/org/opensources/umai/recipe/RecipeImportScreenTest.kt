@@ -10,13 +10,16 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.opensources.umai.R
+import org.opensources.umai.TestData
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.ui.theme.UmaiTheme
+import org.opensources.umai.recipe.ui.ImportPhase
 import org.opensources.umai.recipe.ui.RecipeImportScreen
 import org.opensources.umai.recipe.ui.RecipeImportUiState
 
@@ -35,6 +38,8 @@ class RecipeImportScreenTest {
         state: RecipeImportUiState,
         onImport: () -> Unit = {},
         onIncludeTagsChange: (Boolean) -> Unit = {},
+        onImportAnyway: () -> Unit = {},
+        onOpenExisting: (String) -> Unit = {},
     ) {
         rule.setContent {
             UmaiTheme {
@@ -45,6 +50,8 @@ class RecipeImportScreenTest {
                     onIncludeTagsChange = onIncludeTagsChange,
                     onIncludeCategoriesChange = {},
                     onImport = onImport,
+                    onImportAnyway = onImportAnyway,
+                    onOpenExisting = onOpenExisting,
                 )
             }
         }
@@ -92,10 +99,43 @@ class RecipeImportScreenTest {
 
     @Test
     fun whileImportingTheButtonSaysSoAndIsBlocked() {
-        render(RecipeImportUiState(url = "https://example.org", importing = true))
+        render(RecipeImportUiState(url = "https://example.org", phase = ImportPhase.IMPORTING))
 
         rule.onNodeWithText(string(R.string.import_running)).assertIsDisplayed()
         rule.onNodeWithText(string(R.string.import_running)).assertIsNotEnabled()
+    }
+
+    @Test
+    fun aRecipeAlreadyImportedIsReportedInsteadOfImportedAgain() {
+        var opened: String? = null
+        var forced = false
+        render(
+            RecipeImportUiState(url = "https://jow.fr/recipes/x", duplicate = TestData.summary(slug = "tarte", name = "Tarte")),
+            onImportAnyway = { forced = true },
+            onOpenExisting = { opened = it },
+        )
+
+        rule.onNodeWithText(string(R.string.import_duplicate_title)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.import_action)).assertIsNotEnabled()
+        rule.onNodeWithText(string(R.string.import_duplicate_open)).performClick()
+        rule.onNodeWithText(string(R.string.import_duplicate_anyway)).performClick()
+
+        assertEquals("tarte", opened)
+        assertTrue(forced)
+    }
+
+    @Test
+    fun aKnownProviderSaysItsMediaWillFollow() {
+        render(RecipeImportUiState(url = "https://jow.fr/recipes/x", providerName = "Jow"))
+
+        rule.onNodeWithText(string(R.string.import_provider_hint, "Jow")).assertIsDisplayed()
+    }
+
+    @Test
+    fun fetchingTheMediaIsShownWhileItRuns() {
+        render(RecipeImportUiState(url = "https://jow.fr/recipes/x", phase = ImportPhase.FETCHING_MEDIA))
+
+        rule.onNodeWithText(string(R.string.import_fetching_media)).assertIsDisplayed()
     }
 
     @Test

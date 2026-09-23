@@ -8,10 +8,15 @@ import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.network.apiCall
 import org.opensources.umai.core.network.api.MealieApi
+import org.opensources.umai.core.network.dto.RecipeLastMadeDto
+import org.opensources.umai.core.network.dto.TimelineEventInDto
 import org.opensources.umai.core.network.dto.UserRatingUpdateDto
+import org.opensources.umai.recipe.domain.CalorieFilter
+import org.opensources.umai.recipe.domain.CalorieTag
 import org.opensources.umai.search.domain.RecipeFilters
 import org.opensources.umai.search.domain.RecipeSort
 import org.opensources.umai.search.domain.buildQueryFilter
+import java.time.Instant
 import kotlin.math.roundToInt
 
 /**
@@ -24,6 +29,7 @@ import kotlin.math.roundToInt
 class RecipeRepository(
     private val apiProvider: () -> MealieApi?,
     private val currentUserId: () -> String? = { null },
+    private val calorieTags: suspend () -> ApiResult<List<CalorieTag>> = { ApiResult.Success(emptyList()) },
 ) {
 
     suspend fun search(
@@ -45,6 +51,15 @@ class RecipeRepository(
             emptyList()
         }
 
+        val calories = if (filters.calories != CalorieFilter.ANY) {
+            when (val result = calorieTags()) {
+                is ApiResult.Failure -> return result
+                is ApiResult.Success -> result.value
+            }
+        } else {
+            emptyList()
+        }
+
         return apiCall {
             api.recipes(
                 page = page,
@@ -60,7 +75,7 @@ class RecipeRepository(
                 requireAllFoods = filters.requireAllFoods.takeIf { filters.foodIds.size > 1 },
                 orderBy = sort.orderBy,
                 orderDirection = sort.direction,
-                queryFilter = filters.buildQueryFilter(favorites),
+                queryFilter = filters.buildQueryFilter(favorites, calories),
                 paginationSeed = paginationSeed.takeIf { sort.isRandom },
             ).toPaged { it.toDomain() }
         }
@@ -117,9 +132,33 @@ class RecipeRepository(
         return apiCall { api.setRating(userId, slug, UserRatingUpdateDto(rating, isFavorite)) }
     }
 
+    /**
+     * Records that the recipe was cooked: an entry in its timeline, as Mealie's
+     * own "I made this" writes, and the date it was last made.
+     */
+    suspend fun markCooked(recipe: Recipe, subject: String, at: Instant = Instant.now()): ApiResult<Unit> {
+        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
+        val timestamp = at.toString()
+        val event = apiCall {
+            api.createTimelineEvent(
+                TimelineEventInDto(
+                    recipeId = recipe.id,
+                    subject = subject,
+                    eventType = TIMELINE_INFO,
+                    timestamp = timestamp,
+                ),
+            )
+        }
+        if (event is ApiResult.Failure) return event
+        return apiCall { api.updateLastMade(recipe.slug, RecipeLastMadeDto(timestamp)) }
+    }
+
     private fun Double.toStars(): Int? = roundToInt().takeIf { it in 1..MAX_RATING_STARS }
 
     companion object {
         const val DEFAULT_PAGE_SIZE = 24
+
+        /** One of the `TimelineEventType` values of the OpenAPI schema. */
+        private const val TIMELINE_INFO = "info"
     }
 }

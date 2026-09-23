@@ -25,6 +25,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,22 +43,31 @@ import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
 
+/**
+ * [initialUrl] fills the address in, as when a page is shared to the app.
+ * [onImported] receives the new recipe, and whether the media of its provider
+ * could not be fetched; [onOpenRecipe] opens a recipe already on the instance.
+ */
 @Composable
 fun RecipeImportScreen(
+    initialUrl: String?,
     onBack: () -> Unit,
-    onImported: (String) -> Unit,
+    onImported: (ImportedRecipe) -> Unit,
+    onOpenRecipe: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val container = LocalAppContainer.current
-    val viewModel: RecipeImportViewModel =
-        viewModel(factory = RecipeImportViewModel.factory(container))
+    val viewModel: RecipeImportViewModel = viewModel(
+        factory = RecipeImportViewModel.factory(container, initialUrl),
+        key = "recipe-import-${initialUrl.orEmpty()}",
+    )
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    val slug = state.importedSlug
-    LaunchedEffect(slug) {
-        if (slug != null) {
-            viewModel.consumeImportedSlug()
-            onImported(slug)
+    val imported = state.imported
+    LaunchedEffect(imported) {
+        if (imported != null) {
+            viewModel.consumeImported()
+            onImported(imported)
         }
     }
 
@@ -67,7 +77,9 @@ fun RecipeImportScreen(
         onUrlChange = viewModel::onUrlChange,
         onIncludeTagsChange = viewModel::onIncludeTagsChange,
         onIncludeCategoriesChange = viewModel::onIncludeCategoriesChange,
-        onImport = viewModel::import,
+        onImport = { viewModel.import() },
+        onImportAnyway = { viewModel.import(evenIfPresent = true) },
+        onOpenExisting = onOpenRecipe,
         modifier = modifier,
     )
 }
@@ -82,6 +94,8 @@ fun RecipeImportScreen(
     onIncludeTagsChange: (Boolean) -> Unit,
     onIncludeCategoriesChange: (Boolean) -> Unit,
     onImport: () -> Unit,
+    onImportAnyway: () -> Unit,
+    onOpenExisting: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -129,6 +143,14 @@ fun RecipeImportScreen(
                 ),
             )
 
+            state.providerName?.let { name ->
+                Text(
+                    text = stringResource(R.string.import_provider_hint, name),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+
             SwitchRow(
                 title = stringResource(R.string.import_include_tags),
                 checked = state.includeTags,
@@ -157,19 +179,36 @@ fun RecipeImportScreen(
                 }
             }
 
+            state.duplicate?.let { existing ->
+                DuplicateWarning(
+                    name = existing.name,
+                    onOpen = { onOpenExisting(existing.slug) },
+                    onImportAnyway = onImportAnyway,
+                )
+            }
+
             Button(
                 onClick = onImport,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = state.canSubmit,
+                enabled = state.canSubmit && state.duplicate == null,
             ) {
-                if (state.importing) {
+                val phase = state.phase
+                if (phase != null) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp,
                         color = MaterialTheme.colorScheme.onPrimary,
                     )
                     Spacer(Modifier.size(12.dp))
-                    Text(stringResource(R.string.import_running))
+                    Text(
+                        stringResource(
+                            when (phase) {
+                                ImportPhase.CHECKING -> R.string.import_checking
+                                ImportPhase.IMPORTING -> R.string.import_running
+                                ImportPhase.FETCHING_MEDIA -> R.string.import_fetching_media
+                            },
+                        ),
+                    )
                 } else {
                     Text(stringResource(R.string.import_action))
                 }
@@ -180,6 +219,32 @@ fun RecipeImportScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+@Composable
+private fun DuplicateWarning(name: String, onOpen: () -> Unit, onImportAnyway: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = stringResource(R.string.import_duplicate_title),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+            Text(
+                text = stringResource(R.string.import_duplicate_message, name),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onOpen) { Text(stringResource(R.string.import_duplicate_open)) }
+                TextButton(onClick = onImportAnyway) { Text(stringResource(R.string.import_duplicate_anyway)) }
+            }
         }
     }
 }

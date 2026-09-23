@@ -39,8 +39,15 @@ data object AppSettingsRoute
 @Serializable
 data object MealieSettingsRoute
 
+/** [url] fills the address in, as when a page is shared to the app. */
 @Serializable
-data object RecipeImportRoute
+data class RecipeImportRoute(val url: String? = null)
+
+@Serializable
+data object ProvidersRoute
+
+@Serializable
+data class ProviderRoute(val id: String)
 
 /** [draftId] resumes an unfinished recipe; `null` starts a new one. */
 @Serializable

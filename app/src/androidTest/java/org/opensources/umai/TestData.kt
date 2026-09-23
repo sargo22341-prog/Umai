@@ -60,12 +60,14 @@ object TestData {
         text: String = "Cuire le riz.",
         images: List<String> = emptyList(),
         ingredientRefs: List<String> = emptyList(),
+        photo: String? = null,
     ) = RecipeStep(
         id = id,
         title = title,
         text = text,
         images = images,
         ingredientReferenceIds = ingredientRefs,
+        photo = photo,
     )
 
     fun ingredient(

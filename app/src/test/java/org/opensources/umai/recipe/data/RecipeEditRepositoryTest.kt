@@ -10,6 +10,7 @@ import org.opensources.umai.core.image.EncodedImage
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.FakeMealieServer
 import org.opensources.umai.core.network.NetworkError
+import org.opensources.umai.recipe.domain.DraftIngredient
 import org.opensources.umai.recipe.domain.DraftOrganizer
 import org.opensources.umai.recipe.domain.DraftStep
 import org.opensources.umai.recipe.domain.RecipeDraft
@@ -22,7 +23,7 @@ class RecipeEditRepositoryTest {
     @Before
     fun setUp() {
         fake = FakeMealieServer()
-        repository = RecipeEditRepository { fake.api() }
+        repository = RecipeEditRepository(apiProvider = { fake.api() })
     }
 
     @After
@@ -77,7 +78,7 @@ class RecipeEditRepositoryTest {
                 servings = 4,
                 prepTime = "15 minutes",
                 cookTime = "40 minutes",
-                ingredients = listOf("2 courgettes", "  ", "Creme"),
+                ingredients = listOf("2 courgettes", "  ", "Creme").map { DraftIngredient(it) },
                 steps = listOf(DraftStep(title = "Four", text = "Prechauffer."), DraftStep()),
                 categories = listOf(DraftOrganizer("c1", "Plat", "plat")),
                 tags = listOf(DraftOrganizer("t1", "Ete", "ete")),
@@ -119,7 +120,7 @@ class RecipeEditRepositoryTest {
             RecipeDraft(
                 id = "d1",
                 name = "Test",
-                ingredients = listOf("Sel", "   ", ""),
+                ingredients = listOf("Sel", "   ", "").map { DraftIngredient(it) },
                 steps = listOf(DraftStep(), DraftStep(text = "Melanger.")),
             ),
         )
@@ -185,7 +186,10 @@ class RecipeEditRepositoryTest {
         assertEquals("Tarte", draft.name)
         assertEquals(6, draft.servings)
         assertEquals("45 minutes", draft.cookTime)
-        assertEquals(listOf("200 g farine", "1 pincée de sel"), draft.ingredients)
+        assertEquals(listOf("200 g farine", "1 pincée de sel"), draft.ingredients.map { it.text })
+        assertEquals(listOf("ref-1", "ref-2"), draft.ingredients.map { it.referenceId })
+        assertEquals("farine", draft.ingredients.first().food?.name)
+        assertEquals(listOf("ref-1"), draft.steps.single().ingredientReferences)
         assertEquals("s1", draft.steps.single().id)
         assertEquals("Mélanger ![](/api/media/recipes/r1/assets/a.jpg)", draft.steps.single().text)
         assertEquals(listOf("c1"), draft.categories.map { it.id })
@@ -201,7 +205,7 @@ class RecipeEditRepositoryTest {
         fake.enqueueJson(EXISTING)
         val edited = original.copy(
             description = "Nouvelle",
-            ingredients = listOf("200 g farine", "2 pincées de sel"),
+            ingredients = listOf(original.ingredients[0], original.ingredients[1].copy(text = "2 pincées de sel")),
             steps = original.steps.map { it.copy(text = "Bien mélanger") },
         )
 

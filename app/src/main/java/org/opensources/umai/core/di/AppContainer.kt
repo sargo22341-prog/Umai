@@ -4,6 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import okhttp3.OkHttpClient
 import org.opensources.umai.core.image.DeviceImageCropper
 import org.opensources.umai.core.network.LocalNetworkAccess
 import org.opensources.umai.core.network.MealieMedia
@@ -16,12 +17,20 @@ import org.opensources.umai.home.data.RecentRecipesStore
 import org.opensources.umai.organizer.data.OrganizerRepository
 import org.opensources.umai.planning.data.MealPlanRepository
 import org.opensources.umai.profile.data.ProfileRepository
+import org.opensources.umai.provider.ProviderRegistry
+import org.opensources.umai.provider.data.HttpPhotoDownloader
+import org.opensources.umai.provider.data.ProviderMediaImporter
+import org.opensources.umai.provider.data.ProviderSettingsStore
+import org.opensources.umai.provider.jow.JowProvider
+import org.opensources.umai.recipe.data.CalorieTagRepository
 import org.opensources.umai.recipe.data.DeviceRecipeImageFiles
 import org.opensources.umai.recipe.data.RecipeCommentRepository
 import org.opensources.umai.recipe.data.RecipeDraftStore
 import org.opensources.umai.recipe.data.RecipeEditRepository
+import org.opensources.umai.recipe.data.RecipeMediaRepository
 import org.opensources.umai.recipe.data.RecipeRepository
 import org.opensources.umai.shopping.data.ShoppingRepository
+import java.util.concurrent.TimeUnit
 
 /**
  * Hand-written dependency graph.
@@ -52,12 +61,15 @@ class AppContainer(context: Context) {
     private val apiProvider: () -> org.opensources.umai.core.network.api.MealieApi? =
         { sessionManager.api() }
 
+    val calorieTagRepository = CalorieTagRepository(apiProvider)
     val recipeRepository = RecipeRepository(
         apiProvider = apiProvider,
         currentUserId = { sessionManager.activeSession()?.userId },
+        calorieTags = calorieTagRepository::calorieTags,
     )
     val recipeCommentRepository = RecipeCommentRepository(apiProvider)
-    val recipeEditRepository = RecipeEditRepository(apiProvider)
+    val recipeMediaRepository = RecipeMediaRepository(apiProvider)
+    val recipeEditRepository = RecipeEditRepository(apiProvider, recipeMediaRepository)
     val organizerRepository = OrganizerRepository(apiProvider)
     val mealPlanRepository = MealPlanRepository(apiProvider)
     val shoppingRepository = ShoppingRepository(apiProvider)
@@ -68,6 +80,26 @@ class AppContainer(context: Context) {
     val recipeDraftStore = RecipeDraftStore(appContext, recipeImageFiles)
 
     val imageUrls = ImageUrlResolver(sessionManager)
+
+    /**
+     * For requests to other websites (a recipe provider, a video host): no
+     * Mealie credentials, and the platform's own trust settings.
+     */
+    private val externalHttpClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .callTimeout(60, TimeUnit.SECONDS)
+        .build()
+
+    /** Removing a provider is removing its line here, and its package. */
+    val providerRegistry = ProviderRegistry(listOf(JowProvider))
+    val providerSettings = ProviderSettingsStore(appContext)
+    val providerMediaImporter = ProviderMediaImporter(
+        apiProvider = apiProvider,
+        registry = providerRegistry,
+        media = recipeMediaRepository,
+        downloader = HttpPhotoDownloader(externalHttpClient),
+    )
 
     /** Re-read on every call: the user can revoke the grant from Settings. */
     val localNetworkPermission: () -> Boolean = { LocalNetworkAccess.isGranted(appContext) }
@@ -87,6 +119,9 @@ class ImageUrlResolver(private val sessionManager: SessionManager) {
 
     fun original(recipeId: String, imageToken: String?): String? =
         url(recipeId, imageToken, MealieMedia.ImageSize.ORIGINAL)
+
+    fun recipeAsset(recipeId: String, fileName: String, version: String?): String? =
+        sessionManager.baseUrl()?.let { MealieMedia.recipeAsset(it, recipeId, fileName, version) }
 
     fun stepImage(recipeId: String, source: String): String? =
         sessionManager.baseUrl()?.let { MealieMedia.resolveStepImage(it, recipeId, source) }

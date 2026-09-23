@@ -18,7 +18,10 @@ import org.opensources.umai.core.model.RecipeIngredient
 import org.opensources.umai.core.model.RecipeStep
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
+import org.opensources.umai.recipe.data.RecipeMediaRepository
 import org.opensources.umai.recipe.data.RecipeRepository
+import org.opensources.umai.recipe.domain.VideoChapter
+import org.opensources.umai.recipe.domain.VideoManifest
 
 data class CookingUiState(
     val recipe: Recipe? = null,
@@ -28,6 +31,12 @@ data class CookingUiState(
     val keepScreenOn: Boolean = true,
     /** Servings chosen on the recipe page; `0` keeps the recipe's own count. */
     val servings: Int = 0,
+    /** The chapters of the recipe video, when it has one. */
+    val video: VideoManifest? = null,
+    val markingCooked: Boolean = false,
+    /** Set once Mealie recorded the recipe as cooked; the screen then closes. */
+    val markedCooked: Boolean = false,
+    val markError: NetworkError? = null,
 ) {
     val steps: List<RecipeStep> get() = recipe?.steps.orEmpty()
     val stepCount: Int get() = steps.size
@@ -48,6 +57,9 @@ data class CookingUiState(
             return all.filter { it.referenceId != null && it.referenceId in references }
         }
 
+    /** Where the current step starts and ends in the video, `null` when it is not in it. */
+    val chapter: VideoChapter? get() = video?.chapterFor(currentStep)
+
     /** Mirrors the scaling applied on the recipe page. */
     val scale: Double
         get() {
@@ -61,6 +73,7 @@ class CookingViewModel(
     private val slug: String,
     private val servings: Int,
     private val recipeRepository: RecipeRepository,
+    private val mediaRepository: RecipeMediaRepository,
     keepScreenOn: Flow<Boolean>,
 ) : ViewModel() {
 
@@ -91,8 +104,34 @@ class CookingViewModel(
                     )
                 }
             }
+            _state.value.recipe?.let { loadVideo(it) }
         }
     }
+
+    /** The video is an extra: without it, the steps are followed as before. */
+    private suspend fun loadVideo(recipe: Recipe) {
+        val manifest = (mediaRepository.videoManifest(recipe.id, recipe.assets) as? ApiResult.Success)?.value
+            ?: return
+        _state.update { it.copy(video = manifest) }
+    }
+
+    /** Records in Mealie that the recipe was cooked; [subject] titles the timeline entry. */
+    fun markCooked(subject: String) {
+        val recipe = _state.value.recipe ?: return
+        if (_state.value.markingCooked) return
+        _state.update { it.copy(markingCooked = true, markError = null) }
+        viewModelScope.launch {
+            val result = recipeRepository.markCooked(recipe, subject)
+            _state.update {
+                when (result) {
+                    is ApiResult.Failure -> it.copy(markingCooked = false, markError = result.error)
+                    is ApiResult.Success -> it.copy(markingCooked = false, markedCooked = true)
+                }
+            }
+        }
+    }
+
+    fun dismissMarkError() = _state.update { it.copy(markError = null) }
 
     fun next() = _state.update {
         if (it.hasNext) it.copy(currentStep = it.currentStep + 1) else it
@@ -113,6 +152,7 @@ class CookingViewModel(
                     slug = slug,
                     servings = servings,
                     recipeRepository = container.recipeRepository,
+                    mediaRepository = container.recipeMediaRepository,
                     keepScreenOn = container.preferencesRepository.preferences
                         .map { it.keepScreenOnWhileCooking },
                 )

@@ -40,6 +40,10 @@ data class Recipe(
     val assets: List<RecipeAsset>,
     /** `settings.disableComments` on the Mealie side. */
     val commentsDisabled: Boolean = false,
+    /** The photo of the ingredients, an asset file name. */
+    val ingredientsPhoto: String? = null,
+    /** Changes whenever the recipe does, so a replaced asset is not served from a cache. */
+    val mediaVersion: String? = null,
 ) {
     val id: String get() = summary.id
     val slug: String get() = summary.slug
@@ -53,6 +57,8 @@ data class Recipe(
  * One instruction. Mealie has no dedicated image field on a step: pictures are
  * embedded in the step text as Markdown or HTML pointing at recipe assets, so
  * they are extracted here and rendered as real images by the cooking mode.
+ * A step may also have a photo of its own, stored as an asset named after it
+ * ([photo], a file name).
  */
 data class RecipeStep(
     val id: String,
@@ -60,6 +66,7 @@ data class RecipeStep(
     val text: String,
     val images: List<String>,
     val ingredientReferenceIds: List<String>,
+    val photo: String? = null,
 )
 
 /**

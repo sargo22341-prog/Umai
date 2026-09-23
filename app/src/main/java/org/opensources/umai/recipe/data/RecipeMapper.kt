@@ -31,6 +31,7 @@ import org.opensources.umai.core.network.dto.RecipeStepDto
 import org.opensources.umai.core.network.dto.RecipeSummaryDto
 import org.opensources.umai.core.network.dto.RecipeTagDto
 import org.opensources.umai.core.network.dto.RecipeToolDto
+import org.opensources.umai.recipe.domain.RecipeMediaFiles
 
 /**
  * DTO to domain conversion. Anything the UI should never have to reason about
@@ -89,10 +90,14 @@ fun RecipeDetailDto.toDomain(): Recipe? {
         lastMade = lastMade,
     ).toDomain() ?: return null
 
+    val stepPhotos = RecipeMediaFiles.stepPhotos(assets.map { RecipeAsset(it.name, it.icon, it.fileName) })
     return Recipe(
         summary = summary,
         ingredients = recipeIngredient.map { it.toDomain() },
-        steps = recipeInstructions.orEmpty().mapIndexed { index, step -> step.toDomain(index) },
+        steps = recipeInstructions.orEmpty().mapIndexed { index, step ->
+            // Step photos are numbered from 1; `step-0` is the ingredients.
+            step.toDomain(index).copy(photo = stepPhotos[index + 1])
+        },
         nutrition = nutrition?.toDomain()?.takeUnless { it.isEmpty },
         notes = notes.map { RecipeNote(it.title, it.text) },
         showNutrition = settings?.showNutrition ?: false,
@@ -101,6 +106,8 @@ fun RecipeDetailDto.toDomain(): Recipe? {
         // Only an explicit `true` hides the comments: an instance that omits
         // the settings block should still let the user read and write them.
         commentsDisabled = settings?.disableComments == true,
+        ingredientsPhoto = stepPhotos[0],
+        mediaVersion = (updatedAt ?: dateUpdated)?.takeIf { it.isNotBlank() },
     )
 }
 

@@ -145,6 +145,13 @@ fun FilterSheet(
                     )
                 }
 
+                item {
+                    CaloriesSection(
+                        selected = draft.calories,
+                        onSelect = { draft = draft.copy(calories = it) },
+                    )
+                }
+
                 if (options.categories.isNotEmpty()) {
                     item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
                     item(key = KEY_CATEGORIES) {
@@ -248,15 +255,6 @@ fun FilterSheet(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 12.dp),
-                    )
-                }
-
-                item {
-                    Text(
-                        text = stringResource(R.string.filter_calories_unsupported),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 8.dp),
                     )
                 }
             }

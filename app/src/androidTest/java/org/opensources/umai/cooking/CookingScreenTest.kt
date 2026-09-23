@@ -1,5 +1,6 @@
 package org.opensources.umai.cooking
 
+import androidx.compose.material3.Text
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -20,6 +21,7 @@ import org.opensources.umai.cooking.ui.CookingScreen
 import org.opensources.umai.cooking.ui.CookingUiState
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.ui.theme.UmaiTheme
+import org.opensources.umai.recipe.domain.StepClip
 
 /** Cooking mode: one step at a time, with and without step pictures. */
 @RunWith(AndroidJUnit4::class)
@@ -57,17 +59,25 @@ class CookingScreenTest {
         onGoToStep: (Int) -> Unit = {},
         onExit: () -> Unit = {},
         stepImageUrl: (String) -> String? = { "https://mealie.lan/api/media/$it" },
+        clip: StepClip? = null,
+        onMarkCooked: () -> Unit = {},
     ) {
         rule.setContent {
             UmaiTheme {
                 CookingScreen(
                     state = state,
+                    clip = clip,
                     onExit = onExit,
                     onPrevious = onPrevious,
                     onNext = onNext,
                     onGoToStep = onGoToStep,
                     onRetry = {},
+                    onMarkCooked = onMarkCooked,
+                    onDismissMarkError = {},
                     stepImageUrl = stepImageUrl,
+                    stepPhotoUrl = { "https://mealie.lan/api/media/assets/$it" },
+                    // The real player needs a network video; its place is what matters here.
+                    videoContent = { stepClip, number -> Text("video $number from ${stepClip.start}") },
                 )
             }
         }
@@ -147,6 +157,65 @@ class CookingScreenTest {
         rule.onNodeWithText("Servir aussitot.").performClick()
 
         assertEquals(2, target)
+    }
+
+    @Test
+    fun aStepWithAVideoPlaysItsOwnChapter() {
+        render(
+            CookingUiState(recipe = recipe, currentStep = 0, loading = false),
+            clip = StepClip("https://cdn.example/video.mp4", start = 9.1, end = 16.3),
+        )
+
+        rule.onNodeWithText("video 1 from 9.1").assertIsDisplayed()
+    }
+
+    @Test
+    fun aVideoDoesNotMakeUpAPhotoForAStepThatHasNone() {
+        render(
+            CookingUiState(recipe = recipe, currentStep = 2, loading = false),
+            clip = StepClip("https://cdn.example/video.mp4", start = 30.0, end = null),
+        )
+
+        rule.onNodeWithText("video 3 from 30.0").assertIsDisplayed()
+        rule.onNodeWithContentDescription(string(R.string.cd_step_image, 3)).assertDoesNotExist()
+    }
+
+    @Test
+    fun theOwnPhotoOfAStepIsShown() {
+        val withPhoto = TestData.recipe(steps = listOf(TestData.step("s1", text = "Couper.", photo = "step-1.jpg")))
+
+        render(CookingUiState(recipe = withPhoto, currentStep = 0, loading = false))
+
+        rule.onNodeWithContentDescription(string(R.string.cd_step_image, 1)).assertIsDisplayed()
+    }
+
+    @Test
+    fun finishingOffersToMarkTheRecipeAsCooked() {
+        var marked = false
+        render(CookingUiState(recipe = recipe, currentStep = 2, loading = false), onMarkCooked = { marked = true })
+
+        rule.onNodeWithText(string(R.string.cooking_finish)).performClick()
+        rule.onNodeWithText(string(R.string.cooking_done_title)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.cooking_mark_cooked)).performClick()
+
+        assertTrue(marked)
+    }
+
+    @Test
+    fun finishingCanLeaveWithoutMarkingAnything() {
+        var exited = false
+        var marked = false
+        render(
+            CookingUiState(recipe = recipe, currentStep = 2, loading = false),
+            onExit = { exited = true },
+            onMarkCooked = { marked = true },
+        )
+
+        rule.onNodeWithText(string(R.string.cooking_finish)).performClick()
+        rule.onNodeWithText(string(R.string.cooking_leave)).performClick()
+
+        assertTrue(exited)
+        assertTrue(!marked)
     }
 
     @Test

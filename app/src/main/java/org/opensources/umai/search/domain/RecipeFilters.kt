@@ -1,6 +1,9 @@
 package org.opensources.umai.search.domain
 
 import org.opensources.umai.core.format.ApiDates
+import org.opensources.umai.recipe.domain.CalorieFilter
+import org.opensources.umai.recipe.domain.CalorieTag
+import org.opensources.umai.recipe.domain.queryClause
 import java.time.LocalDate
 
 /**
@@ -62,7 +65,8 @@ enum class AddedWithin(val days: Long?) {
  *
  * Preparation, cooking and total times are deliberately absent: Mealie stores
  * them as free text ("15 minutes", "PT1H"), so they cannot be compared
- * numerically server-side. Servings are absent too: the reader scales them on
+ * numerically server-side. Calories are free text too, and are filtered through
+ * the `calorie-<value>` tags recipes carry instead. Servings are absent too: the reader scales them on
  * the recipe page, so the count a recipe was written for says little.
  */
 data class RecipeFilters(
@@ -77,6 +81,7 @@ data class RecipeFilters(
     val minRating: Int? = null,
     val favoritesOnly: Boolean = false,
     val addedWithin: AddedWithin = AddedWithin.ANY,
+    val calories: CalorieFilter = CalorieFilter.ANY,
 ) {
     val activeCount: Int
         get() = listOf(
@@ -87,6 +92,7 @@ data class RecipeFilters(
             minRating != null,
             favoritesOnly,
             addedWithin != AddedWithin.ANY,
+            calories != CalorieFilter.ANY,
         ).count { it }
 
     val isEmpty: Boolean get() = activeCount == 0
@@ -103,9 +109,12 @@ data class RecipeFilters(
  * @param favoriteRecipeIds ids from `GET /api/users/self/favorites`; an empty
  * list combined with [RecipeFilters.favoritesOnly] yields an expression that
  * matches nothing, which is the correct result.
+ * @param calorieTags the calorie tags of the instance, which the calorie range
+ * is expressed with.
  */
 fun RecipeFilters.buildQueryFilter(
     favoriteRecipeIds: List<String>,
+    calorieTags: List<CalorieTag> = emptyList(),
     today: LocalDate = LocalDate.now(),
 ): String? {
     val clauses = mutableListOf<String>()
@@ -129,6 +138,8 @@ fun RecipeFilters.buildQueryFilter(
             ) { "\"$it\"" }
         }
     }
+
+    calories.queryClause(calorieTags)?.let { clauses += it }
 
     return clauses.takeIf { it.isNotEmpty() }?.joinToString(" AND ")
 }

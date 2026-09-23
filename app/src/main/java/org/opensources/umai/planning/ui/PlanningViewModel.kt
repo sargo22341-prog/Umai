@@ -41,6 +41,10 @@ data class PlanningUiState(
     val isEmpty: Boolean
         get() = !loading && error == null && entriesByDay.values.all { it.isEmpty() }
 
+    /** Whether a visible day holds a recipe, which could go to a shopping list. */
+    val hasRecipes: Boolean
+        get() = days.any { day -> entriesByDay[day].orEmpty().any { it.recipe != null } }
+
     companion object {
         const val DAYS_AHEAD = 7
     }

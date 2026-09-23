@@ -25,3 +25,32 @@ data class ScrapeRecipeDto(
     @EncodeDefault(EncodeDefault.Mode.ALWAYS) val includeTags: Boolean = false,
     @EncodeDefault(EncodeDefault.Mode.ALWAYS) val includeCategories: Boolean = false,
 )
+
+/**
+ * Body of `POST /api/recipes/test-scrape-url`. Mealie answers with the recipe
+ * schema it found on the page, before any cleaning — which keeps what its own
+ * recipe model drops, such as the video of the steps.
+ */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class ScrapeRecipeTestDto(
+    val url: String,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS) val useOpenAI: Boolean = false,
+)
+
+/** Body of `POST /api/organizers/tags`. */
+@Serializable
+data class TagInDto(val name: String)
+
+/** Body of `POST /api/recipes/timeline/events`; the author is the signed-in user. */
+@Serializable
+data class TimelineEventInDto(
+    val recipeId: String,
+    val subject: String,
+    val eventType: String,
+    val timestamp: String,
+)
+
+/** Body of `PATCH /api/recipes/{slug}/last-made`. */
+@Serializable
+data class RecipeLastMadeDto(val timestamp: String)

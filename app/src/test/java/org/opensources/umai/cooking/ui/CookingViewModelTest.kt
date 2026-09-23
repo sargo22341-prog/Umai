@@ -21,6 +21,7 @@ import org.opensources.umai.core.model.RecipeStep
 import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.network.FakeMealieServer
 import org.opensources.umai.core.network.NetworkError
+import org.opensources.umai.recipe.data.RecipeMediaRepository
 import org.opensources.umai.recipe.data.RecipeRepository
 
 /**
@@ -159,6 +160,7 @@ class CookingViewModelTest {
         slug = "test",
         servings = servings,
         recipeRepository = RecipeRepository({ fake.api() }),
+        mediaRepository = RecipeMediaRepository { fake.api() },
         keepScreenOn = flowOf(keepScreenOn),
     )
 

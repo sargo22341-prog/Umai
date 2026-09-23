@@ -105,6 +105,10 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
 
+    // Plays the step-by-step cooking videos some recipe sources publish.
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui.compose)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)

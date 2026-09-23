@@ -40,6 +40,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import org.opensources.umai.R
+import org.opensources.umai.recipe.domain.CalorieFilter
 import org.opensources.umai.core.model.MAX_RATING_STARS
 import org.opensources.umai.core.model.Organizer
 import org.opensources.umai.search.domain.AddedWithin
@@ -105,6 +106,35 @@ internal fun AddedSection(selected: AddedWithin, onSelect: (AddedWithin) -> Unit
             )
         }
     }
+}
+
+/**
+ * One range at a time; picking the selected one again clears it. The ranges
+ * rely on the `calorie-<value>` tags, as explained under the chips.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun CaloriesSection(selected: CalorieFilter, onSelect: (CalorieFilter) -> Unit) {
+    SectionHeader(stringResource(R.string.filter_calories))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        CalorieFilter.entries.filter { it != CalorieFilter.ANY }.forEach { option ->
+            FilterChip(
+                selected = selected == option,
+                onClick = { onSelect(if (selected == option) CalorieFilter.ANY else option) },
+                label = {
+                    Text(
+                        option.maxCalories?.let { stringResource(R.string.filter_calories_up_to, it) }
+                            ?: stringResource(R.string.filter_calories_unknown),
+                    )
+                },
+            )
+        }
+    }
+    Text(
+        text = stringResource(R.string.filter_calories_hint),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 /** Instances hold few tools, so they stay a plain list of chips. */

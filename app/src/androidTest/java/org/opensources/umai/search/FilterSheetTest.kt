@@ -5,7 +5,9 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -16,6 +18,7 @@ import org.junit.runner.RunWith
 import org.opensources.umai.R
 import org.opensources.umai.core.model.Organizer
 import org.opensources.umai.core.ui.theme.UmaiTheme
+import org.opensources.umai.recipe.domain.CalorieFilter
 import org.opensources.umai.search.domain.RecipeFilters
 import org.opensources.umai.search.ui.FilterOptionsState
 import org.opensources.umai.search.ui.FilterSheet
@@ -56,6 +59,36 @@ class FilterSheetTest {
         }
     }
 
+    /** The sheet is a lazy list: a section far down is only composed once scrolled to. */
+    private fun scrollTo(text: String) {
+        rule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(text))
+    }
+
+    @Test
+    fun aCalorieRangeIsPickedAndAPickAgainClearsIt() {
+        var applied: RecipeFilters? = null
+        render(onApply = { applied = it })
+
+        val upTo500 = context.getString(R.string.filter_calories_up_to, 500)
+        scrollTo(upTo500)
+        rule.onNodeWithText(upTo500).performClick()
+        rule.onNodeWithText(string(R.string.action_apply)).performClick()
+
+        assertEquals(CalorieFilter.UP_TO_500, applied?.calories)
+    }
+
+    @Test
+    fun recipesWithoutCaloriesCanBeAskedFor() {
+        var applied: RecipeFilters? = null
+        render(onApply = { applied = it })
+
+        scrollTo(string(R.string.filter_calories_unknown))
+        rule.onNodeWithText(string(R.string.filter_calories_unknown)).performClick()
+        rule.onNodeWithText(string(R.string.action_apply)).performClick()
+
+        assertEquals(CalorieFilter.UNKNOWN, applied?.calories)
+    }
+
     @Test
     fun categoriesAndTagsAreOnlyListedOnceSomethingIsTyped() {
         render()
@@ -69,7 +102,8 @@ class FilterSheetTest {
         var applied: RecipeFilters? = null
         render(onApply = { applied = it })
 
-        rule.onNodeWithText(string(R.string.filter_search_categories)).performScrollTo().performTextInput("des")
+        scrollTo(string(R.string.filter_search_categories))
+        rule.onNodeWithText(string(R.string.filter_search_categories)).performTextInput("des")
         rule.onNodeWithText("Desserts").performClick()
         rule.onNodeWithText(string(R.string.action_apply)).performClick()
 
@@ -80,7 +114,8 @@ class FilterSheetTest {
     fun tagsMatchWithoutAccents() {
         render()
 
-        rule.onNodeWithText(string(R.string.filter_search_tags)).performScrollTo().performTextInput("gateau")
+        scrollTo(string(R.string.filter_search_tags))
+        rule.onNodeWithText(string(R.string.filter_search_tags)).performTextInput("gateau")
 
         rule.onNodeWithText("Gâteau").assertIsDisplayed()
     }

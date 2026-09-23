@@ -1,7 +1,6 @@
 package org.opensources.umai.recipe.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -27,7 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import org.opensources.umai.R
 import org.opensources.umai.core.image.CropRegion
@@ -50,6 +48,10 @@ class RecipeFormActions(
     val onStepTextChange: (Int, String) -> Unit,
     val onAddStep: () -> Unit,
     val onRemoveStep: (Int) -> Unit,
+    val onLinkIngredients: () -> Unit,
+    val onUnlinkIngredient: (Int, String) -> Unit,
+    val onStepPhotoPicked: (Int, String, CropRegion) -> Unit,
+    val onRemoveStepPhoto: (Int) -> Unit,
     val onToggleCategory: (Organizer) -> Unit,
     val onToggleTag: (Organizer) -> Unit,
     val onImagePicked: (String, CropRegion) -> Unit,
@@ -70,6 +72,10 @@ class RecipeFormActions(
         onStepTextChange = editing::onStepTextChange,
         onAddStep = editing::addStep,
         onRemoveStep = editing::removeStep,
+        onLinkIngredients = editing::linkIngredients,
+        onUnlinkIngredient = editing::unlinkIngredient,
+        onStepPhotoPicked = editing::setStepPhoto,
+        onRemoveStepPhoto = editing::removeStepPhoto,
         onToggleCategory = editing::toggleCategory,
         onToggleTag = editing::toggleTag,
         onImagePicked = editing::setImage,
@@ -188,13 +194,13 @@ internal fun IngredientsSection(draft: RecipeDraft, actions: RecipeFormActions) 
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 
-    draft.ingredients.forEachIndexed { index, line ->
+    draft.ingredients.forEachIndexed { index, ingredient ->
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             OutlinedTextField(
-                value = line,
+                value = ingredient.text,
                 onValueChange = { actions.onIngredientChange(index, it) },
                 modifier = Modifier.weight(1f),
                 label = { Text(stringResource(R.string.create_ingredient_label, index + 1)) },
@@ -217,61 +223,6 @@ internal fun IngredientsSection(draft: RecipeDraft, actions: RecipeFormActions) 
         Icon(Icons.Outlined.Add, contentDescription = null)
         Text(
             text = stringResource(R.string.create_add_ingredient),
-            modifier = Modifier.padding(start = 8.dp),
-        )
-    }
-}
-
-/** The instructions, each with an optional heading. */
-@Composable
-internal fun InstructionsSection(draft: RecipeDraft, actions: RecipeFormActions) {
-    draft.steps.forEachIndexed { index, step ->
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = stringResource(R.string.create_step_label, index + 1),
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                IconButton(onClick = { actions.onRemoveStep(index) }) {
-                    Icon(
-                        Icons.Outlined.Delete,
-                        contentDescription = stringResource(R.string.create_remove_step),
-                    )
-                }
-            }
-            OutlinedTextField(
-                value = step.title,
-                onValueChange = { actions.onStepTitleChange(index, it) },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.create_step_title_label)) },
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = step.text,
-                onValueChange = { actions.onStepTextChange(index, it) },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.create_step_text_label)) },
-                minLines = 3,
-                maxLines = 8,
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Sentences,
-                    keyboardType = KeyboardType.Text,
-                ),
-            )
-        }
-    }
-
-    OutlinedButton(onClick = actions.onAddStep, modifier = Modifier.fillMaxWidth()) {
-        Icon(Icons.Outlined.Add, contentDescription = null)
-        Text(
-            text = stringResource(R.string.create_add_step),
             modifier = Modifier.padding(start = 8.dp),
         )
     }

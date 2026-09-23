@@ -1,5 +1,7 @@
 package org.opensources.umai.core.network
 
+import java.net.URLEncoder
+
 /**
  * Builds the `/api/media/...` URLs documented in the Mealie OpenAPI schema.
  *
@@ -26,8 +28,14 @@ object MealieMedia {
         return "$root/api/media/recipes/$recipeId/images/${size.fileName}$suffix"
     }
 
-    fun recipeAsset(baseUrl: String, recipeId: String, fileName: String): String =
-        "${baseUrl.trimEnd('/')}/api/media/recipes/$recipeId/assets/$fileName"
+    /**
+     * [version] is not read by Mealie: it only makes the address change when an
+     * asset is replaced under the same name, so no stale copy is shown.
+     */
+    fun recipeAsset(baseUrl: String, recipeId: String, fileName: String, version: String? = null): String {
+        val suffix = version?.takeIf { it.isNotBlank() }?.let { "?version=${URLEncoder.encode(it, Charsets.UTF_8)}" }.orEmpty()
+        return "${baseUrl.trimEnd('/')}/api/media/recipes/$recipeId/assets/$fileName$suffix"
+    }
 
     /**
      * Profile pictures are always stored as `profile.webp`. Mealie hands out a

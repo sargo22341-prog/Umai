@@ -119,7 +119,6 @@
     <string name="filter_no_match">Aucune correspondance</string>
     <string name="filter_food_hint">Saisissez au moins deux lettres pour chercher un ingrédient.</string>
     <string name="filter_time_unsupported">Mealie enregistre les temps de préparation et de cuisson sous forme de texte libre : ils ne peuvent pas être filtrés par durée.</string>
-    <string name="filter_calories_unsupported">Les valeurs nutritionnelles, calories comprises, sont elles aussi du texte libre : le serveur les comparerait lettre par lettre, le filtre par calories n\'est donc pas proposé.</string>
 
     <!-- Fiche recette -->
     <string name="recipe_ingredients">Ingrédients</string>
@@ -459,5 +458,90 @@
         <item quantity="one">Noter %1$d étoile</item>
         <item quantity="other">Noter %1$d étoiles</item>
         <item quantity="many">Noter %1$d étoiles</item>
+    </plurals>
+
+    <!-- Partage vers l'application -->
+    <string name="share_import_label">Importer dans Umai</string>
+
+    <!-- Import : doublons et fournisseurs -->
+    <string name="import_checking">Vérification de l\'instance…</string>
+    <string name="import_fetching_media">Récupération de la vidéo et des photos…</string>
+    <string name="import_provider_hint">Page %1$s : sa vidéo découpée par étape et ses photos d\'étapes seront aussi récupérées.</string>
+    <string name="import_duplicate_title">Déjà sur votre instance</string>
+    <string name="import_duplicate_message">« %1$s » a déjà été importée depuis cette page.</string>
+    <string name="import_duplicate_open">L\'ouvrir</string>
+    <string name="import_duplicate_anyway">Importer quand même</string>
+    <string name="notice_recipe_imported_without_media">Recette importée, mais sa vidéo et ses photos n\'ont pas pu être récupérées</string>
+
+    <!-- Fournisseurs -->
+    <string name="providers_title">Fournisseurs de recettes</string>
+    <string name="providers_summary">Vidéos et photos d\'étapes des sites depuis lesquels vous importez.</string>
+    <string name="providers_intro">Certains sites publient plus qu\'une recette : une vidéo découpée par étape, des photos des étapes. Mealie ne les conserve pas ; l\'application les récupère pour les fournisseurs ci-dessous.</string>
+    <string name="provider_unknown">Ce fournisseur n\'est pas disponible.</string>
+    <string name="provider_jow_description">Jow publie une vidéo pour la plupart de ses recettes, découpée étape par étape. Le mode cuisine lit le passage de chaque étape, et les photos des étapes sont récupérées quand Jow en fournit.</string>
+    <string name="provider_section_import">Import</string>
+    <string name="provider_import_media">Récupérer la vidéo et les photos d\'étapes</string>
+    <string name="provider_import_media_summary">Quand une recette de ce fournisseur est importée, les chapitres de sa vidéo et ses photos d\'étapes sont enregistrés avec elle sur Mealie. La vidéo elle-même est lue depuis le fournisseur.</string>
+
+    <!-- Ingrédients liés aux étapes -->
+    <string name="links_helper">Chaque étape peut lister les ingrédients qu\'elle utilise : le mode cuisine les affiche avec l\'étape. La liaison trouve les ingrédients que chaque étape mentionne et conserve les liens déjà présents.</string>
+    <string name="links_action">Lier les ingrédients aux étapes</string>
+    <string name="links_step_ingredients">Ingrédients de cette étape</string>
+    <string name="links_remove">Retirer le lien vers %1$s</string>
+
+    <!-- Photos d'étapes -->
+    <string name="step_photo_add">Ajouter une photo</string>
+    <string name="step_photo_change">Changer la photo</string>
+    <string name="cd_ingredients_photo">Photo des ingrédients</string>
+
+    <!-- Mode cuisine : vidéo et fin -->
+    <string name="cd_step_video">Vidéo de l\'étape %1$d</string>
+    <string name="cooking_video_failed">La vidéo de cette étape ne peut pas être lue.</string>
+    <string name="cooking_video_replay">Revoir l\'étape</string>
+    <string name="cooking_video_play">Lecture</string>
+    <string name="cooking_video_pause">Pause</string>
+    <string name="cooking_video_mute">Couper le son</string>
+    <string name="cooking_video_unmute">Activer le son</string>
+    <string name="cooking_mark_cooked">Marquer comme cuisinée</string>
+    <string name="cooking_mark_cooked_summary">L\'ajoute à l\'historique de la recette sur Mealie et met à jour sa date de dernière réalisation.</string>
+    <string name="cooking_leave">Quitter</string>
+    <string name="cooking_timeline_subject">Recette cuisinée</string>
+    <string name="notice_recipe_cooked">Recette marquée comme cuisinée</string>
+
+    <!-- Filtre calories -->
+    <string name="filter_calories">Calories</string>
+    <string name="filter_calories_up_to">Jusqu\'à %1$d kcal</string>
+    <string name="filter_calories_unknown">Sans calories</string>
+    <string name="filter_calories_hint">Les calories sont du texte libre dans Mealie : le filtre s\'appuie sur le tag « calorie-… » que porte chaque recette avec des calories. Les recettes sont taguées quand elles sont créées, modifiées ou importées.</string>
+    <string name="settings_section_recipes">Recettes</string>
+    <string name="settings_calorie_tags">Tags calories</string>
+    <string name="settings_calorie_tags_summary">Donne à chaque recette avec des calories le tag « calorie-… » sur lequel s\'appuie le filtre, et corrige ceux qui ont changé. Les recettes déjà à jour ne sont pas modifiées.</string>
+    <string name="settings_calorie_tags_action">Mettre à jour les tags calories</string>
+    <string name="settings_calorie_tags_running">Mise à jour…</string>
+    <string name="settings_calorie_tags_done">%1$d recettes vérifiées, %2$d mises à jour, %3$d en échec.</string>
+
+    <!-- Planning : la semaine vers une liste de courses -->
+    <string name="week_shopping_title">Ajouter la semaine aux courses</string>
+    <string name="week_shopping_step">Étape %1$d sur %2$d — %3$s</string>
+    <string name="week_shopping_step_recipes">Repas</string>
+    <string name="week_shopping_step_servings">Portions</string>
+    <string name="week_shopping_step_ingredients">Ingrédients</string>
+    <string name="week_shopping_meals">Recettes planifiées</string>
+    <string name="week_shopping_no_recipe">Aucune recette n\'est planifiée sur ces jours.</string>
+    <string name="week_shopping_no_servings">Nombre de portions inconnu : les quantités sont envoyées telles quelles.</string>
+    <plurals name="week_shopping_done">
+        <item quantity="one">%1$d recette ajoutée à « %2$s ».</item>
+        <item quantity="other">%1$d recettes ajoutées à « %2$s ».</item>
+        <item quantity="many">%1$d de recettes ajoutées à « %2$s ».</item>
+    </plurals>
+    <plurals name="links_found">
+        <item quantity="one">%1$d nouveau lien trouvé.</item>
+        <item quantity="other">%1$d nouveaux liens trouvés.</item>
+        <item quantity="many">%1$d de nouveaux liens trouvés.</item>
+    </plurals>
+    <plurals name="links_total">
+        <item quantity="one">%1$d lien au total.</item>
+        <item quantity="other">%1$d liens au total.</item>
+        <item quantity="many">%1$d de liens au total.</item>
     </plurals>
 </resources>

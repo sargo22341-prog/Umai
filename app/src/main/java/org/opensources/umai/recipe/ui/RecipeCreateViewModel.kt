@@ -17,6 +17,7 @@ import org.opensources.umai.core.model.Organizer
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.organizer.data.OrganizerRepository
+import org.opensources.umai.recipe.data.CalorieTagRepository
 import org.opensources.umai.recipe.data.RecipeDraftStore
 import org.opensources.umai.recipe.data.RecipeEditRepository
 import org.opensources.umai.recipe.data.RecipeImageFiles
@@ -40,6 +41,7 @@ data class RecipeCreateUiState(
     val loadingOrganizers: Boolean = false,
     val processingImage: Boolean = false,
     val imageFailed: Boolean = false,
+    val steps: StepsFormState = StepsFormState(),
     val creating: Boolean = false,
     val error: NetworkError? = null,
     /** Set once the form may close; the screen then navigates away. */
@@ -47,7 +49,7 @@ data class RecipeCreateUiState(
 ) {
     val isFirstStep: Boolean get() = step == RecipeFormSection.entries.first()
     val isLastStep: Boolean get() = step == RecipeFormSection.entries.last()
-    val canCreate: Boolean get() = draft.canBeCreated && !creating && !processingImage
+    val canCreate: Boolean get() = draft.canBeCreated && !creating && !processingImage && steps.processingPhoto == null
     val stepNumber: Int get() = RecipeFormSection.entries.indexOf(step) + 1
     val stepCount: Int get() = RecipeFormSection.entries.size
 }
@@ -65,6 +67,7 @@ class RecipeCreateViewModel(
     private val editRepository: RecipeEditRepository,
     private val organizerRepository: OrganizerRepository,
     private val imageFiles: RecipeImageFiles,
+    private val calorieTags: CalorieTagRepository? = null,
 ) : ViewModel(), RecipeDraftEditing {
 
     private val _state = MutableStateFlow(RecipeCreateUiState())
@@ -135,6 +138,28 @@ class RecipeCreateViewModel(
         imageFiles.delete(previous)
     }
 
+    /** Like the picture of the recipe, the photo is framed and kept on the device at once. */
+    override fun setStepPhoto(index: Int, sourceUri: String, region: CropRegion) {
+        if (_state.value.steps.processingPhoto != null) return
+        _state.update { it.copy(steps = it.steps.copy(processingPhoto = index, photoFailed = false)) }
+        viewModelScope.launch {
+            val path = imageFiles.save(sourceUri, region)
+            val previous = _state.value.draft.steps.getOrNull(index)?.photoPath
+            if (path != null) editDraft { draft -> draft.copy(steps = draft.steps.updateAt(index) { it.copy(photoPath = path) }) }
+            _state.update { it.copy(steps = it.steps.copy(processingPhoto = null, photoFailed = path == null)) }
+            if (path != null) previous?.let(imageFiles::delete)
+        }
+    }
+
+    override fun removeStepPhoto(index: Int) {
+        val previous = _state.value.draft.steps.getOrNull(index)?.photoPath ?: return
+        editDraft { draft -> draft.copy(steps = draft.steps.updateAt(index) { it.copy(photoPath = null) }) }
+        imageFiles.delete(previous)
+    }
+
+    override fun onIngredientsLinked(result: IngredientLinkResult) =
+        _state.update { it.copy(steps = it.steps.copy(linkResult = result)) }
+
     override fun showSection(section: RecipeFormSection) {
         _state.update { it.copy(step = section) }
         if (section == RecipeFormSection.ORGANIZERS) loadOrganizers()
@@ -171,13 +196,17 @@ class RecipeCreateViewModel(
         _state.update { it.copy(creating = true, error = null) }
         viewModelScope.launch {
             val image = draft.imagePath?.let { imageFiles.read(it) }
-            when (val result = editRepository.create(draft, image)) {
+            val stepPhotos = draft.writtenSteps.mapIndexedNotNull { index, step ->
+                step.photoPath?.let { path -> imageFiles.read(path)?.let { (index + 1) to it } }
+            }.toMap()
+            when (val result = editRepository.create(draft, image, stepPhotos)) {
                 is ApiResult.Failure -> _state.update { it.copy(creating = false, error = result.error) }
                 is ApiResult.Success -> {
                     // The recipe now lives on Mealie; keeping the draft would
                     // only invite a duplicate. Its picture goes with it.
                     draftStore.delete(draft.id)
                     val created = result.value
+                    calorieTags?.sync(created.slug)
                     _state.update {
                         it.copy(
                             creating = false,
@@ -218,6 +247,7 @@ class RecipeCreateViewModel(
                     editRepository = container.recipeEditRepository,
                     organizerRepository = container.organizerRepository,
                     imageFiles = container.recipeImageFiles,
+                    calorieTags = container.calorieTagRepository,
                 )
             }
         }

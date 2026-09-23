@@ -10,35 +10,59 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import org.opensources.umai.core.model.RecipeAsset
 import org.opensources.umai.core.network.dto.RecipeDetailDto
 import org.opensources.umai.core.network.dto.RecipeIngredientDto
+import org.opensources.umai.recipe.domain.DraftFood
+import org.opensources.umai.recipe.domain.DraftIngredient
 import org.opensources.umai.recipe.domain.DraftOrganizer
 import org.opensources.umai.recipe.domain.DraftStep
 import org.opensources.umai.recipe.domain.RecipeDraft
+import org.opensources.umai.recipe.domain.RecipeMediaFiles
+import org.opensources.umai.recipe.domain.newReferenceId
 
 /**
  * The editable part of an existing recipe, as the form shows it.
  *
  * Ingredients become one line of text each — what Mealie displays for them —
- * and times come from the column Mealie's own editor fills.
+ * and times come from the column Mealie's own editor fills. An ingredient
+ * Mealie gave no reference gets one, so the steps can point at it.
  */
-internal fun RecipeDetailDto.toEditableDraft(): RecipeDraft = RecipeDraft(
-    id = slug,
-    name = name.orEmpty(),
-    description = description.orEmpty(),
-    servings = recipeServings.toInt().coerceAtLeast(0),
-    prepTime = prepTime.orEmpty(),
-    cookTime = (performTime?.takeIf { it.isNotBlank() } ?: cookTime).orEmpty(),
-    totalTime = totalTime.orEmpty(),
-    ingredients = recipeIngredient.map { it.editableLine() },
-    steps = recipeInstructions.orEmpty().map { DraftStep(title = it.title.orEmpty(), text = it.text, id = it.id) },
-    categories = categories.orEmpty().mapNotNull { dto ->
-        dto.id?.let { DraftOrganizer(id = it, name = dto.name, slug = dto.slug) }
-    },
-    tags = tags.orEmpty().mapNotNull { dto ->
-        dto.id?.let { DraftOrganizer(id = it, name = dto.name, slug = dto.slug) }
-    },
-)
+internal fun RecipeDetailDto.toEditableDraft(): RecipeDraft {
+    val photos = RecipeMediaFiles.stepPhotos(assets.map { RecipeAsset(it.name, it.icon, it.fileName) })
+    return RecipeDraft(
+        id = slug,
+        name = name.orEmpty(),
+        description = description.orEmpty(),
+        servings = recipeServings.toInt().coerceAtLeast(0),
+        prepTime = prepTime.orEmpty(),
+        cookTime = (performTime?.takeIf { it.isNotBlank() } ?: cookTime).orEmpty(),
+        totalTime = totalTime.orEmpty(),
+        ingredients = recipeIngredient.map { ingredient ->
+            DraftIngredient(
+                text = ingredient.editableLine(),
+                referenceId = ingredient.referenceId?.takeIf { it.isNotBlank() } ?: newReferenceId(),
+                food = ingredient.food?.name?.takeIf { it.isNotBlank() }
+                    ?.let { DraftFood(it, ingredient.food.pluralName?.takeIf { plural -> plural.isNotBlank() }) },
+            )
+        },
+        steps = recipeInstructions.orEmpty().mapIndexed { index, step ->
+            DraftStep(
+                title = step.title.orEmpty(),
+                text = step.text,
+                id = step.id,
+                ingredientReferences = step.ingredientReferences.mapNotNull { it.referenceId }.distinct(),
+                photoFile = photos[index + 1],
+            )
+        },
+        categories = categories.orEmpty().mapNotNull { dto ->
+            dto.id?.let { DraftOrganizer(id = it, name = dto.name, slug = dto.slug) }
+        },
+        tags = tags.orEmpty().mapNotNull { dto ->
+            dto.id?.let { DraftOrganizer(id = it, name = dto.name, slug = dto.slug) }
+        },
+    )
+}
 
 private fun RecipeIngredientDto.editableLine(): String =
     display.trim()
@@ -52,7 +76,8 @@ private fun RecipeIngredientDto.editableLine(): String =
  * Everything else is left exactly as the server wrote it, including what Umai
  * does not model. Where a field did change, what can be kept is kept: an
  * ingredient line left as it was keeps its structured quantity, unit and food,
- * and a step keeps its id and the ingredients linked to it.
+ * and a step keeps its id. Photos are not part of the document: they are
+ * assets, saved apart.
  */
 internal fun JsonObject.withEdits(original: RecipeDraft, edited: RecipeDraft, json: Json): JsonObject {
     val fields = toMutableMap()
@@ -76,10 +101,13 @@ internal fun JsonObject.withEdits(original: RecipeDraft, edited: RecipeDraft, js
         }
         fields[column] = edited.cookTime.asTime()
     }
-    if (edited.ingredients != original.ingredients) {
-        fields["recipeIngredient"] = ingredientsFor(edited.ingredients, detail)
+    val ingredientsChanged = edited.ingredients != original.ingredients
+    if (ingredientsChanged) {
+        fields["recipeIngredient"] = ingredientsFor(edited.ingredients, original.ingredients)
     }
-    if (edited.steps != original.steps) fields["recipeInstructions"] = stepsFor(edited.steps)
+    if (ingredientsChanged || edited.steps.withoutPhotos() != original.steps.withoutPhotos()) {
+        fields["recipeInstructions"] = stepsFor(edited.writtenSteps, edited.ingredients)
+    }
     if (edited.categories != original.categories) {
         fields["recipeCategory"] = organizersFor(edited.categories, this["recipeCategory"])
     }
@@ -88,48 +116,68 @@ internal fun JsonObject.withEdits(original: RecipeDraft, edited: RecipeDraft, js
     return JsonObject(fields)
 }
 
+private fun List<DraftStep>.withoutPhotos() = map { it.copy(photoFile = null, photoPath = null) }
+
 private fun String.asTime(): JsonElement = trim().takeIf { it.isNotEmpty() }?.let(::JsonPrimitive) ?: JsonNull
 
-/** Unchanged lines keep their original object; new or edited lines become plain notes. */
-private fun JsonObject.ingredientsFor(lines: List<String>, detail: RecipeDetailDto): JsonArray {
-    val originals = (this["recipeIngredient"] as? JsonArray).orEmpty()
-    val available = originals.indices
-        .filter { it < detail.recipeIngredient.size }
-        .groupBy({ detail.recipeIngredient[it].editableLine() }, { originals[it] })
-        .mapValues { (_, objects) -> objects.toMutableList() }
-        .toMutableMap()
+/**
+ * A line left as it was keeps its original object — quantity, unit, food — and
+ * an edited or new line becomes a plain note. Every line carries the
+ * reference the steps point at, the one the form knows it by.
+ */
+private fun JsonObject.ingredientsFor(lines: List<DraftIngredient>, originalLines: List<DraftIngredient>): JsonArray {
+    val originals = (this["recipeIngredient"] as? JsonArray).orEmpty().filterIsInstance<JsonObject>()
+    val byReference = originals.associateBy { it["referenceId"]?.jsonPrimitive?.contentOrNull }
 
     return JsonArray(
-        lines.map { it.trim() }.filter { it.isNotEmpty() }.map { line ->
-            available[line]?.removeFirstOrNull() ?: buildJsonObject {
-                put("note", line)
-                put("display", line)
-                put("originalText", line)
-                put("quantity", 0.0)
+        lines.filter { it.text.isNotBlank() }.map { line ->
+            val index = originalLines.indexOf(line)
+            val kept = if (index < 0) null else byReference[line.referenceId] ?: originals.getOrNull(index)
+            if (kept != null) {
+                JsonObject(kept + ("referenceId" to JsonPrimitive(line.referenceId)))
+            } else {
+                val text = line.text.trim()
+                buildJsonObject {
+                    put("note", text)
+                    put("display", text)
+                    put("originalText", text)
+                    put("quantity", 0.0)
+                    put("referenceId", line.referenceId)
+                }
             }
         },
     )
 }
 
-/** A step coming from the recipe keeps its object — id and links — with the new text. */
-private fun JsonObject.stepsFor(steps: List<DraftStep>): JsonArray {
+/**
+ * A step coming from the recipe keeps its object and id, with the new text and
+ * links. A link to a line no longer in the recipe is dropped.
+ */
+private fun JsonObject.stepsFor(steps: List<DraftStep>, ingredients: List<DraftIngredient>): JsonArray {
     val originals = (this["recipeInstructions"] as? JsonArray).orEmpty()
         .filterIsInstance<JsonObject>()
         .associateBy { it["id"]?.jsonPrimitive?.contentOrNull }
+    val known = ingredients.filter { it.text.isNotBlank() }.map { it.referenceId }.toSet()
 
     return JsonArray(
-        steps.filter { it.text.isNotBlank() || it.title.isNotBlank() }.map { step ->
-            val base = step.id?.let { originals[it] }
-                ?: buildJsonObject { put("ingredientReferences", JsonArray(emptyList())) }
+        steps.map { step ->
+            val base = step.id?.let { originals[it] } ?: JsonObject(emptyMap())
             JsonObject(
                 base + mapOf(
                     "title" to JsonPrimitive(step.title.trim()),
                     "text" to JsonPrimitive(step.text.trim()),
+                    "ingredientReferences" to step.referencesTo(known),
                 ),
             )
         },
     )
 }
+
+internal fun DraftStep.referencesTo(known: Set<String>): JsonArray = JsonArray(
+    ingredientReferences.filter { it in known }.distinct().map { reference ->
+        buildJsonObject { put("referenceId", reference) }
+    },
+)
 
 /** Organizers already on the recipe keep their object; new ones carry what Mealie needs. */
 private fun organizersFor(selected: List<DraftOrganizer>, current: JsonElement?): JsonArray {
@@ -149,3 +197,4 @@ private fun organizersFor(selected: List<DraftOrganizer>, current: JsonElement?)
 }
 
 private fun JsonArray?.orEmpty(): List<JsonElement> = this ?: emptyList()
+

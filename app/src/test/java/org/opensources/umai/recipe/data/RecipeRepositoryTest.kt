@@ -6,15 +6,20 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.opensources.umai.core.model.Recipe
+import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.FakeMealieServer
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.network.query
 import org.opensources.umai.core.network.queryValues
+import org.opensources.umai.recipe.domain.CalorieFilter
+import org.opensources.umai.recipe.domain.CalorieTag
 import org.opensources.umai.search.domain.AddedWithin
 import org.opensources.umai.search.domain.RecipeFilters
 import org.opensources.umai.search.domain.RecipeSort
 import org.opensources.umai.search.domain.SortField
+import java.time.Instant
 
 class RecipeRepositoryTest {
 
@@ -263,6 +268,62 @@ class RecipeRepositoryTest {
 
         assertEquals(NetworkError.Unauthorized, (result as ApiResult.Failure).error)
         assertEquals(0, fake.server.requestCount)
+    }
+
+    @Test
+    fun `a calorie range is filtered by Mealie through the calorie tags`() = runTest {
+        val tagged = RecipeRepository(
+            apiProvider = { fake.api() },
+            calorieTags = { ApiResult.Success(listOf(CalorieTag("t1", "calorie-250", 250), CalorieTag("t2", "calorie-900", 900))) },
+        )
+        fake.enqueueJson(PAGE)
+
+        tagged.search(null, RecipeFilters(calories = CalorieFilter.UP_TO_300), page = 1)
+
+        assertEquals("""tags.slug IN ["calorie-250"]""", fake.takeRequest().query("queryFilter"))
+    }
+
+    @Test
+    fun `recipes without calories are the ones without a calorie tag`() = runTest {
+        val tagged = RecipeRepository(
+            apiProvider = { fake.api() },
+            calorieTags = { ApiResult.Success(listOf(CalorieTag("t1", "calorie-250", 250))) },
+        )
+        fake.enqueueJson(PAGE)
+
+        tagged.search(null, RecipeFilters(calories = CalorieFilter.UNKNOWN), page = 1)
+
+        assertEquals("""tags.slug NOT IN ["calorie-250"]""", fake.takeRequest().query("queryFilter"))
+    }
+
+    @Test
+    fun `a cooked recipe gets a timeline entry and its last made date`() = runTest {
+        fake.enqueueJson("""{"id":"e1"}""", code = 201)
+        fake.enqueueJson("{}")
+        val recipe = Recipe(
+            summary = RecipeSummary(
+                id = "r1", slug = "poulet", name = "Poulet", description = "", imageToken = null,
+                servings = 0.0, yieldText = null, totalTime = null, prepTime = null, cookTime = null,
+                performTime = null, categories = emptyList(), tags = emptyList(), tools = emptyList(),
+                rating = null, sourceUrl = null, dateAdded = null, lastMade = null,
+            ),
+            ingredients = emptyList(), steps = emptyList(), nutrition = null, notes = emptyList(),
+            showNutrition = false, showAssets = false, assets = emptyList(),
+        )
+
+        val result = repository.markCooked(recipe, "Recette cuisinée", Instant.parse("2026-09-23T18:00:00Z"))
+
+        assertTrue(result is ApiResult.Success)
+        val event = fake.takeRequest()
+        assertEquals("/api/recipes/timeline/events", event.url.encodedPath)
+        val body = event.body?.utf8().orEmpty()
+        assertTrue(body.contains(""""recipeId":"r1""""))
+        assertTrue(body.contains(""""subject":"Recette cuisinée""""))
+        assertTrue(body.contains(""""eventType":"info""""))
+        val lastMade = fake.takeRequest()
+        assertEquals("PATCH", lastMade.method)
+        assertEquals("/api/recipes/poulet/last-made", lastMade.url.encodedPath)
+        assertTrue(lastMade.body?.utf8().orEmpty().contains("2026-09-23T18:00:00Z"))
     }
 
     private companion object {

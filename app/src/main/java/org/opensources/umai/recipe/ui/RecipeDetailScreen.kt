@@ -142,6 +142,7 @@ fun RecipeDetailScreen(
             container.imageUrls.original(value.id, value.summary.imageToken)
         },
         stepImageUrl = { recipeId, source -> container.imageUrls.stepImage(recipeId, source) },
+        stepPhotoUrl = { value, file -> container.imageUrls.recipeAsset(value.id, file, value.mediaVersion) },
         onOpenSource = { url ->
             runCatching {
                 context.startActivity(
@@ -176,6 +177,7 @@ fun RecipeDetailScaffold(
     stepImageUrl: (String, String) -> String?,
     onOpenSource: (String) -> Unit,
     modifier: Modifier = Modifier,
+    stepPhotoUrl: (Recipe, String) -> String? = { _, _ -> null },
 ) {
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -256,6 +258,7 @@ fun RecipeDetailScaffold(
                         state = state,
                         imageUrl = imageUrl(recipe),
                         stepImageUrl = stepImageUrl,
+                        stepPhotoUrl = { file -> stepPhotoUrl(recipe, file) },
                         contentPadding = padding,
                         onServingsChange = onServingsChange,
                         onToggleFavorite = onToggleFavorite,

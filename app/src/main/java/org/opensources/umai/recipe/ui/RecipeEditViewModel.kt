@@ -16,6 +16,7 @@ import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.home.data.RecentRecipesStore
 import org.opensources.umai.organizer.data.OrganizerRepository
+import org.opensources.umai.recipe.data.CalorieTagRepository
 import org.opensources.umai.recipe.data.RecipeEditRepository
 import org.opensources.umai.recipe.data.RecipeImageFiles
 import org.opensources.umai.recipe.domain.EditableRecipe
@@ -35,6 +36,7 @@ data class RecipeEditUiState(
     val newImagePath: String? = null,
     val processingImage: Boolean = false,
     val imageFailed: Boolean = false,
+    val steps: StepsFormState = StepsFormState(),
     val saving: Boolean = false,
     /** A failure to save: the form stays, with what was typed. */
     val saveError: NetworkError? = null,
@@ -50,7 +52,7 @@ data class RecipeEditUiState(
         get() = recipe != null && (draft != recipe.draft || newImagePath != null)
 
     val canSave: Boolean
-        get() = hasChanges && draft.canBeCreated && !saving && !processingImage
+        get() = hasChanges && draft.canBeCreated && !saving && !processingImage && steps.processingPhoto == null
 }
 
 /**
@@ -64,6 +66,7 @@ class RecipeEditViewModel(
     private val organizerRepository: OrganizerRepository,
     private val imageFiles: RecipeImageFiles,
     private val recentRecipesStore: RecentRecipesStore,
+    private val calorieTags: CalorieTagRepository? = null,
 ) : ViewModel(), RecipeDraftEditing {
 
     /** Follows a rename saved here, so a retry addresses the recipe as it now is. */
@@ -117,6 +120,27 @@ class RecipeEditViewModel(
         imageFiles.delete(previous)
     }
 
+    override fun setStepPhoto(index: Int, sourceUri: String, region: CropRegion) {
+        if (_state.value.steps.processingPhoto != null) return
+        _state.update { it.copy(steps = it.steps.copy(processingPhoto = index, photoFailed = false)) }
+        viewModelScope.launch {
+            val path = imageFiles.save(sourceUri, region)
+            val previous = _state.value.draft.steps.getOrNull(index)?.photoPath
+            if (path != null) editDraft { draft -> draft.copy(steps = draft.steps.updateAt(index) { it.copy(photoPath = path) }) }
+            _state.update { it.copy(steps = it.steps.copy(processingPhoto = null, photoFailed = path == null)) }
+            if (path != null) previous?.let(imageFiles::delete)
+        }
+    }
+
+    override fun removeStepPhoto(index: Int) {
+        val previous = _state.value.draft.steps.getOrNull(index)?.photoPath ?: return
+        editDraft { draft -> draft.copy(steps = draft.steps.updateAt(index) { it.copy(photoPath = null) }) }
+        imageFiles.delete(previous)
+    }
+
+    override fun onIngredientsLinked(result: IngredientLinkResult) =
+        _state.update { it.copy(steps = it.steps.copy(linkResult = result)) }
+
     override fun showSection(section: RecipeFormSection) {
         _state.update { it.copy(section = section) }
         if (section == RecipeFormSection.ORGANIZERS) loadOrganizers()
@@ -144,6 +168,24 @@ class RecipeEditViewModel(
                 slug = newSlug
             }
 
+            val newPhotos = current.draft.writtenSteps.mapIndexedNotNull { index, step ->
+                step.photoPath?.let { path -> imageFiles.read(path)?.let { (index + 1) to it } }
+            }.toMap()
+            val photos = editRepository.saveStepPhotos(newSlug, recipe.recipeId, recipe.draft, current.draft, newPhotos)
+            if (photos is ApiResult.Failure) {
+                // The text is saved; the photos framed here stay, ready for another try.
+                _state.update {
+                    it.copy(
+                        saving = false,
+                        saveError = photos.error,
+                        committedSlug = newSlug,
+                        recipe = recipe.copy(draft = current.draft.copy(id = newSlug)),
+                        draft = it.draft.copy(id = newSlug),
+                    )
+                }
+                return@launch
+            }
+
             val imagePath = current.newImagePath
             if (imagePath != null) {
                 val upload = imageFiles.read(imagePath)
@@ -165,6 +207,9 @@ class RecipeEditViewModel(
                 }
                 imageFiles.delete(imagePath)
             }
+            current.draft.steps.mapNotNull { it.photoPath }.forEach(imageFiles::delete)
+            // The nutrition may have been changed on Mealie: the tag follows it.
+            calorieTags?.sync(newSlug)
             _state.update { it.copy(saving = false, newImagePath = null, savedSlug = newSlug) }
         }
     }
@@ -174,6 +219,7 @@ class RecipeEditViewModel(
     /** A picture framed here but never saved is not kept on the device. */
     override fun onCleared() {
         _state.value.newImagePath?.let(imageFiles::delete)
+        _state.value.draft.steps.mapNotNull { it.photoPath }.forEach(imageFiles::delete)
     }
 
     private fun loadOrganizers() {
@@ -201,6 +247,7 @@ class RecipeEditViewModel(
                     organizerRepository = container.organizerRepository,
                     imageFiles = container.recipeImageFiles,
                     recentRecipesStore = container.recentRecipesStore,
+                    calorieTags = container.calorieTagRepository,
                 )
             }
         }

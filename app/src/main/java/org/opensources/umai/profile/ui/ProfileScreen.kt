@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Tune
@@ -68,6 +69,7 @@ import org.opensources.umai.core.ui.component.title
 fun ProfileScreen(
     onOpenAppSettings: () -> Unit,
     onOpenMealieSettings: () -> Unit,
+    onOpenProviders: () -> Unit,
     onImportRecipe: () -> Unit,
     onCreateRecipe: () -> Unit,
     onOpenDrafts: () -> Unit,
@@ -109,6 +111,7 @@ fun ProfileScreen(
         onRetry = viewModel::retry,
         onPickAvatar = imagePicker::open,
         onOpenAppSettings = onOpenAppSettings,
+        onOpenProviders = onOpenProviders,
         onOpenMealieSettings = onOpenMealieSettings,
         onImportRecipe = onImportRecipe,
         onCreateRecipe = onCreateRecipe,
@@ -129,6 +132,7 @@ fun ProfileScreen(
     onPickAvatar: () -> Unit,
     onOpenAppSettings: () -> Unit,
     onOpenMealieSettings: () -> Unit,
+    onOpenProviders: () -> Unit,
     onImportRecipe: () -> Unit,
     onCreateRecipe: () -> Unit,
     onOpenDrafts: () -> Unit,
@@ -218,6 +222,12 @@ fun ProfileScreen(
                             summary = stringResource(R.string.settings_app_summary),
                             icon = Icons.Outlined.Tune,
                             onClick = onOpenAppSettings,
+                        )
+                        NavigationRow(
+                            title = stringResource(R.string.providers_title),
+                            summary = stringResource(R.string.providers_summary),
+                            icon = Icons.Outlined.Extension,
+                            onClick = onOpenProviders,
                         )
                     }
                 }

@@ -40,6 +40,8 @@ import org.opensources.umai.cooking.ui.CookingScreen
 import org.opensources.umai.home.ui.HomeScreen
 import org.opensources.umai.planning.ui.PlanningScreen
 import org.opensources.umai.profile.ui.ProfileScreen
+import org.opensources.umai.provider.ui.ProviderScreen
+import org.opensources.umai.provider.ui.ProvidersScreen
 import org.opensources.umai.recipe.ui.RecipeCreateScreen
 import org.opensources.umai.recipe.ui.RecipeDetailScreen
 import org.opensources.umai.recipe.ui.RecipeDraftsScreen
@@ -55,20 +57,38 @@ import org.opensources.umai.shopping.ui.ShoppingScreen
  * refused) the setup screen replaces the whole navigation graph, so the user
  * never reaches an empty Home.
  */
+/**
+ * [sharedUrl] is a recipe page shared to the app from another one: it opens the
+ * import as soon as an instance is available, then [onSharedUrlHandled] clears it.
+ */
 @Composable
-fun UmaiApp(modifier: Modifier = Modifier) {
+fun UmaiApp(
+    modifier: Modifier = Modifier,
+    sharedUrl: String? = null,
+    onSharedUrlHandled: () -> Unit = {},
+) {
     val container = LocalAppContainer.current
     val sessionState by container.sessionManager.state.collectAsStateWithLifecycle()
 
     when (val state = sessionState) {
         SessionState.Loading -> Box(modifier = modifier.fillMaxSize()) { LoadingView() }
         SessionState.NotConfigured, is SessionState.Expired -> SetupScreen(modifier = modifier)
-        is SessionState.Active -> MainNavigation(session = state.session, modifier = modifier)
+        is SessionState.Active -> MainNavigation(
+            session = state.session,
+            sharedUrl = sharedUrl,
+            onSharedUrlHandled = onSharedUrlHandled,
+            modifier = modifier,
+        )
     }
 }
 
 @Composable
-private fun MainNavigation(session: ServerSession, modifier: Modifier = Modifier) {
+private fun MainNavigation(
+    session: ServerSession,
+    sharedUrl: String?,
+    onSharedUrlHandled: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val container = LocalAppContainer.current
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -76,6 +96,13 @@ private fun MainNavigation(session: ServerSession, modifier: Modifier = Modifier
 
     val selectedTab = TopLevelTab.entries.firstOrNull { it.matches(destination) }
     val searchSelected = destination?.hasRoute(SearchRoute::class) == true
+
+    LaunchedEffect(sharedUrl) {
+        if (sharedUrl != null) {
+            navController.navigate(RecipeImportRoute(sharedUrl))
+            onSharedUrlHandled()
+        }
+    }
 
     var notice by remember { mutableStateOf<AppNotice?>(null) }
     LaunchedEffect(notice) {
@@ -138,7 +165,8 @@ private fun MainNavigation(session: ServerSession, modifier: Modifier = Modifier
                     ProfileScreen(
                         onOpenAppSettings = { navController.navigate(AppSettingsRoute) },
                         onOpenMealieSettings = { navController.navigate(MealieSettingsRoute) },
-                        onImportRecipe = { navController.navigate(RecipeImportRoute) },
+                        onImportRecipe = { navController.navigate(RecipeImportRoute()) },
+                        onOpenProviders = { navController.navigate(ProvidersRoute) },
                         onCreateRecipe = { navController.navigate(RecipeCreateRoute()) },
                         onOpenDrafts = { navController.navigate(RecipeDraftsRoute) },
                     )
@@ -152,10 +180,33 @@ private fun MainNavigation(session: ServerSession, modifier: Modifier = Modifier
                     MealieSettingsScreen(onBack = { navController.popBackStack() })
                 }
 
-                composable<RecipeImportRoute> {
+                composable<RecipeImportRoute> { entry ->
+                    val route: RecipeImportRoute = entry.toRoute()
                     RecipeImportScreen(
+                        initialUrl = route.url,
+                        onBack = { navController.popIfCurrent(entry) },
+                        onImported = { imported ->
+                            if (navController.isCurrent(entry)) {
+                                navController.openImportedRecipe(entry, imported.slug)
+                                if (imported.mediaFailed) notice = AppNotice.RECIPE_IMPORTED_WITHOUT_MEDIA
+                            }
+                        },
+                        onOpenRecipe = { navController.navigate(RecipeRoute(it)) },
+                    )
+                }
+
+                composable<ProvidersRoute> {
+                    ProvidersScreen(
                         onBack = { navController.popBackStack() },
-                        onImported = { navController.openCreatedRecipe(it) },
+                        onOpenProvider = { navController.navigate(ProviderRoute(it)) },
+                    )
+                }
+
+                composable<ProviderRoute> { entry ->
+                    val route: ProviderRoute = entry.toRoute()
+                    ProviderScreen(
+                        providerId = route.id,
+                        onBack = { navController.popIfCurrent(entry) },
                     )
                 }
 
@@ -220,7 +271,10 @@ private fun MainNavigation(session: ServerSession, modifier: Modifier = Modifier
                     CookingScreen(
                         slug = route.slug,
                         servings = route.servings,
-                        onExit = { navController.popBackStack() },
+                        onExit = { navController.popIfCurrent(entry) },
+                        onCooked = {
+                            if (navController.popIfCurrent(entry)) notice = AppNotice.RECIPE_COOKED
+                        },
                     )
                 }
             }
@@ -255,6 +309,8 @@ private fun NavDestination?.isFullScreen(): Boolean = this != null && (
         hasRoute(AppSettingsRoute::class) ||
         hasRoute(MealieSettingsRoute::class) ||
         hasRoute(RecipeImportRoute::class) ||
+        hasRoute(ProvidersRoute::class) ||
+        hasRoute(ProviderRoute::class) ||
         hasRoute(RecipeCreateRoute::class) ||
         hasRoute(RecipeEditRoute::class) ||
         hasRoute(RecipeDraftsRoute::class)
@@ -279,6 +335,16 @@ private fun NavHostController.switchTab(route: Any) {
 private fun NavHostController.openCreatedRecipe(slug: String) {
     navigate(RecipeRoute(slug)) {
         popUpTo(ProfileRoute) { inclusive = false }
+    }
+}
+
+/**
+ * The import replaces itself with the recipe it created: it may have been
+ * opened by a page shared from another app, over any screen.
+ */
+private fun NavHostController.openImportedRecipe(entry: NavBackStackEntry, slug: String) {
+    navigate(RecipeRoute(slug)) {
+        popUpTo(entry.destination.id) { inclusive = true }
     }
 }
 

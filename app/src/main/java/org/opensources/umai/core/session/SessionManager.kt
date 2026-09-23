@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import org.opensources.umai.core.network.MealieClientFactory
 import org.opensources.umai.core.network.TokenProvider
@@ -108,6 +109,7 @@ class SessionManager(
             tokenProvider = tokenProvider,
             unauthorizedListener = { onUnauthorized() },
             acceptLanguage = acceptLanguage,
+            instanceHost = baseUrl.toHttpUrlOrNull()?.host,
         )
         return Clients(baseUrl, http, MealieClientFactory.api(baseUrl, http))
     }
