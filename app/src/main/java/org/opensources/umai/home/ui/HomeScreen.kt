@@ -67,6 +67,7 @@ fun HomeScreen(
         onRetry = { viewModel.refresh(initial = true) },
         onLoadMore = viewModel::loadMore,
         recipeImageUrl = { recipe -> container.imageUrls.thumbnail(recipe.id, recipe.imageToken) },
+        discoveryImageUrl = { recipe -> container.imageUrls.medium(recipe.id, recipe.imageToken) },
         modifier = modifier,
     )
 }
@@ -82,6 +83,7 @@ fun HomeScreen(
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
     recipeImageUrl: (RecipeSummary) -> String?,
+    discoveryImageUrl: (RecipeSummary) -> String?,
     modifier: Modifier = Modifier,
 ) {
     val gridState = rememberLazyGridState()
@@ -105,7 +107,7 @@ fun HomeScreen(
                 .padding(padding),
         ) {
             val error = state.error
-        when {
+            when {
                 state.loading -> LoadingView()
 
                 error != null && state.latest.items.isEmpty() ->
@@ -125,12 +127,30 @@ fun HomeScreen(
                     columns = recipeGridCells(state.layout),
                     state = gridState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    contentPadding = PaddingValues(horizontal = GRID_PADDING, vertical = 12.dp),
                     horizontalArrangement = RecipeGridArrangement,
                     verticalArrangement = RecipeGridArrangement,
                 ) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         SearchShortcut(onClick = onSearchClick)
+                    }
+
+                    if (state.discovery.isNotEmpty()) {
+                        item(key = DISCOVERY_TITLE_KEY, span = { GridItemSpan(maxLineSpan) }) {
+                            SectionTitle(
+                                text = stringResource(R.string.home_section_discover),
+                                modifier = Modifier.animateItem(),
+                            )
+                        }
+                        item(key = DISCOVERY_KEY, span = { GridItemSpan(maxLineSpan) }) {
+                            DiscoveryCarousel(
+                                recipes = state.discovery,
+                                imageUrl = discoveryImageUrl,
+                                onRecipeClick = { onRecipeClick(it.slug) },
+                                edgeBleed = GRID_PADDING,
+                                modifier = Modifier.animateItem(),
+                            )
+                        }
                     }
 
                     if (state.recentlyViewed.isNotEmpty()) {
@@ -224,3 +244,7 @@ private fun RecentRow(
         }
     }
 }
+
+private val GRID_PADDING = 16.dp
+private const val DISCOVERY_TITLE_KEY = "discovery-title"
+private const val DISCOVERY_KEY = "discovery"

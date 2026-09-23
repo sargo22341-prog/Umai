@@ -18,3 +18,5 @@ liste des commits. Détails : [docs/release.md](docs/release.md).
 - Planning : ajout des recettes de la semaine à une liste de courses (recettes, portions, ingrédients).
 - Sécurité : le jeton Mealie n'est plus envoyé qu'à l'instance, jamais aux sites tiers.
 - Nouveau logo : un bol de ramen sur fond crème, aussi affiché au démarrage.
+- Mode cuisine : la vidéo de l'étape tourne en boucle sur son passage, sans son ni boutons, et se met en pause quand l'app passe en arrière-plan.
+- Accueil : carrousel « À découvrir » de 5 recettes tirées au hasard, en grand et animé, renouvelé à chaque rafraîchissement.

@@ -82,6 +82,8 @@
 
     <!-- Home -->
     <string name="home_title">Umai</string>
+    <string name="home_section_discover">Discover</string>
+    <string name="cd_discovery_position">Recipe %1$d of %2$d</string>
     <string name="home_section_recent">Recently viewed</string>
     <string name="home_section_latest">Latest recipes</string>
     <string name="home_empty_title">No recipe yet</string>
@@ -490,11 +492,6 @@
     <!-- Cooking mode: video and end -->
     <string name="cd_step_video">Video of step %1$d</string>
     <string name="cooking_video_failed">The video of this step cannot be played.</string>
-    <string name="cooking_video_replay">Replay the step</string>
-    <string name="cooking_video_play">Play</string>
-    <string name="cooking_video_pause">Pause</string>
-    <string name="cooking_video_mute">Turn the sound off</string>
-    <string name="cooking_video_unmute">Turn the sound on</string>
     <string name="cooking_mark_cooked">Mark as cooked</string>
     <string name="cooking_mark_cooked_summary">Adds it to the recipe timeline on Mealie and updates the date it was last made.</string>
     <string name="cooking_leave">Leave</string>

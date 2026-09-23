@@ -79,6 +79,8 @@
 
     <!-- Accueil -->
     <string name="home_title">Umai</string>
+    <string name="home_section_discover">À découvrir</string>
+    <string name="cd_discovery_position">Recette %1$d sur %2$d</string>
     <string name="home_section_recent">Consultées récemment</string>
     <string name="home_section_latest">Dernières recettes</string>
     <string name="home_empty_title">Aucune recette pour l\'instant</string>
@@ -497,11 +499,6 @@
     <!-- Mode cuisine : vidéo et fin -->
     <string name="cd_step_video">Vidéo de l\'étape %1$d</string>
     <string name="cooking_video_failed">La vidéo de cette étape ne peut pas être lue.</string>
-    <string name="cooking_video_replay">Revoir l\'étape</string>
-    <string name="cooking_video_play">Lecture</string>
-    <string name="cooking_video_pause">Pause</string>
-    <string name="cooking_video_mute">Couper le son</string>
-    <string name="cooking_video_unmute">Activer le son</string>
     <string name="cooking_mark_cooked">Marquer comme cuisinée</string>
     <string name="cooking_mark_cooked_summary">L\'ajoute à l\'historique de la recette sur Mealie et met à jour sa date de dernière réalisation.</string>
     <string name="cooking_leave">Quitter</string>

@@ -1,10 +1,15 @@
 package org.opensources.umai.home
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -32,6 +37,9 @@ class HomeScreenTest {
 
     private fun string(id: Int, vararg args: Any) = context.getString(id, *args)
 
+    private fun onNodeWithStateDescription(value: String) =
+        rule.onNode(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, value))
+
     private fun page(vararg recipes: RecipeSummary) =
         PagedItems(items = recipes.toList(), page = 1, totalPages = 1, total = recipes.size)
 
@@ -51,6 +59,7 @@ class HomeScreenTest {
                     onRetry = onRetry,
                     onLoadMore = {},
                     recipeImageUrl = { null },
+                    discoveryImageUrl = { null },
                 )
             }
         }
@@ -110,6 +119,58 @@ class HomeScreenTest {
     }
 
     @Test
+    fun randomRecipesAreShownLargeAboveTheRecentlyViewedOnes() {
+        render(
+            HomeUiState(
+                loading = false,
+                latest = page(TestData.summary()),
+                discovery = DISCOVERY,
+                recentlyViewed = listOf(TestData.summary(id = "r9", name = "Vue recemment", slug = "vue-recemment")),
+            ),
+        )
+
+        rule.onNodeWithText(string(R.string.home_section_discover)).assertIsDisplayed()
+        rule.onNodeWithText("Gratin dauphinois").assertIsDisplayed()
+        val discoverTop = rule.onNodeWithText(string(R.string.home_section_discover)).getUnclippedBoundsInRoot().top
+        val recentTop = rule.onNodeWithText(string(R.string.home_section_recent)).getUnclippedBoundsInRoot().top
+        assertTrue(discoverTop < recentTop)
+    }
+
+    @Test
+    fun aDiscoveredRecipeOpensOnTap() {
+        var opened: String? = null
+        render(
+            HomeUiState(loading = false, latest = page(TestData.summary()), discovery = DISCOVERY),
+            onRecipeClick = { opened = it },
+        )
+
+        rule.onNodeWithText("Gratin dauphinois").performClick()
+
+        assertEquals("gratin-dauphinois", opened)
+    }
+
+    @Test
+    fun swipingTheCarouselBringsTheNextRecipe() {
+        var opened: String? = null
+        render(
+            HomeUiState(loading = false, latest = page(TestData.summary()), discovery = DISCOVERY),
+            onRecipeClick = { opened = it },
+        )
+
+        onNodeWithStateDescription(string(R.string.cd_discovery_position, 1, 3)).performTouchInput { swipeLeft() }
+        onNodeWithStateDescription(string(R.string.cd_discovery_position, 2, 3)).performClick()
+
+        assertEquals("ramen", opened)
+    }
+
+    @Test
+    fun withoutADrawThereIsNoCarousel() {
+        render(HomeUiState(loading = false, latest = page(TestData.summary())))
+
+        rule.onNodeWithText(string(R.string.home_section_discover)).assertDoesNotExist()
+    }
+
+    @Test
     fun theSearchShortcutLeadsToTheSearchScreen() {
         var searched = false
         render(
@@ -164,5 +225,13 @@ class HomeScreenTest {
         rule.onNodeWithText(string(R.string.action_retry)).performClick()
 
         assertTrue(retried)
+    }
+
+    private companion object {
+        val DISCOVERY = listOf(
+            TestData.summary(id = "d1", name = "Gratin dauphinois", slug = "gratin-dauphinois"),
+            TestData.summary(id = "d2", name = "Ramen", slug = "ramen", imageToken = null),
+            TestData.summary(id = "d3", name = "Clafoutis", slug = "clafoutis"),
+        )
     }
 }

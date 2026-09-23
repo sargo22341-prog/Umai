@@ -2,23 +2,12 @@ package org.opensources.umai.cooking.ui
 
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.VolumeOff
-import androidx.compose.material.icons.automirrored.outlined.VolumeUp
-import androidx.compose.material.icons.outlined.Pause
-import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Replay
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,7 +17,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +29,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleStartEffect
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -54,8 +44,9 @@ import org.opensources.umai.recipe.domain.StepClip
 
 /**
  * Plays the part of the recipe video that shows one step, over and over, so
- * the gesture can be watched again while cooking. It starts muted: the phone
- * lies on the worktop, and sound is a tap away.
+ * the gesture can be watched again while cooking. There are no controls and no
+ * sound: the phone lies on the worktop, the hands are busy, and the clip only
+ * has to show the gesture. The audio track is not even decoded.
  *
  * The video is read straight from its publisher, without any Mealie
  * credentials: the player makes its own requests.
@@ -64,9 +55,13 @@ import org.opensources.umai.recipe.domain.StepClip
 @Composable
 fun StepVideoPlayer(clip: StepClip, stepNumber: Int, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val player = remember { ExoPlayer.Builder(context).build() }
-    var playing by remember { mutableStateOf(true) }
-    var muted by rememberSaveable { mutableStateOf(true) }
+    val player = remember {
+        ExoPlayer.Builder(context).build().apply {
+            trackSelectionParameters = trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+                .build()
+        }
+    }
     var ratio by remember { mutableFloatStateOf(DEFAULT_RATIO) }
     var failed by remember(clip.videoUrl) { mutableStateOf(false) }
 
@@ -94,14 +89,18 @@ fun StepVideoPlayer(clip: StepClip, stepNumber: Int, modifier: Modifier = Modifi
         player.prepare()
     }
 
-    LaunchedEffect(muted) { player.volume = if (muted) 0f else 1f }
+    // Nothing on screen can pause it, so it stops by itself when the app
+    // leaves the foreground.
+    LifecycleStartEffect(player) {
+        player.playWhenReady = true
+        onStopOrDispose { player.playWhenReady = false }
+    }
 
-    // Each step starts its own chapter, then loops on it.
+    // Each step starts its own chapter, then loops on it. The whole video stays
+    // loaded, so moving to another step is a seek rather than a new download.
     LaunchedEffect(clip) {
         player.seekTo(clip.startMillis)
-        playing = true
         while (true) {
-            player.playWhenReady = playing
             val end = clip.endMillis
             val position = player.currentPosition
             if (position < clip.startMillis - SEEK_TOLERANCE_MS ||
@@ -135,33 +134,9 @@ fun StepVideoPlayer(clip: StepClip, stepNumber: Int, modifier: Modifier = Modifi
         } else {
             ContentFrame(
                 player = player,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clickable { playing = !playing },
+                modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit,
             )
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilledTonalIconButton(onClick = { player.seekTo(clip.startMillis) }) {
-                    Icon(Icons.Outlined.Replay, contentDescription = stringResource(R.string.cooking_video_replay))
-                }
-                FilledTonalIconButton(onClick = { playing = !playing }) {
-                    Icon(
-                        imageVector = if (playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
-                        contentDescription = stringResource(if (playing) R.string.cooking_video_pause else R.string.cooking_video_play),
-                    )
-                }
-                FilledTonalIconButton(onClick = { muted = !muted }) {
-                    Icon(
-                        imageVector = if (muted) Icons.AutoMirrored.Outlined.VolumeOff else Icons.AutoMirrored.Outlined.VolumeUp,
-                        contentDescription = stringResource(if (muted) R.string.cooking_video_unmute else R.string.cooking_video_mute),
-                    )
-                }
-            }
         }
     }
 }

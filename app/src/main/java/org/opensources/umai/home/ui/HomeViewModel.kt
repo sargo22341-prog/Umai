@@ -21,10 +21,14 @@ import org.opensources.umai.core.model.PagedItems
 import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
+import org.opensources.umai.core.network.valueOrNull
 import org.opensources.umai.core.settings.RecipeLayout
 import org.opensources.umai.recipe.data.RecipeRepository
+import kotlin.random.Random
 
 data class HomeUiState(
+    /** A few recipes drawn at random, shown large at the top of the screen. */
+    val discovery: List<RecipeSummary> = emptyList(),
     val latest: PagedItems<RecipeSummary> = PagedItems(),
     val recentlyViewed: List<RecipeSummary> = emptyList(),
     val loading: Boolean = true,
@@ -40,6 +44,7 @@ class HomeViewModel(
     private val recipeRepository: RecipeRepository,
     private val recentSlugs: Flow<List<String>>,
     layout: Flow<RecipeLayout>,
+    private val newSeed: () -> String = { Random.nextLong(1, Long.MAX_VALUE).toString() },
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeUiState())
@@ -61,14 +66,29 @@ class HomeViewModel(
      * gained recipes meanwhile.
      */
     fun onScreenShown() {
-        if (hasLoadedOnce) refresh()
+        if (hasLoadedOnce) load(initial = false, reshuffle = false)
     }
 
-    fun refresh(initial: Boolean = false) {
+    /** An explicit refresh also draws new recipes to discover. */
+    fun refresh(initial: Boolean = false) = load(initial, reshuffle = true)
+
+    /**
+     * Coming back to the tab keeps the discovery draw: recipes moving under
+     * the reader's eyes for no reason would feel like a glitch.
+     */
+    private fun load(initial: Boolean, reshuffle: Boolean) {
         loadJob?.cancel()
         _state.update { it.copy(loading = initial, refreshing = !initial, error = null) }
         loadJob = viewModelScope.launch {
+            val discovery = if (reshuffle || _state.value.discovery.isEmpty()) {
+                async { loadDiscovery() }
+            } else {
+                null
+            }
             val latest = recipeRepository.latest(page = 1)
+            // Both requests run together, and the screen shows once both are
+            // back, so the carousel does not push the list down as it arrives.
+            discovery?.await()
             when (latest) {
                 is ApiResult.Failure -> _state.update {
                     it.copy(loading = false, refreshing = false, error = latest.error)
@@ -87,6 +107,16 @@ class HomeViewModel(
             }
             loadRecentlyViewed()
         }
+    }
+
+    /**
+     * The carousel is an invitation, not content the screen depends on: a
+     * failed draw keeps the previous one, or no carousel at all, and the
+     * latest recipes carry the error.
+     */
+    private suspend fun loadDiscovery() {
+        val drawn = recipeRepository.discover(count = DISCOVERY_COUNT, seed = newSeed()).valueOrNull() ?: return
+        _state.update { it.copy(discovery = drawn) }
     }
 
     fun loadMore() {
@@ -124,6 +154,7 @@ class HomeViewModel(
 
     companion object {
         private const val MAX_RECENT = 8
+        private const val DISCOVERY_COUNT = 5
 
         fun factory(container: AppContainer) = viewModelFactory {
             initializer {

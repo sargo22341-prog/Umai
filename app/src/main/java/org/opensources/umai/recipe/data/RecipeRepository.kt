@@ -7,6 +7,7 @@ import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.network.apiCall
+import org.opensources.umai.core.network.map
 import org.opensources.umai.core.network.api.MealieApi
 import org.opensources.umai.core.network.dto.RecipeLastMadeDto
 import org.opensources.umai.core.network.dto.TimelineEventInDto
@@ -15,6 +16,7 @@ import org.opensources.umai.recipe.domain.CalorieFilter
 import org.opensources.umai.recipe.domain.CalorieTag
 import org.opensources.umai.search.domain.RecipeFilters
 import org.opensources.umai.search.domain.RecipeSort
+import org.opensources.umai.search.domain.SortField
 import org.opensources.umai.search.domain.buildQueryFilter
 import java.time.Instant
 import kotlin.math.roundToInt
@@ -83,6 +85,21 @@ class RecipeRepository(
 
     suspend fun latest(page: Int, perPage: Int = DEFAULT_PAGE_SIZE): ApiResult<Paged<RecipeSummary>> =
         search(query = null, filters = RecipeFilters.None, page = page, perPage = perPage)
+
+    /**
+     * A few recipes drawn at random by Mealie. The same [seed] gives the same
+     * draw, so a list shown on screen does not reshuffle until a new seed is
+     * picked.
+     */
+    suspend fun discover(count: Int, seed: String): ApiResult<List<RecipeSummary>> =
+        search(
+            query = null,
+            filters = RecipeFilters.None,
+            page = 1,
+            sort = RecipeSort(SortField.RANDOM, descending = true),
+            perPage = count,
+            paginationSeed = seed,
+        ).map { it.items }
 
     suspend fun recipe(slug: String): ApiResult<Recipe> {
         val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)

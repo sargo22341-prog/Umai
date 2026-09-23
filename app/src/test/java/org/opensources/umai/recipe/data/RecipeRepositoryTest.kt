@@ -140,6 +140,20 @@ class RecipeRepositoryTest {
     }
 
     @Test
+    fun `a discovery draw asks Mealie for a few random recipes`() = runTest {
+        fake.enqueueJson(PAGE)
+
+        val result = repository.discover(count = 5, seed = "777")
+
+        assertEquals(listOf("Poulet au curry", "Sans photo"), (result as ApiResult.Success).value.map { it.name })
+        val request = fake.takeRequest()
+        assertEquals("random", request.query("orderBy"))
+        assertEquals("777", request.query("paginationSeed"))
+        assertEquals("5", request.query("perPage"))
+        assertEquals("1", request.query("page"))
+    }
+
+    @Test
     fun `the seed is not sent for a deterministic sort`() = runTest {
         fake.enqueueJson(PAGE)
         repository.search(
