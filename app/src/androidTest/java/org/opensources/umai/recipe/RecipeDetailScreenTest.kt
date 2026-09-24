@@ -7,6 +7,8 @@ import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -14,6 +16,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -23,6 +26,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.opensources.umai.R
 import org.opensources.umai.TestData
+import org.opensources.umai.core.model.Organizer
 import org.opensources.umai.core.model.Recipe
 import org.opensources.umai.core.model.RecipeComment
 import org.opensources.umai.core.network.NetworkError
@@ -30,6 +34,8 @@ import org.opensources.umai.core.settings.RecipeDisplayOptions
 import org.opensources.umai.core.ui.theme.UmaiTheme
 import org.opensources.umai.recipe.ui.RecipeDetailScaffold
 import org.opensources.umai.recipe.ui.RecipeDetailUiState
+import org.opensources.umai.search.domain.OrganizerEntry
+import org.opensources.umai.search.domain.OrganizerKind
 
 @RunWith(AndroidJUnit4::class)
 class RecipeDetailScreenTest {
@@ -54,6 +60,7 @@ class RecipeDetailScreenTest {
         onRate: (Int) -> Unit = {},
         onEdit: (String) -> Unit = {},
         imageUrl: (Recipe) -> String? = { "https://mealie.lan/photo.webp" },
+        onOrganizerClick: (OrganizerEntry) -> Unit = {},
     ) {
         rule.setContent {
             UmaiTheme {
@@ -76,6 +83,7 @@ class RecipeDetailScreenTest {
                     imageUrl = imageUrl,
                     stepImageUrl = { _, source -> "https://mealie.lan/$source" },
                     onOpenSource = {},
+                    onOrganizerClick = onOrganizerClick,
                 )
             }
         }
@@ -298,5 +306,74 @@ class RecipeDetailScreenTest {
         render(RecipeDetailUiState(recipe = withSource, loading = false))
 
         rule.onNodeWithText(string(R.string.recipe_open_source)).performScrollTo().assertIsDisplayed()
+    }
+
+    private fun tags(vararg names: String) = names.mapIndexed { index, name -> Organizer("t$index", name, name.lowercase()) }
+
+    /** The page is a lazy list: what lies below the steps is only composed once scrolled to. */
+    private fun scrollTo(text: String) {
+        rule.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(hasText(text, substring = true))
+    }
+
+    @Test
+    fun aTagOpensASearchOnIt() {
+        var opened: OrganizerEntry? = null
+        render(
+            RecipeDetailUiState(
+                recipe = TestData.recipe(summary = TestData.summary(tags = tags("Poulet", "calorie-695"))),
+                loading = false,
+            ),
+            onOrganizerClick = { opened = it },
+        )
+
+        scrollTo("Poulet")
+        rule.onNodeWithText(string(R.string.recipe_organizers)).assertIsDisplayed()
+        rule.onNodeWithText("Poulet").performClick()
+
+        assertEquals(OrganizerKind.TAG, opened?.kind)
+        assertEquals("Poulet", opened?.organizer?.name)
+    }
+
+    @Test
+    fun calorieTagsAreNotShown() {
+        render(
+            RecipeDetailUiState(
+                recipe = TestData.recipe(summary = TestData.summary(tags = tags("Poulet", "calorie-695"))),
+                loading = false,
+            ),
+        )
+
+        scrollTo("Poulet")
+        rule.onNodeWithText("calorie-695").assertDoesNotExist()
+    }
+
+    @Test
+    fun manyTagsAreFoldedBehindShowMore() {
+        val many = tags(*Array(40) { "Étiquette numéro $it" })
+        render(RecipeDetailUiState(recipe = TestData.recipe(summary = TestData.summary(tags = many)), loading = false))
+
+        scrollTo(string(R.string.recipe_organizers))
+        // Beyond three lines, a tag is laid out nowhere.
+        val hidden = rule.onAllNodesWithText("Étiquette numéro 39").fetchSemanticsNodes()
+        assertTrue(hidden.none { it.layoutInfo.isPlaced })
+        val showMore = string(R.string.recipe_organizers_show_more, 0).substringBefore("(")
+        scrollTo(showMore)
+        rule.onNode(hasText(showMore, substring = true)).performClick()
+
+        scrollTo("Étiquette numéro 39")
+        rule.onNodeWithText("Étiquette numéro 39").assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.recipe_organizers_show_less)).assertExists()
+    }
+
+    @Test
+    fun theDescriptionFollowsTheTimes() {
+        render(RecipeDetailUiState(recipe = recipe, loading = false))
+
+        val time = rule.onNodeWithText(string(R.string.recipe_time_total)).fetchSemanticsNode()
+        val description = rule.onNodeWithText("Un curry tout doux.").fetchSemanticsNode()
+        assertTrue(
+            "the description must sit under the times",
+            description.positionInRoot.y > time.positionInRoot.y,
+        )
     }
 }

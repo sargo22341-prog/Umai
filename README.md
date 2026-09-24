@@ -42,15 +42,18 @@ Main features:
 - **search** by name, ingredient or keyword, with sorting (date added, name, rating, last cooked,
   random; ascending or descending) and **filters**: favourites, minimum rating, date added,
   categories and tags;
-- **recipe page**: photo, times, tags, favourite and 5-star rating, **servings scaling** of the
-  ingredients, instructions with their photos, comments;
-- **cooking mode**: one step per screen, the ingredients of the current step, screen kept on
-  (optional);
-- **meal plan**: day-by-day view, add a recipe or a note to any meal;
+- **recipe page**: photo, times, tags (a tap searches the recipes that share it), favourite and
+  5-star rating, **servings scaling** of the ingredients, instructions with their photos, comments;
+- **cooking mode**: one step per screen, the ingredients of the current step, **timers** offered
+  for the durations written in the steps (several at once, with sound and vibration), screen kept
+  on (optional);
+- **meal plan**: the week from Monday to Sunday, opened on today; add a recipe found with the full
+  search and its filters, a recipe drawn at random (optionally within a category), or a note;
 - **shopping lists**: several lists, items grouped by label, send the ingredients of a recipe to a
-  list (scaled to the chosen servings);
-- **recipe creation and editing**: import from a web page (Mealie parses it), write a recipe step
-  by step with drafts kept on the phone, crop the recipe photo;
+  list (scaled to the chosen servings), and a **shopping mode** with large rows ticked in one tap;
+- **recipe creation and editing**: import from a web page (Mealie parses it), with the video and
+  step photos of Jow and the step photos of 750g and Marmiton; write a recipe step by step with
+  drafts kept on the phone, crop the recipe photo;
 - **profile**: counters of your instance, profile picture with cropping;
 - **two languages**: English and French, switchable from the settings;
 - light, dark or system theme, Material 3, optional wallpaper colours;

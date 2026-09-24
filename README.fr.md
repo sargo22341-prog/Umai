@@ -45,14 +45,20 @@ Fonctionnalités principales :
 - **recherche** par nom, ingrédient ou mot-clé, avec tri (date d'ajout, nom, note, dernière
   réalisation, au hasard ; croissant ou décroissant) et **filtres** : favoris, note minimale, date
   d'ajout, catégories et tags ;
-- **fiche recette** : photo, durées, tags, favori et note sur 5 étoiles, **ajustement des
-  portions** des ingrédients, instructions avec leurs photos, commentaires ;
-- **mode cuisine** : une étape par écran, les ingrédients de l'étape en cours, écran maintenu
-  allumé (facultatif) ;
-- **planning** : vue jour par jour, ajout d'une recette ou d'une note à n'importe quel repas ;
+- **fiche recette** : photo, durées, tags (un appui cherche les recettes qui le partagent), favori
+  et note sur 5 étoiles, **ajustement des portions** des ingrédients, instructions avec leurs
+  photos, commentaires ;
+- **mode cuisine** : une étape par écran, les ingrédients de l'étape en cours, **minuteurs**
+  proposés pour les durées écrites dans les étapes (plusieurs à la fois, avec son et vibration),
+  écran maintenu allumé (facultatif) ;
+- **planning** : la semaine du lundi au dimanche, ouverte sur aujourd'hui ; ajout d'une recette
+  trouvée avec la recherche complète et ses filtres, d'une recette tirée au sort (éventuellement
+  dans une catégorie) ou d'une note ;
 - **listes de courses** : plusieurs listes, articles regroupés par étiquette, envoi des ingrédients
-  d'une recette vers une liste (ajustés aux portions choisies) ;
+  d'une recette vers une liste (ajustés aux portions choisies), et un **mode courses** aux grandes
+  lignes cochées d'un seul appui ;
 - **création et modification de recettes** : import depuis une page web (analysée par Mealie),
+  avec la vidéo et les photos d'étapes de Jow et les photos d'étapes de 750g et Marmiton ;
   rédaction étape par étape avec brouillons conservés sur le téléphone, recadrage de la photo ;
 - **profil** : compteurs de l'instance, photo de profil avec recadrage ;
 - **deux langues** : français et anglais, modifiables dans les réglages ;

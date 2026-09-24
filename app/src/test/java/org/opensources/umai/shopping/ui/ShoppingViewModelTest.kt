@@ -16,6 +16,11 @@ import org.junit.Test
 import org.opensources.umai.core.network.FakeMealieServer
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.shopping.data.ShoppingRepository
+import mockwebserver3.Dispatcher
+import mockwebserver3.MockResponse
+import mockwebserver3.RecordedRequest
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ShoppingViewModelTest {
@@ -34,7 +39,7 @@ class ShoppingViewModelTest {
         fake.shutdown()
     }
 
-    private fun viewModel() = ShoppingViewModel(ShoppingRepository { fake.api() })
+    private fun viewModel(listId: String? = null) = ShoppingViewModel(ShoppingRepository { fake.api() }, listId)
 
     private suspend fun ShoppingViewModel.awaitLists(): ShoppingUiState =
         withTimeout(TIMEOUT_MS) { state.first { !it.loadingLists } }
@@ -110,6 +115,68 @@ class ShoppingViewModelTest {
         assertEquals(NetworkError.Server(500), state.error)
         assertFalse(state.list!!.items.first { it.id == item.id }.checked)
     }
+
+    @Test
+    fun `the shopping mode opens the list it was asked for`() = runBlocking {
+        fake.enqueueJson(LISTS)
+        fake.enqueueJson(LIST_DETAIL.replace("\"id\":\"l1\",\"name\":\"Cellier\"", "\"id\":\"l2\",\"name\":\"Habituels\""))
+
+        val state = viewModel(listId = "l2").awaitList()
+
+        assertEquals("l2", state.selectedListId)
+        assertEquals("Habituels", state.list?.name)
+        fake.takeRequest()
+        assertTrue(fake.takeRequest().url.encodedPath.endsWith("/l2"))
+    }
+
+    @Test
+    fun `the items to buy and those in the basket are told apart`() = runBlocking {
+        fake.enqueueJson(LISTS)
+        fake.enqueueJson(LIST_DETAIL)
+
+        val state = viewModel().awaitList()
+
+        assertEquals(listOf("i1"), state.remainingItems.map { it.id })
+        assertEquals(listOf("i2"), state.basketItems.map { it.id })
+    }
+
+    @Test
+    fun `a list read while a tick is on its way keeps the item ticked`() = runBlocking {
+        var serverList = LIST_DETAIL
+        val confirm = CountDownLatch(1)
+        // Routed by request, since the tick and the reading run side by side.
+        fake.server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when {
+                request.method == "PUT" -> {
+                    confirm.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                    json("""{"createdItems":[],"updatedItems":[],"deletedItems":[]}""")
+                }
+                request.url.encodedPath.endsWith("/lists") -> json(LISTS)
+                else -> json(serverList)
+            }
+        }
+        val vm = viewModel()
+        val item = vm.awaitList().list!!.items.first { it.id == "i1" }
+
+        // Mealie has not confirmed the tick yet when the list is read again.
+        vm.setChecked(item, checked = true)
+        vm.selectList("l1")
+        val reread = withTimeout(TIMEOUT_MS) { vm.state.first { !it.loadingList } }
+        assertTrue(reread.list!!.items.first { it.id == "i1" }.checked)
+
+        // Once confirmed, the list is read from Mealie again.
+        serverList = LIST_DETAIL.replace("\"checked\":false", "\"checked\":true").replace("2 citrons", "3 citrons")
+        confirm.countDown()
+        val confirmed = withTimeout(TIMEOUT_MS) {
+            vm.state.first { state -> state.list?.items?.any { it.display == "3 citrons" } == true }
+        }
+        assertTrue(confirmed.list!!.items.first { it.id == "i1" }.checked)
+    }
+
+    private fun json(body: String) = MockResponse.Builder()
+        .setHeader("Content-Type", "application/json")
+        .body(body)
+        .build()
 
     @Test
     fun `an unreachable instance surfaces the error`() = runBlocking {

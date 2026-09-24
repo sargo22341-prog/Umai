@@ -11,17 +11,21 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.opensources.umai.R
 import org.opensources.umai.TestData
+import org.opensources.umai.cooking.domain.CookingTimers
 import org.opensources.umai.cooking.ui.CookingScreen
 import org.opensources.umai.cooking.ui.CookingUiState
 import org.opensources.umai.core.network.NetworkError
+import org.opensources.umai.core.settings.CookingTimerOptions
 import org.opensources.umai.core.ui.theme.UmaiTheme
 import org.opensources.umai.recipe.domain.StepClip
+import java.time.Duration
 
 /** Cooking mode: one step at a time, with and without step pictures. */
 @RunWith(AndroidJUnit4::class)
@@ -61,6 +65,8 @@ class CookingScreenTest {
         stepImageUrl: (String) -> String? = { "https://mealie.lan/api/media/$it" },
         clip: StepClip? = null,
         onMarkCooked: () -> Unit = {},
+        onStartTimer: (Duration) -> Unit = {},
+        onDismissTimer: (Int) -> Unit = {},
     ) {
         rule.setContent {
             UmaiTheme {
@@ -78,6 +84,8 @@ class CookingScreenTest {
                     stepPhotoUrl = { "https://mealie.lan/api/media/assets/$it" },
                     // The real player needs a network video; its place is what matters here.
                     videoContent = { stepClip, number -> Text("video $number from ${stepClip.start}") },
+                    onStartTimer = onStartTimer,
+                    onDismissTimer = onDismissTimer,
                 )
             }
         }
@@ -244,5 +252,73 @@ class CookingScreenTest {
 
         rule.onNodeWithText(string(R.string.error_unreachable_title)).assertIsDisplayed()
         rule.onNodeWithText(string(R.string.action_retry)).assertIsDisplayed()
+    }
+
+    private val timedRecipe = TestData.recipe(steps = listOf(TestData.step(text = "Cuire 15 min à feu doux.")))
+
+    @Test
+    fun aDurationWrittenInTheStepOffersATimer() {
+        var started: Duration? = null
+        render(CookingUiState(recipe = timedRecipe, loading = false), onStartTimer = { started = it })
+
+        rule.onNodeWithText(string(R.string.cooking_timer_start, "15 min")).performClick()
+
+        assertEquals(Duration.ofMinutes(15), started)
+    }
+
+    @Test
+    fun noTimerIsOfferedWhenTheyAreTurnedOff() {
+        render(
+            CookingUiState(
+                recipe = timedRecipe,
+                loading = false,
+                timerOptions = CookingTimerOptions(detectTimers = false),
+            ),
+        )
+
+        rule.onNodeWithText(string(R.string.cooking_timer_start, "15 min")).assertDoesNotExist()
+    }
+
+    @Test
+    fun runningTimersCountDownTogether() {
+        val timers = CookingTimers()
+            .start(stepIndex = 0, duration = Duration.ofMinutes(15), now = 0)
+            .start(stepIndex = 0, duration = Duration.ofMinutes(5), now = 0)
+        render(CookingUiState(recipe = timedRecipe, loading = false, timers = timers, now = 60_000))
+
+        rule.onNodeWithText("14:00").assertIsDisplayed()
+        rule.onNodeWithText("4:00").assertIsDisplayed()
+    }
+
+    @Test
+    fun aFinishedTimerRingsUntilItIsStopped() {
+        var stopped: Int? = null
+        val timers = CookingTimers().start(stepIndex = 0, duration = Duration.ofSeconds(30), now = 0)
+        render(
+            CookingUiState(recipe = timedRecipe, loading = false, timers = timers, now = 31_000),
+            onDismissTimer = { stopped = it },
+        )
+
+        rule.onNodeWithText(string(R.string.cooking_timer_done)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.cooking_timer_stop)).performClick()
+
+        assertEquals(1, stopped)
+    }
+
+    @Test
+    fun leavingWithTimersRunningAsksFirst() {
+        var left = false
+        val timers = CookingTimers().start(stepIndex = 0, duration = Duration.ofMinutes(15), now = 0)
+        render(
+            CookingUiState(recipe = timedRecipe, loading = false, timers = timers, now = 0),
+            onExit = { left = true },
+        )
+
+        rule.onNodeWithContentDescription(string(R.string.cooking_exit)).performClick()
+        assertFalse(left)
+        rule.onNodeWithText(string(R.string.cooking_timer_exit_title)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.cooking_leave)).performClick()
+
+        assertTrue(left)
     }
 }

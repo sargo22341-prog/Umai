@@ -12,6 +12,7 @@ import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.opensources.umai.core.image.EncodedImage
@@ -60,10 +61,19 @@ class RecipeImportViewModelTest {
 
     @Test
     fun `a shared address is filled in and its provider named`() {
-        val state = viewModel("https://jow.fr/recipes/curry").state.value
+        val state = viewModel("https://jow.fr/recipes/curry", importsMedia = true).state.value
 
         assertEquals("https://jow.fr/recipes/curry", state.url)
         assertEquals("Jow", state.providerName)
+        assertTrue(state.providerOffersVideo)
+    }
+
+    @Test
+    fun `a provider whose media are not fetched is not announced`() {
+        val state = viewModel("https://jow.fr/recipes/curry", importsMedia = false).state.value
+
+        assertEquals("https://jow.fr/recipes/curry", state.url)
+        assertNull(state.providerName)
     }
 
     @Test

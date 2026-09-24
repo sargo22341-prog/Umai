@@ -52,7 +52,13 @@ import org.opensources.umai.search.ui.SearchScreen
 import org.opensources.umai.settings.ui.AppSettingsScreen
 import org.opensources.umai.settings.ui.MealieSettingsScreen
 import org.opensources.umai.setup.ui.SetupScreen
+import org.opensources.umai.shopping.ui.ShoppingModeScreen
 import org.opensources.umai.shopping.ui.ShoppingScreen
+import org.opensources.umai.planning.ui.PlanRecipePickerScreen
+import org.opensources.umai.core.model.MealType
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import java.time.LocalDate
 
 /**
  * Root of the UI. Until an instance is configured (or after its token has been
@@ -97,7 +103,8 @@ private fun MainNavigation(
     val destination = backStackEntry?.destination
 
     val selectedTab = TopLevelTab.entries.firstOrNull { it.matches(destination) }
-    val searchSelected = destination?.hasRoute(SearchRoute::class) == true
+    val searchSelected = destination?.hasRoute(SearchRoute::class) == true ||
+        destination?.hasRoute(OrganizerSearchRoute::class) == true
 
     LaunchedEffect(sharedUrl) {
         if (sharedUrl != null) {
@@ -150,9 +157,18 @@ private fun MainNavigation(
                 exitTransition = { screenExit() },
                 popEnterTransition = { screenPopEnter() },
                 popExitTransition = { screenPopExit() },
-                // The back gesture has its own transitions (a fade and shrink by default): same slide.
-                predictivePopEnterTransition = { screenPopEnter() },
-                predictivePopExitTransition = { screenPopExit() },
+                // The back gesture has its own transitions (a fade and shrink by default): the same
+                // as a tap on back, the recipe picker of the meal plan sinking over the week.
+                predictivePopEnterTransition = {
+                    if (initialState.destination.hasRoute(PlanRecipePickerRoute::class)) {
+                        EnterTransition.None
+                    } else {
+                        screenPopEnter()
+                    }
+                },
+                predictivePopExitTransition = {
+                    if (initialState.destination.hasRoute(PlanRecipePickerRoute::class)) sinkExit() else screenPopExit()
+                },
             ) {
                 composable<HomeRoute> {
                     HomeScreen(
@@ -165,11 +181,63 @@ private fun MainNavigation(
                     SearchScreen(onRecipeClick = { navController.navigate(RecipeRoute(it)) })
                 }
 
-                composable<PlanningRoute> {
-                    PlanningScreen(onRecipeClick = { navController.navigate(RecipeRoute(it)) })
+                composable<OrganizerSearchRoute> { entry ->
+                    val route: OrganizerSearchRoute = entry.toRoute()
+                    SearchScreen(
+                        onRecipeClick = { navController.navigate(RecipeRoute(it)) },
+                        initialFilters = route.filters,
+                    )
                 }
 
-                composable<ShoppingRoute> { ShoppingScreen() }
+                composable<PlanningRoute>(
+                    // The recipe picker rises over the week, which stays in place underneath.
+                    exitTransition = {
+                        if (targetState.destination.hasRoute(PlanRecipePickerRoute::class)) {
+                            ExitTransition.KeepUntilTransitionsFinished
+                        } else {
+                            screenExit()
+                        }
+                    },
+                    popEnterTransition = {
+                        if (initialState.destination.hasRoute(PlanRecipePickerRoute::class)) {
+                            EnterTransition.None
+                        } else {
+                            screenPopEnter()
+                        }
+                    },
+                ) {
+                    PlanningScreen(
+                        onRecipeClick = { navController.navigate(RecipeRoute(it)) },
+                        onSearchRecipe = { date, type ->
+                            navController.navigate(PlanRecipePickerRoute(date.toString(), type.apiValue))
+                        },
+                    )
+                }
+
+                composable<PlanRecipePickerRoute>(
+                    enterTransition = { riseEnter() },
+                    popExitTransition = { sinkExit() },
+                ) { entry ->
+                    val route: PlanRecipePickerRoute = entry.toRoute()
+                    PlanRecipePickerScreen(
+                        date = LocalDate.parse(route.date),
+                        mealType = MealType.fromApi(route.mealType),
+                        onBack = { navController.popIfCurrent(entry) },
+                        onAdded = { if (navController.popIfCurrent(entry)) notice = AppNotice.RECIPE_PLANNED },
+                    )
+                }
+
+                composable<ShoppingRoute> {
+                    ShoppingScreen(onStartShoppingMode = { navController.navigate(ShoppingModeRoute(it)) })
+                }
+
+                composable<ShoppingModeRoute> { entry ->
+                    val route: ShoppingModeRoute = entry.toRoute()
+                    ShoppingModeScreen(
+                        listId = route.listId,
+                        onExit = { navController.popIfCurrent(entry) },
+                    )
+                }
 
                 composable<ProfileRoute> {
                     ProfileScreen(
@@ -259,6 +327,7 @@ private fun MainNavigation(
                             navController.navigate(CookingRoute(slug, servings))
                         },
                         onEdit = { navController.navigate(RecipeEditRoute(it)) },
+                        onOrganizerClick = { navController.navigate(OrganizerSearchRoute.of(it)) },
                     )
                 }
 
@@ -323,7 +392,9 @@ private fun NavDestination?.isFullScreen(): Boolean = this != null && (
         hasRoute(ProviderRoute::class) ||
         hasRoute(RecipeCreateRoute::class) ||
         hasRoute(RecipeEditRoute::class) ||
-        hasRoute(RecipeDraftsRoute::class)
+        hasRoute(RecipeDraftsRoute::class) ||
+        hasRoute(PlanRecipePickerRoute::class) ||
+        hasRoute(ShoppingModeRoute::class)
     )
 
 /**

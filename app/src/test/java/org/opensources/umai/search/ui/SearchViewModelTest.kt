@@ -17,10 +17,12 @@ import org.junit.Test
 import org.opensources.umai.core.network.FakeMealieServer
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.network.query
+import org.opensources.umai.core.network.queryValues
 import org.opensources.umai.core.settings.RecipeLayout
 import org.opensources.umai.organizer.data.OrganizerRepository
 import org.opensources.umai.recipe.data.RecipeRepository
 import org.opensources.umai.search.domain.AddedWithin
+import org.opensources.umai.search.domain.OrganizerKind
 import org.opensources.umai.search.domain.RecipeFilters
 import org.opensources.umai.search.domain.SortField
 
@@ -41,10 +43,11 @@ class SearchViewModelTest {
         fake.shutdown()
     }
 
-    private fun viewModel() = SearchViewModel(
+    private fun viewModel(initialFilters: RecipeFilters = RecipeFilters.None) = SearchViewModel(
         recipeRepository = RecipeRepository({ fake.api() }),
         organizerRepository = OrganizerRepository { fake.api() },
         layout = flowOf(RecipeLayout.GRID),
+        initialFilters = initialFilters,
     )
 
     private suspend fun SearchViewModel.awaitResults(): SearchUiState =
@@ -164,6 +167,31 @@ class SearchViewModelTest {
     }
 
     @Test
+    fun `a search opened on a tag lists its recipes straight away`() = runBlocking {
+        fake.enqueueJson(PAGE)
+        val vm = viewModel(RecipeFilters.forOrganizer(OrganizerKind.TAG, "t1"))
+
+        val state = vm.awaitResults()
+
+        assertEquals(1, state.filters.activeCount)
+        assertEquals(2, state.results.items.size)
+        assertEquals(listOf("t1"), fake.takeRequest().queryValues("tags"))
+    }
+
+    @Test
+    fun `calorie tags are not offered as tags to filter on`() = runBlocking {
+        fake.enqueueJson(CATEGORIES)
+        fake.enqueueJson(TAGS_WITH_CALORIES)
+        fake.enqueueJson(TOOLS)
+        val vm = viewModel()
+
+        vm.loadFilterOptions()
+        val options = withTimeout(TIMEOUT_MS) { vm.filterOptions.first { !it.loading && it.categories.isNotEmpty() } }
+
+        assertEquals(listOf("Poulet"), options.tags.map { it.name })
+    }
+
+    @Test
     fun `a too short ingredient query is not sent to the server`() = runBlocking {
         val vm = viewModel()
         vm.searchFoods("a")
@@ -224,6 +252,12 @@ class SearchViewModelTest {
         const val TAGS = """
             {"page":1,"per_page":100,"total":1,"total_pages":1,
              "items":[{"id":"t1","name":"Poulet","slug":"poulet","recipeCount":5}]}
+        """
+
+        const val TAGS_WITH_CALORIES = """
+            {"page":1,"per_page":100,"total":2,"total_pages":1,
+             "items":[{"id":"t1","name":"Poulet","slug":"poulet","recipeCount":5},
+                      {"id":"t2","name":"calorie-695","slug":"calorie-695","recipeCount":1}]}
         """
 
         const val TOOLS = """

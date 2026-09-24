@@ -46,6 +46,7 @@ import org.opensources.umai.core.ui.component.LoadingView
 import org.opensources.umai.core.ui.component.NetworkErrorView
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
+import org.opensources.umai.search.domain.OrganizerEntry
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,6 +57,7 @@ fun RecipeDetailScreen(
     onBack: () -> Unit,
     onStartCooking: (String, Int) -> Unit,
     onEdit: (String) -> Unit,
+    onOrganizerClick: (OrganizerEntry) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val container = LocalAppContainer.current
@@ -150,6 +152,7 @@ fun RecipeDetailScreen(
                 )
             }
         },
+        onOrganizerClick = onOrganizerClick,
         modifier = modifier,
     )
 }
@@ -178,6 +181,7 @@ fun RecipeDetailScaffold(
     onOpenSource: (String) -> Unit,
     modifier: Modifier = Modifier,
     stepPhotoUrl: (Recipe, String) -> String? = { _, _ -> null },
+    onOrganizerClick: (OrganizerEntry) -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -266,6 +270,7 @@ fun RecipeDetailScaffold(
                         onPostComment = onPostComment,
                         onDeleteComment = onDeleteComment,
                         onOpenSource = onOpenSource,
+                        onOrganizerClick = onOrganizerClick,
                     )
                 }
             }

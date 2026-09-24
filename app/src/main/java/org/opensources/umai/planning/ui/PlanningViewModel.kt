@@ -13,30 +13,35 @@ import kotlinx.coroutines.launch
 import org.opensources.umai.core.di.AppContainer
 import org.opensources.umai.core.model.MealPlanEntry
 import org.opensources.umai.core.model.MealType
+import org.opensources.umai.core.model.Organizer
 import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
+import org.opensources.umai.organizer.data.OrganizerRepository
 import org.opensources.umai.planning.data.MealPlanRepository
+import org.opensources.umai.planning.domain.PlanningWeek
 import org.opensources.umai.recipe.data.RecipeRepository
 import org.opensources.umai.search.domain.RecipeFilters
+import org.opensources.umai.search.domain.RecipeSort
+import org.opensources.umai.search.domain.SortField
 import java.time.LocalDate
+import kotlin.random.Random
 
 data class PlanningUiState(
-    /** First visible day; the window always starts the day before [anchor]. */
-    val anchor: LocalDate = LocalDate.now(),
+    val today: LocalDate = LocalDate.now(),
+    /** The Monday of the week on screen. */
+    val weekStart: LocalDate = PlanningWeek.startOf(today),
     val entriesByDay: Map<LocalDate, List<MealPlanEntry>> = emptyMap(),
     val loading: Boolean = true,
     val refreshing: Boolean = false,
     val error: NetworkError? = null,
     val mutating: Boolean = false,
 ) {
-    val today: LocalDate get() = LocalDate.now()
+    /** Monday to Sunday. */
+    val days: List<LocalDate> get() = PlanningWeek.days(weekStart)
 
-    /**
-     * Yesterday first, then today, then the rest of the window: today is the
-     * second column and stays visible when the screen opens.
-     */
-    val days: List<LocalDate> get() = (-1 until DAYS_AHEAD).map { anchor.plusDays(it.toLong()) }
+    /** The day the week opens on: today in the current week, Monday in any other. */
+    val focusedDay: LocalDate get() = today.takeIf { it in days } ?: weekStart
 
     val isEmpty: Boolean
         get() = !loading && error == null && entriesByDay.values.all { it.isEmpty() }
@@ -44,31 +49,37 @@ data class PlanningUiState(
     /** Whether a visible day holds a recipe, which could go to a shopping list. */
     val hasRecipes: Boolean
         get() = days.any { day -> entriesByDay[day].orEmpty().any { it.recipe != null } }
-
-    companion object {
-        const val DAYS_AHEAD = 7
-    }
 }
 
-data class RecipePickerState(
-    val query: String = "",
-    val results: List<RecipeSummary> = emptyList(),
-    val loading: Boolean = false,
+/**
+ * A recipe drawn at random for the meal being added, among all recipes or the
+ * recipes of one category ([categoryId], `null` for all).
+ */
+data class RandomRecipeState(
+    val categories: List<Organizer> = emptyList(),
+    val categoryId: String? = null,
+    val recipe: RecipeSummary? = null,
+    val drawing: Boolean = false,
+    /** The category holds no recipe: nothing could be drawn. */
+    val noMatch: Boolean = false,
+    val error: NetworkError? = null,
 )
 
 class PlanningViewModel(
     private val mealPlanRepository: MealPlanRepository,
     private val recipeRepository: RecipeRepository,
+    private val organizerRepository: OrganizerRepository,
+    private val clock: () -> LocalDate = LocalDate::now,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(PlanningUiState())
+    private val _state = MutableStateFlow(PlanningUiState(today = clock()))
     val state: StateFlow<PlanningUiState> = _state.asStateFlow()
 
-    private val _picker = MutableStateFlow(RecipePickerState())
-    val picker: StateFlow<RecipePickerState> = _picker.asStateFlow()
+    private val _random = MutableStateFlow(RandomRecipeState())
+    val random: StateFlow<RandomRecipeState> = _random.asStateFlow()
 
     private var loadJob: Job? = null
-    private var pickerJob: Job? = null
+    private var drawJob: Job? = null
     private var hasLoadedOnce = false
 
     init {
@@ -80,10 +91,16 @@ class PlanningViewModel(
      *
      * A meal added from a recipe page lands on the server while this ViewModel
      * is still alive, so returning to the tab has to ask Mealie again instead of
-     * showing what was loaded before.
+     * showing what was loaded before. The day may have changed meanwhile too.
      */
     fun onScreenShown() {
-        if (hasLoadedOnce) refresh()
+        val today = clock()
+        if (today != _state.value.today) {
+            _state.update { it.copy(today = today, weekStart = PlanningWeek.startOf(today)) }
+            load()
+        } else if (hasLoadedOnce) {
+            refresh()
+        }
     }
 
     fun load() = load(refreshing = false)
@@ -91,15 +108,13 @@ class PlanningViewModel(
     fun refresh() = load(refreshing = true)
 
     private fun load(refreshing: Boolean) {
-        val window = _state.value
+        val days = _state.value.days
         loadJob?.cancel()
         _state.update {
             it.copy(loading = !refreshing, refreshing = refreshing, error = null)
         }
         loadJob = viewModelScope.launch {
-            val start = window.days.first()
-            val end = window.days.last()
-            when (val result = mealPlanRepository.entries(start, end)) {
+            when (val result = mealPlanRepository.entries(days.first(), days.last())) {
                 is ApiResult.Failure -> _state.update {
                     it.copy(loading = false, refreshing = false, error = result.error)
                 }
@@ -119,17 +134,18 @@ class PlanningViewModel(
     }
 
     fun showPreviousWeek() {
-        _state.update { it.copy(anchor = it.anchor.minusWeeks(1)) }
+        _state.update { it.copy(weekStart = it.weekStart.minusWeeks(1)) }
         load()
     }
 
     fun showNextWeek() {
-        _state.update { it.copy(anchor = it.anchor.plusWeeks(1)) }
+        _state.update { it.copy(weekStart = it.weekStart.plusWeeks(1)) }
         load()
     }
 
     fun backToToday() {
-        _state.update { it.copy(anchor = LocalDate.now()) }
+        val today = clock()
+        _state.update { it.copy(today = today, weekStart = PlanningWeek.startOf(today)) }
         load()
     }
 
@@ -146,38 +162,59 @@ class PlanningViewModel(
             )
         }
 
-    fun moveEntry(entry: MealPlanEntry, date: LocalDate, type: MealType) =
-        mutate { mealPlanRepository.update(entry.copy(date = date, type = type)) }
-
     fun deleteEntry(entry: MealPlanEntry) = mutate { mealPlanRepository.delete(entry.id) }
 
-    fun onPickerQueryChange(query: String) {
-        _picker.update { it.copy(query = query) }
-        pickerJob?.cancel()
-        if (query.isBlank()) {
-            _picker.update { it.copy(results = emptyList(), loading = false) }
-            return
+    // ---- Random recipe ----------------------------------------------------
+
+    /** Loads the categories the draw can be narrowed to, once. */
+    fun loadRandomCategories() {
+        if (_random.value.categories.isNotEmpty()) return
+        viewModelScope.launch {
+            val categories = (organizerRepository.categories() as? ApiResult.Success)?.value.orEmpty()
+            _random.update { it.copy(categories = categories.sortedBy { category -> category.name.lowercase() }) }
         }
-        _picker.update { it.copy(loading = true) }
-        pickerJob = viewModelScope.launch {
+    }
+
+    fun selectRandomCategory(id: String?) {
+        drawJob?.cancel()
+        _random.update { it.copy(categoryId = id, recipe = null, drawing = false, noMatch = false, error = null) }
+    }
+
+    /**
+     * Asks Mealie for recipes in a random order and keeps one, avoiding the
+     * recipe drawn just before when the category holds another.
+     */
+    fun drawRandomRecipe() {
+        val current = _random.value
+        drawJob?.cancel()
+        _random.update { it.copy(drawing = true, noMatch = false, error = null) }
+        drawJob = viewModelScope.launch {
             val result = recipeRepository.search(
-                query = query,
-                filters = RecipeFilters.None,
+                query = null,
+                filters = current.categoryId?.let { RecipeFilters(categoryIds = setOf(it)) } ?: RecipeFilters.None,
                 page = 1,
-                perPage = 20,
+                sort = RecipeSort(SortField.RANDOM, descending = true),
+                perPage = RANDOM_CANDIDATES,
+                paginationSeed = Random.nextLong(1, Long.MAX_VALUE).toString(),
             )
-            _picker.update {
-                it.copy(
-                    results = (result as? ApiResult.Success)?.value?.items.orEmpty(),
-                    loading = false,
-                )
+            _random.update {
+                when (result) {
+                    is ApiResult.Failure -> it.copy(drawing = false, error = result.error)
+                    is ApiResult.Success -> {
+                        val candidates = result.value.items
+                        val drawn = candidates.firstOrNull { recipe -> recipe.id != current.recipe?.id }
+                            ?: candidates.firstOrNull()
+                        it.copy(drawing = false, recipe = drawn, noMatch = drawn == null)
+                    }
+                }
             }
         }
     }
 
-    fun resetPicker() {
-        pickerJob?.cancel()
-        _picker.value = RecipePickerState()
+    /** Forgets the drawn recipe when the sheet closes; the chosen category stays. */
+    fun resetRandomRecipe() {
+        drawJob?.cancel()
+        _random.update { it.copy(recipe = null, drawing = false, noMatch = false, error = null) }
     }
 
     private fun mutate(block: suspend () -> ApiResult<*>) {
@@ -194,9 +231,16 @@ class PlanningViewModel(
     }
 
     companion object {
+        /** Two, so that drawing again can avoid the recipe already shown. */
+        private const val RANDOM_CANDIDATES = 2
+
         fun factory(container: AppContainer) = viewModelFactory {
             initializer {
-                PlanningViewModel(container.mealPlanRepository, container.recipeRepository)
+                PlanningViewModel(
+                    mealPlanRepository = container.mealPlanRepository,
+                    recipeRepository = container.recipeRepository,
+                    organizerRepository = container.organizerRepository,
+                )
             }
         }
     }

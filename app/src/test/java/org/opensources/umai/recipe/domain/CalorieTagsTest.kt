@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.opensources.umai.core.model.Organizer
 
 class CalorieTagsTest {
 
@@ -73,5 +74,17 @@ class CalorieTagsTest {
     @Test
     fun `no range means no clause`() {
         assertNull(CalorieFilter.ANY.queryClause(tags))
+    }
+
+    @Test
+    fun `calorie tags are left out of the tags a recipe shows`() {
+        val tags = listOf(
+            Organizer("t1", "Poulet", "poulet"),
+            Organizer("t2", "calorie-695", "calorie-695"),
+            Organizer("t3", "calorie-light", "calorie-light"),
+        )
+
+        // Only a real calorie value makes a calorie tag.
+        assertEquals(listOf("poulet", "calorie-light"), tags.withoutCalorieTags().map { it.slug })
     }
 }

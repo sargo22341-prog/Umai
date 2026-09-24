@@ -64,23 +64,22 @@ import org.opensources.umai.core.ui.component.NetworkErrorView
 import org.opensources.umai.core.ui.component.RemoteImage
 import org.opensources.umai.recipe.ui.labelRes
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
 /**
- * Horizontal week view. The window always starts on the day before today, so
- * yesterday is the first column and today is the second one, highlighted and
- * visible without scrolling.
+ * The meal plan, one calendar week at a time from Monday to Sunday. The week
+ * opens on today, highlighted and scrolled into view.
  */
 @Composable
 fun PlanningScreen(
     onRecipeClick: (String) -> Unit,
+    onSearchRecipe: (LocalDate, MealType) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val container = LocalAppContainer.current
     val viewModel: PlanningViewModel = viewModel(factory = PlanningViewModel.factory(container))
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val picker by viewModel.picker.collectAsStateWithLifecycle()
+    val random by viewModel.random.collectAsStateWithLifecycle()
     val weekShopping: WeekShoppingViewModel = viewModel(factory = WeekShoppingViewModel.factory(container))
     val shopping by weekShopping.state.collectAsStateWithLifecycle()
 
@@ -108,17 +107,24 @@ fun PlanningScreen(
 
     PlanningScreen(
         state = state,
-        picker = picker,
+        random = random,
         onRecipeClick = onRecipeClick,
         onPreviousWeek = viewModel::showPreviousWeek,
         onNextWeek = viewModel::showNextWeek,
         onBackToToday = viewModel::backToToday,
         onRetry = viewModel::load,
         onRefresh = viewModel::refresh,
-        onPickerQueryChange = viewModel::onPickerQueryChange,
-        onResetPicker = viewModel::resetPicker,
-        onAddRecipe = viewModel::addRecipe,
-        onAddNote = viewModel::addNote,
+        addMealActions = remember(viewModel) {
+            AddMealActions(
+                onSearchRecipe = onSearchRecipe,
+                onAddRecipe = viewModel::addRecipe,
+                onAddNote = viewModel::addNote,
+                onOpen = viewModel::loadRandomCategories,
+                onClose = viewModel::resetRandomRecipe,
+                onSelectRandomCategory = viewModel::selectRandomCategory,
+                onDrawRandom = viewModel::drawRandomRecipe,
+            )
+        },
         onDeleteEntry = viewModel::deleteEntry,
         recipeImageUrl = { recipe -> container.imageUrls.thumbnail(recipe.id, recipe.imageToken) },
         onAddToShopping = { weekShopping.open(state.days.flatMap { state.entriesByDay[it].orEmpty() }) },
@@ -131,17 +137,14 @@ fun PlanningScreen(
 @Composable
 fun PlanningScreen(
     state: PlanningUiState,
-    picker: RecipePickerState,
+    random: RandomRecipeState,
     onRecipeClick: (String) -> Unit,
     onPreviousWeek: () -> Unit,
     onNextWeek: () -> Unit,
     onBackToToday: () -> Unit,
     onRetry: () -> Unit,
     onRefresh: () -> Unit,
-    onPickerQueryChange: (String) -> Unit,
-    onResetPicker: () -> Unit,
-    onAddRecipe: (LocalDate, MealType, RecipeSummary) -> Unit,
-    onAddNote: (LocalDate, MealType, String) -> Unit,
+    addMealActions: AddMealActions,
     onDeleteEntry: (MealPlanEntry) -> Unit,
     recipeImageUrl: (RecipeSummary) -> String?,
     modifier: Modifier = Modifier,
@@ -152,36 +155,26 @@ fun PlanningScreen(
     var sheetTarget by remember { mutableStateOf<LocalDate?>(null) }
 
     val density = LocalDensity.current
-    LaunchedEffect(state.anchor) {
-        // Yesterday is index 0 and today index 1. Today is scrolled fully into
-        // view while yesterday keeps peeking on the left, so the column order
-        // stays "yesterday | today | tomorrow" and today never starts cut off.
+    val focusedIndex = state.days.indexOf(state.focusedDay)
+    LaunchedEffect(state.weekStart, state.focusedDay) {
+        // Today is scrolled fully into view while the day before keeps peeking
+        // on the left, so the order of the days stays obvious. Monday has
+        // nothing before it and starts at the edge.
         listState.scrollToItem(
-            index = 1,
-            scrollOffset = -with(density) { DayPeekWidth.roundToPx() },
+            index = focusedIndex,
+            scrollOffset = if (focusedIndex > 0) -with(density) { DayPeekWidth.roundToPx() } else 0,
         )
     }
+
+    val weekFormatter = rememberDateFormatter(FormatStyle.MEDIUM)
 
     sheetTarget?.let { date ->
         AddMealSheet(
             date = date,
-            picker = picker,
-            onQueryChange = onPickerQueryChange,
+            random = random,
+            actions = addMealActions,
             recipeImageUrl = recipeImageUrl,
-            onDismiss = {
-                sheetTarget = null
-                onResetPicker()
-            },
-            onAddRecipe = { type, recipe ->
-                onAddRecipe(date, type, recipe)
-                sheetTarget = null
-                onResetPicker()
-            },
-            onAddNote = { type, note ->
-                onAddNote(date, type, note)
-                sheetTarget = null
-                onResetPicker()
-            },
+            onDismiss = { sheetTarget = null },
         )
     }
 
@@ -189,7 +182,16 @@ fun PlanningScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.planning_title)) },
+                title = {
+                    Column {
+                        Text(stringResource(R.string.planning_title))
+                        Text(
+                            text = stringResource(R.string.planning_week_of, state.weekStart.format(weekFormatter)),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
                 actions = {
                     IconButton(onClick = onAddToShopping, enabled = state.hasRecipes) {
                         Icon(
@@ -249,6 +251,7 @@ fun PlanningScreen(
                             DayColumn(
                                 width = DayColumnWidth,
                                 date = day,
+                                label = day.label(today = state.today),
                                 isToday = day == state.today,
                                 entries = state.entriesByDay[day].orEmpty(),
                                 onAdd = { sheetTarget = day },
@@ -268,6 +271,7 @@ fun PlanningScreen(
 private fun DayColumn(
     width: Dp,
     date: LocalDate,
+    label: String,
     isToday: Boolean,
     entries: List<MealPlanEntry>,
     onAdd: () -> Unit,
@@ -301,7 +305,7 @@ private fun DayColumn(
         ) {
             Column {
                 Text(
-                    text = date.label(dateFormatter),
+                    text = label,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = if (isToday) FontWeight.Bold else FontWeight.SemiBold,
                     color = if (isToday) {
@@ -426,19 +430,9 @@ private val DayPeekWidth = 56.dp
 
 /** "Yesterday", "Today", "Tomorrow", then the localized day name. */
 @Composable
-fun LocalDate.label(formatter: DateTimeFormatter): String {
-    val today = LocalDate.now()
-    return when (this) {
-        today.minusDays(1) -> stringResource(R.string.planning_yesterday)
-        today -> stringResource(R.string.planning_today)
-        today.plusDays(1) -> stringResource(R.string.planning_tomorrow)
-        else -> dayOfWeek.localizedName()
-    }
-}
-
-/** The window shown by the planning screen, starting the day before today. */
-@Composable
-fun rememberPlanningWeek(): List<LocalDate> {
-    val today = LocalDate.now()
-    return remember(today) { (-1 until PlanningUiState.DAYS_AHEAD).map { today.plusDays(it.toLong()) } }
+fun LocalDate.label(today: LocalDate = LocalDate.now()): String = when (this) {
+    today.minusDays(1) -> stringResource(R.string.planning_yesterday)
+    today -> stringResource(R.string.planning_today)
+    today.plusDays(1) -> stringResource(R.string.planning_tomorrow)
+    else -> dayOfWeek.localizedName()
 }

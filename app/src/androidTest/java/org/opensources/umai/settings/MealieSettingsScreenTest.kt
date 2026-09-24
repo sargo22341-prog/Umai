@@ -3,10 +3,15 @@ package org.opensources.umai.settings
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -178,4 +183,19 @@ class MealieSettingsScreenTest {
     private fun dayName(day: DayOfWeek): String =
         day.getDisplayName(java.time.format.TextStyle.FULL, context.resources.configuration.locales[0])
             .replaceFirstChar { it.titlecase(context.resources.configuration.locales[0]) }
+
+    @Test
+    fun preferencesThatChangeNothingInTheAppSaySo() {
+        render(manager)
+
+        rule.onNode(hasScrollToNodeAction())
+            .performScrollToNode(hasText(string(R.string.settings_scope_nutrition)))
+        rule.onNodeWithText(string(R.string.settings_scope_nutrition)).assertIsDisplayed()
+        rule.onNode(hasScrollToNodeAction())
+            .performScrollToNode(hasText(string(R.string.settings_scope_first_day)))
+        rule.onNodeWithText(string(R.string.settings_scope_first_day)).assertIsDisplayed()
+        rule.onNode(hasScrollToNodeAction())
+            .performScrollToNode(hasText(string(R.string.settings_scope_server_only)))
+        rule.onAllNodesWithText(string(R.string.settings_scope_server_only)).onFirst().assertIsDisplayed()
+    }
 }

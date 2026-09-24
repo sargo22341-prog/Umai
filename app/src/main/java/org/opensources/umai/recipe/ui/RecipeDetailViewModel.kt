@@ -27,6 +27,9 @@ import org.opensources.umai.home.data.RecentRecipesStore
 import org.opensources.umai.planning.data.MealPlanRepository
 import org.opensources.umai.recipe.data.RecipeCommentRepository
 import org.opensources.umai.recipe.data.RecipeRepository
+import org.opensources.umai.recipe.domain.withoutCalorieTags
+import org.opensources.umai.search.domain.OrganizerEntry
+import org.opensources.umai.search.domain.OrganizerKind
 import org.opensources.umai.shopping.data.ShoppingRepository
 import java.time.LocalDate
 import kotlin.math.roundToInt
@@ -90,6 +93,15 @@ data class RecipeDetailUiState(
 
     val commentsVisible: Boolean
         get() = recipe != null && display.showComments && commentsSupported && !recipe.commentsDisabled
+
+    /** The categories, tags and tools of the recipe, each opening a search on it. */
+    val organizers: List<OrganizerEntry>
+        get() {
+            val summary = recipe?.summary ?: return emptyList()
+            return summary.categories.map { OrganizerEntry(OrganizerKind.CATEGORY, it) } +
+                summary.tags.withoutCalorieTags().map { OrganizerEntry(OrganizerKind.TAG, it) } +
+                summary.tools.map { OrganizerEntry(OrganizerKind.TOOL, it) }
+        }
 
     fun canDelete(comment: RecipeComment): Boolean =
         currentUserIsAdmin || (currentUserId != null && comment.authorId == currentUserId)

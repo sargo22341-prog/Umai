@@ -28,14 +28,29 @@ data class ShoppingUiState(
 ) {
     val hasNoList: Boolean get() = !loadingLists && lists.isEmpty()
     val isListEmpty: Boolean get() = list?.items?.isEmpty() == true && !loadingList
+
+    /** Items still to buy, and those already in the basket, for the shopping mode. */
+    val remainingItems: List<ShoppingItem> get() = list?.items.orEmpty().filterNot { it.checked }
+    val basketItems: List<ShoppingItem> get() = list?.items.orEmpty().filter { it.checked }
 }
 
-class ShoppingViewModel(private val repository: ShoppingRepository) : ViewModel() {
+/** [initialListId] opens that list rather than the first one, as the shopping mode does. */
+class ShoppingViewModel(
+    private val repository: ShoppingRepository,
+    initialListId: String? = null,
+) : ViewModel() {
 
-    private val _state = MutableStateFlow(ShoppingUiState())
+    private val _state = MutableStateFlow(ShoppingUiState(selectedListId = initialListId))
     val state: StateFlow<ShoppingUiState> = _state.asStateFlow()
 
     private var hasLoadedOnce = false
+
+    /**
+     * Ticks sent to Mealie and not confirmed yet, by item id. A list read in the
+     * meantime would show them unticked again; they are laid over it until
+     * Mealie confirms, so items ticked in a row never flicker back.
+     */
+    private val pendingChecks = mutableMapOf<String, Boolean>()
 
     init {
         loadLists()
@@ -94,7 +109,7 @@ class ShoppingViewModel(private val repository: ShoppingRepository) : ViewModel(
                 is ApiResult.Failure ->
                     _state.update { it.copy(loadingList = false, error = result.error) }
                 is ApiResult.Success ->
-                    _state.update { it.copy(list = result.value, loadingList = false, error = null) }
+                    _state.update { it.copy(list = result.value.withPendingChecks(), loadingList = false, error = null) }
             }
         }
     }
@@ -142,14 +157,20 @@ class ShoppingViewModel(private val repository: ShoppingRepository) : ViewModel(
      */
     fun setChecked(item: ShoppingItem, checked: Boolean) {
         val listId = _state.value.selectedListId ?: return
+        pendingChecks[item.id] = checked
         updateLocally(item.copy(checked = checked))
         viewModelScope.launch {
-            when (val result = repository.updateItem(item.copy(checked = checked))) {
+            val result = repository.updateItem(item.copy(checked = checked))
+            // The same item ticked again meanwhile: the newer tick decides.
+            val superseded = pendingChecks[item.id] != checked
+            if (!superseded) pendingChecks.remove(item.id)
+            when (result) {
                 is ApiResult.Failure -> {
-                    updateLocally(item)
+                    if (!superseded) updateLocally(item)
                     _state.update { it.copy(error = result.error) }
                 }
-                is ApiResult.Success -> selectList(listId)
+                // The list is read again once every tick sent is confirmed.
+                is ApiResult.Success -> if (pendingChecks.isEmpty()) selectList(listId)
             }
         }
     }
@@ -176,6 +197,13 @@ class ShoppingViewModel(private val repository: ShoppingRepository) : ViewModel(
 
     fun dismissError() = _state.update { it.copy(error = null) }
 
+    private fun ShoppingList.withPendingChecks(): ShoppingList =
+        if (pendingChecks.isEmpty()) {
+            this
+        } else {
+            copy(items = items.map { item -> pendingChecks[item.id]?.let { item.copy(checked = it) } ?: item })
+        }
+
     private fun updateLocally(item: ShoppingItem) {
         _state.update { current ->
             val list = current.list ?: return@update current
@@ -188,8 +216,8 @@ class ShoppingViewModel(private val repository: ShoppingRepository) : ViewModel(
     }
 
     companion object {
-        fun factory(container: AppContainer) = viewModelFactory {
-            initializer { ShoppingViewModel(container.shoppingRepository) }
+        fun factory(container: AppContainer, listId: String? = null) = viewModelFactory {
+            initializer { ShoppingViewModel(container.shoppingRepository, initialListId = listId) }
         }
     }
 }

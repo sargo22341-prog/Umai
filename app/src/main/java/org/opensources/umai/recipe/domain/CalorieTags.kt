@@ -1,5 +1,7 @@
 package org.opensources.umai.recipe.domain
 
+import org.opensources.umai.core.model.Organizer
+
 /**
  * Calories are free text in Mealie (`"695 kcal"`), so they cannot be compared
  * on the server. A recipe with calories therefore also carries a tag named
@@ -31,6 +33,12 @@ object CalorieTags {
 
     fun isCalorieTag(slug: String): Boolean = valueOf(slug) != null
 }
+
+/**
+ * The tags without the calorie tags: those only serve the calorie filter, and
+ * are neither shown on a recipe nor offered as a tag to search on.
+ */
+fun List<Organizer>.withoutCalorieTags(): List<Organizer> = filterNot { CalorieTags.isCalorieTag(it.slug) }
 
 /** A calorie tag that exists on the instance. */
 data class CalorieTag(val id: String, val slug: String, val calories: Int)

@@ -29,6 +29,7 @@ object JowProvider : RecipeProvider {
     override val id: String = "jow"
     override val name: String = "Jow"
     override val descriptionRes: Int = R.string.provider_jow_description
+    override val offersVideo: Boolean = true
 
     private val recipePath = Regex("""^/(?:[a-z]{2}/)?recipes/[^/]+""")
     private val timeMark = Regex("""[#?&]t=([\d.]+)""", RegexOption.IGNORE_CASE)

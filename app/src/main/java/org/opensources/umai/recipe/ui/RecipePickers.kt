@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -23,30 +25,38 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.opensources.umai.R
-import org.opensources.umai.core.format.rememberDateFormatter
 import org.opensources.umai.core.model.MealType
 import org.opensources.umai.planning.ui.label
-import org.opensources.umai.planning.ui.rememberPlanningWeek
+import org.opensources.umai.planning.domain.PlanningWeek
 import java.time.LocalDate
-import java.time.format.FormatStyle
 
-/** Picks a day of the visible week and a meal slot for the recipe. */
+/**
+ * Picks a day and a meal slot for the recipe: a day of this week or of the
+ * next one, Monday to Sunday as the meal plan shows them.
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun MealPlanPicker(
     onDismiss: () -> Unit,
     onConfirm: (LocalDate, MealType) -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState()
-    val week = rememberPlanningWeek()
-    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val today = remember { LocalDate.now() }
+    val weeks = remember(today) {
+        val thisWeek = PlanningWeek.startOf(today)
+        listOf(
+            R.string.planning_this_week to PlanningWeek.days(thisWeek),
+            R.string.planning_next_week to PlanningWeek.days(thisWeek.plusWeeks(1)),
+        )
+    }
+    var selectedDate by remember { mutableStateOf(today) }
     var selectedType by remember { mutableStateOf(MealType.DINNER) }
-    val dateFormatter = rememberDateFormatter(FormatStyle.MEDIUM)
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
             modifier = Modifier
                 .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -56,13 +66,19 @@ fun MealPlanPicker(
                 style = MaterialTheme.typography.titleMedium,
             )
 
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                week.forEach { day ->
-                    FilterChip(
-                        selected = day == selectedDate,
-                        onClick = { selectedDate = day },
-                        label = { Text(day.label(dateFormatter)) },
-                    )
+            weeks.forEach { (titleRes, days) ->
+                Text(
+                    text = stringResource(titleRes),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    days.forEach { day ->
+                        FilterChip(
+                            selected = day == selectedDate,
+                            onClick = { selectedDate = day },
+                            label = { Text(day.label(today)) },
+                        )
+                    }
                 }
             }
 

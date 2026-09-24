@@ -39,13 +39,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.opensources.umai.R
 import org.opensources.umai.core.format.IngredientText
-import org.opensources.umai.core.format.rememberDateFormatter
 import org.opensources.umai.core.model.MealPlanEntry
 import org.opensources.umai.core.model.ShoppingListSummary
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
 import org.opensources.umai.recipe.ui.labelRes
-import java.time.format.FormatStyle
 
 /** The callbacks of [WeekShoppingSheet], grouped so the signature stays readable. */
 class WeekShoppingActions(
@@ -248,8 +246,7 @@ private fun LazyListScope.ingredientsStep(state: WeekShoppingUiState, actions: W
 
 @Composable
 private fun mealLabel(entry: MealPlanEntry): String {
-    val formatter = rememberDateFormatter(FormatStyle.MEDIUM)
-    return stringResource(R.string.planning_entry_for, entry.date.label(formatter), stringResource(entry.type.labelRes()))
+    return stringResource(R.string.planning_entry_for, entry.date.label(), stringResource(entry.type.labelRes()))
 }
 
 @Composable

@@ -13,4 +13,5 @@ enum class AppNotice(@param:StringRes val messageRes: Int, val success: Boolean)
     RECIPE_CREATED_WITHOUT_IMAGE(R.string.notice_recipe_created_without_image, success = false),
     RECIPE_COOKED(R.string.notice_recipe_cooked, success = true),
     RECIPE_IMPORTED_WITHOUT_MEDIA(R.string.notice_recipe_imported_without_media, success = false),
+    RECIPE_PLANNED(R.string.recipe_added_to_plan, success = true),
 }

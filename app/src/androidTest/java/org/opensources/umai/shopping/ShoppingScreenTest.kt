@@ -41,6 +41,7 @@ class ShoppingScreenTest {
         onCheckedChange: (ShoppingItem, Boolean) -> Unit = { _, _ -> },
         onDeleteItem: (ShoppingItem) -> Unit = {},
         onRetry: () -> Unit = {},
+        onStartShoppingMode: (String) -> Unit = {},
     ) {
         rule.setContent {
             UmaiTheme {
@@ -54,6 +55,7 @@ class ShoppingScreenTest {
                     onDeleteItem = onDeleteItem,
                     onRetry = onRetry,
                     onRefresh = {},
+                    onStartShoppingMode = onStartShoppingMode,
                 )
             }
         }
@@ -210,5 +212,37 @@ class ShoppingScreenTest {
         rule.onNodeWithText(string(R.string.action_retry)).performClick()
 
         assertTrue(retried)
+    }
+
+    @Test
+    fun aListWithItemsOffersTheShoppingMode() {
+        var started: String? = null
+        render(
+            ShoppingUiState(
+                loadingLists = false,
+                lists = listOf(TestData.shoppingListSummary()),
+                selectedListId = "l1",
+                list = TestData.shoppingList(),
+            ),
+            onStartShoppingMode = { started = it },
+        )
+
+        rule.onNodeWithText(string(R.string.shopping_mode_title)).performClick()
+
+        assertEquals("l1", started)
+    }
+
+    @Test
+    fun anEmptyListOffersNoShoppingMode() {
+        render(
+            ShoppingUiState(
+                loadingLists = false,
+                lists = listOf(TestData.shoppingListSummary()),
+                selectedListId = "l1",
+                list = TestData.shoppingList(items = emptyList()),
+            ),
+        )
+
+        rule.onNodeWithText(string(R.string.shopping_mode_title)).assertDoesNotExist()
     }
 }

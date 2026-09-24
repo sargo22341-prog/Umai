@@ -335,11 +335,11 @@
     <string name="settings_section_household">Your household</string>
     <string name="settings_first_day_of_week">First day of the week</string>
     <string name="settings_show_nutrition">Show nutrition</string>
-    <string name="settings_show_nutrition_summary">Show the nutrition table on every recipe of the household.</string>
+    <string name="settings_show_nutrition_summary">New recipes show their nutrition table on Mealie.</string>
     <string name="settings_show_assets">Show attachments</string>
-    <string name="settings_show_assets_summary">Show the files attached to a recipe.</string>
+    <string name="settings_show_assets_summary">New recipes show their attached files on Mealie.</string>
     <string name="settings_disable_comments">Disable comments</string>
-    <string name="settings_disable_comments_summary">Hide the comments on the recipes of the household.</string>
+    <string name="settings_disable_comments_summary">New recipes are created with their comments turned off.</string>
     <string name="settings_recipe_public">Public recipes</string>
     <string name="settings_recipe_public_summary">New recipes can be read without signing in.</string>
     <string name="settings_private_household">Private household</string>
@@ -531,4 +531,60 @@
         <item quantity="one">%1$d link in all.</item>
         <item quantity="other">%1$d links in all.</item>
     </plurals>
+
+    <!-- Recipe page: categories, tags and tools -->
+    <string name="recipe_organizers">Categories, tags and tools</string>
+    <string name="recipe_organizers_show_more">Show more (%1$d)</string>
+    <string name="recipe_organizers_show_less">Show less</string>
+
+    <!-- Planning: fixed week, recipe picker and random draw -->
+    <string name="planning_week_of">Week of %1$s</string>
+    <string name="planning_this_week">This week</string>
+    <string name="planning_random_title">Random recipe</string>
+    <string name="planning_random_category">Category</string>
+    <string name="planning_random_all_categories">All categories</string>
+    <string name="planning_random_draw">Draw a recipe</string>
+    <string name="planning_random_again">Another one</string>
+    <string name="planning_random_no_match">No recipe in this category.</string>
+
+    <!-- Shopping mode -->
+    <string name="shopping_mode_title">Shopping mode</string>
+    <string name="shopping_mode_exit">Leave the shopping mode</string>
+    <string name="shopping_mode_progress">%1$d of %2$d in the basket</string>
+    <string name="shopping_mode_done">Everything is in the basket!</string>
+    <string name="shopping_mode_finish">Finish</string>
+    <string name="shopping_mode_basket">In the basket (%1$d)</string>
+
+    <!-- Mealie settings: where each preference applies -->
+    <string name="settings_household_intro">These preferences are stored on your Mealie server and apply to its website. Most of them change nothing in the app, as marked below.</string>
+    <string name="settings_scope_server_only">Mealie server only — no effect in the app</string>
+    <string name="settings_scope_first_day">Mealie server only — the app\'s meal plan always runs Monday to Sunday</string>
+    <string name="settings_scope_nutrition">Mealie server only — the app shows nutrition whenever a recipe has some; see the app settings</string>
+    <string name="settings_scope_comments">Also applies in the app, to the recipes created afterwards</string>
+
+    <!-- Cooking mode timers -->
+    <string name="unit_second_short">s</string>
+    <string name="cooking_timer_start">Start %1$s</string>
+    <string name="cooking_timer_label">Step %1$d · %2$s</string>
+    <string name="cooking_timer_done">Time is up!</string>
+    <string name="cooking_timer_stop">Stop</string>
+    <string name="cooking_timer_pause">Pause the timer %1$s</string>
+    <string name="cooking_timer_resume">Resume the timer %1$s</string>
+    <string name="cooking_timer_cancel">Cancel the timer %1$s</string>
+    <string name="cooking_timer_exit_title">Stop the timers?</string>
+    <string name="cooking_timer_exit_message">Leaving the cooking mode stops the timers that are running.</string>
+    <string name="settings_section_cooking">Cooking mode</string>
+    <string name="settings_detect_timers">Timers from the steps</string>
+    <string name="settings_detect_timers_summary">Offer a timer for each duration written in a step (“bake 15 min” → Start 15 min)</string>
+    <string name="settings_timer_sound">Timer sound</string>
+    <string name="settings_timer_sound_summary">Ring with the alarm sound of the phone when a timer is up</string>
+    <string name="settings_timer_vibrate">Timer vibration</string>
+    <string name="settings_timer_vibrate_summary">Vibrate when a timer is up</string>
+
+    <!-- Providers: step photos only -->
+    <string name="provider_750g_description">The step-by-step recipes of 750g give a photo for each step. They are fetched and attached to their step, and shown on the recipe page and in the cooking mode.</string>
+    <string name="provider_marmiton_description">When a Marmiton recipe gives photos of its steps, they are fetched and attached to their step, and shown on the recipe page and in the cooking mode.</string>
+    <string name="provider_import_photos">Fetch the step photos automatically</string>
+    <string name="provider_import_photos_summary">When a recipe of this provider is imported, the photo of each step is saved with the recipe on Mealie and attached to its step.</string>
+    <string name="import_provider_hint_photos">%1$s page: its step photos will be fetched too, when it has some.</string>
 </resources>

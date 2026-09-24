@@ -128,4 +128,12 @@ class RecipeFiltersTest {
         assertTrue(random.isRandom)
         assertEquals(random, random.select(SortField.RANDOM))
     }
+
+    @Test
+    fun `a search on an organizer filters the field of its kind`() {
+        assertEquals(setOf("c1"), RecipeFilters.forOrganizer(OrganizerKind.CATEGORY, "c1").categoryIds)
+        assertEquals(setOf("t1"), RecipeFilters.forOrganizer(OrganizerKind.TAG, "t1").tagIds)
+        assertEquals(setOf("o1"), RecipeFilters.forOrganizer(OrganizerKind.TOOL, "o1").toolIds)
+        assertEquals(1, RecipeFilters.forOrganizer(OrganizerKind.TAG, "t1").activeCount)
+    }
 }

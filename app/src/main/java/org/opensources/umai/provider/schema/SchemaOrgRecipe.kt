@@ -53,6 +53,19 @@ object SchemaOrgRecipe {
         return steps
     }
 
+    /**
+     * The photo each step gives as its `image`, by step number (`1` is the
+     * first step), after [normalize]. A picture of the whole recipe is not a
+     * photo of a step and is left out: such a step gets no photo at all.
+     */
+    fun stepPhotos(recipe: JsonObject, base: String, normalize: (String) -> String = { it }): Map<Int, String> {
+        val recipePictures = urls(recipe["image"], base).map(normalize).toSet()
+        return steps(recipe).mapIndexedNotNull { index, step ->
+            val image = (step as? JsonObject)?.let { url(it["image"], base) }?.let(normalize)
+            image?.takeIf { it !in recipePictures }?.let { (index + 1) to it }
+        }.toMap()
+    }
+
     /** The first address found in a string, a list, or an object's `url`, `contentUrl` or `thumbnailUrl`. */
     fun url(value: JsonElement?, base: String): String? = when (value) {
         is JsonPrimitive -> value.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }?.let { absolute(it, base) }

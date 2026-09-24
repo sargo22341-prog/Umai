@@ -4,8 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -59,11 +57,12 @@ import org.opensources.umai.core.model.RecipeComment
 import org.opensources.umai.core.model.RecipeIngredient
 import org.opensources.umai.core.model.RecipeStep
 import org.opensources.umai.core.ui.component.RemoteImage
+import org.opensources.umai.search.domain.OrganizerEntry
 
 /**
- * The scrollable body of the recipe page: picture, facts, ingredients,
- * instructions with their embedded images, notes, nutrition, source and
- * comments.
+ * The scrollable body of the recipe page: picture, facts, description,
+ * ingredients, instructions with their embedded images, notes, nutrition,
+ * categories and tags, source and comments.
  */
 @Composable
 internal fun RecipeContent(
@@ -79,6 +78,7 @@ internal fun RecipeContent(
     onPostComment: (String) -> Unit,
     onDeleteComment: (RecipeComment) -> Unit,
     onOpenSource: (String) -> Unit,
+    onOrganizerClick: (OrganizerEntry) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -137,15 +137,14 @@ internal fun RecipeContent(
                     onRate = onRate,
                 )
 
+                RecipeFacts(recipe, showTimes = state.display.showTimes)
+
                 if (recipe.summary.description.isNotBlank()) {
                     MarkdownText(
                         markdown = recipe.summary.description,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
-
-                RecipeFacts(recipe, showTimes = state.display.showTimes)
-                OrganizerChips(recipe)
             }
         }
 
@@ -223,6 +222,13 @@ internal fun RecipeContent(
                 item { SectionTitle(stringResource(R.string.recipe_nutrition)) }
                 item { NutritionTable(nutrition) }
             }
+
+        val organizers = state.organizers
+        if (organizers.isNotEmpty()) {
+            item { HorizontalDivider(Modifier.padding(horizontal = 20.dp)) }
+            item { SectionTitle(stringResource(R.string.recipe_organizers)) }
+            item { RecipeOrganizers(entries = organizers, onClick = onOrganizerClick) }
+        }
 
         recipe.summary.sourceUrl?.takeIf { state.display.showSource }?.let { url ->
             item { HorizontalDivider(Modifier.padding(horizontal = 20.dp)) }
@@ -394,32 +400,6 @@ private fun RecipeFacts(recipe: Recipe, showTimes: Boolean) {
                     )
                     Text(text = value, style = MaterialTheme.typography.bodyMedium)
                 }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun OrganizerChips(recipe: Recipe) {
-    val all = recipe.summary.categories + recipe.summary.tags + recipe.summary.tools
-    if (all.isEmpty()) return
-
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        all.forEach { organizer ->
-            Surface(
-                shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.secondaryContainer,
-            ) {
-                Text(
-                    text = organizer.name,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                )
             }
         }
     }

@@ -1,5 +1,6 @@
 package org.opensources.umai.cooking.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -42,7 +43,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,7 +52,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -65,12 +64,14 @@ import org.opensources.umai.core.markdown.MarkdownText
 import org.opensources.umai.core.model.RecipeIngredient
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.ui.component.EmptyView
+import org.opensources.umai.core.ui.component.KeepScreenOn
 import org.opensources.umai.core.ui.component.LoadingView
 import org.opensources.umai.core.ui.component.NetworkErrorView
 import org.opensources.umai.core.ui.component.RemoteImage
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
 import org.opensources.umai.recipe.domain.StepClip
+import java.time.Duration
 
 /**
  * Step-by-step cooking mode: one step fills the screen, navigation is reduced
@@ -113,6 +114,10 @@ fun CookingScreen(
         stepImageUrl = { source -> container.imageUrls.stepImage(recipeId, source) },
         stepPhotoUrl = { file -> container.imageUrls.recipeAsset(recipeId, file, state.recipe?.mediaVersion) },
         modifier = modifier,
+        onStartTimer = viewModel::startTimer,
+        onPauseTimer = viewModel::pauseTimer,
+        onResumeTimer = viewModel::resumeTimer,
+        onDismissTimer = viewModel::dismissTimer,
     )
 }
 
@@ -133,11 +138,46 @@ fun CookingScreen(
     stepPhotoUrl: (String) -> String?,
     modifier: Modifier = Modifier,
     videoContent: @Composable (StepClip, Int) -> Unit = { stepClip, number -> StepVideoPlayer(stepClip, number) },
+    onStartTimer: (Duration) -> Unit = {},
+    onPauseTimer: (Int) -> Unit = {},
+    onResumeTimer: (Int) -> Unit = {},
+    onDismissTimer: (Int) -> Unit = {},
 ) {
     var stepListVisible by remember { mutableStateOf(false) }
     var finishing by remember { mutableStateOf(false) }
+    var confirmingExit by remember { mutableStateOf(false) }
 
     KeepScreenOn(enabled = state.keepScreenOn)
+
+    // Leaving the cooking mode drops its timers: never without asking.
+    val hasTimers = state.timers.timers.isNotEmpty()
+    val exit: () -> Unit = {
+        if (hasTimers) {
+            confirmingExit = true
+        } else {
+            onExit()
+        }
+    }
+    BackHandler(enabled = hasTimers) { confirmingExit = true }
+
+    if (confirmingExit) {
+        AlertDialog(
+            onDismissRequest = { confirmingExit = false },
+            title = { Text(stringResource(R.string.cooking_timer_exit_title)) },
+            text = { Text(stringResource(R.string.cooking_timer_exit_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmingExit = false
+                        onExit()
+                    },
+                ) { Text(stringResource(R.string.cooking_leave)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingExit = false }) { Text(stringResource(R.string.action_cancel)) }
+            },
+        )
+    }
 
     if (finishing) {
         FinishDialog(
@@ -178,7 +218,7 @@ fun CookingScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onExit) {
+                    IconButton(onClick = exit) {
                         Icon(
                             imageVector = Icons.Outlined.Close,
                             contentDescription = stringResource(R.string.cooking_exit),
@@ -198,14 +238,25 @@ fun CookingScreen(
             )
         },
         bottomBar = {
-            if (state.stepCount > 0) {
-                CookingControls(
-                    hasPrevious = state.hasPrevious,
-                    isLastStep = state.isLastStep,
-                    onPrevious = onPrevious,
-                    onNext = onNext,
-                    onFinish = { finishing = true },
-                )
+            Column {
+                if (hasTimers) {
+                    TimersPanel(
+                        timers = state.timers.timers,
+                        now = state.now,
+                        onPause = onPauseTimer,
+                        onResume = onResumeTimer,
+                        onDismiss = onDismissTimer,
+                    )
+                }
+                if (state.stepCount > 0) {
+                    CookingControls(
+                        hasPrevious = state.hasPrevious,
+                        isLastStep = state.isLastStep,
+                        onPrevious = onPrevious,
+                        onNext = onNext,
+                        onFinish = { finishing = true },
+                    )
+                }
             }
         },
     ) { padding ->
@@ -242,6 +293,8 @@ fun CookingScreen(
                     },
                     ingredients = state.ingredientsForStep,
                     scale = state.scale,
+                    durations = state.stepDurations,
+                    onStartTimer = onStartTimer,
                 )
             }
         }
@@ -257,6 +310,8 @@ private fun StepContent(
     media: @Composable () -> Unit,
     ingredients: List<RecipeIngredient>,
     scale: Double,
+    durations: List<Duration>,
+    onStartTimer: (Duration) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -294,6 +349,10 @@ private fun StepContent(
                     lineHeight = MaterialTheme.typography.titleLarge.lineHeight * 1.25f,
                 ),
             )
+        }
+
+        if (durations.isNotEmpty()) {
+            StepTimerButtons(durations = durations, onStart = onStartTimer)
         }
 
         if (ingredients.isNotEmpty()) {
@@ -498,18 +557,5 @@ private fun StepListSheet(
                 )
             }
         }
-    }
-}
-
-/**
- * Keeps the display awake for as long as this composable is on screen, and
- * restores the normal behaviour on exit even if the screen is left abruptly.
- */
-@Composable
-private fun KeepScreenOn(enabled: Boolean) {
-    val view = LocalView.current
-    DisposableEffect(enabled, view) {
-        view.keepScreenOn = enabled
-        onDispose { view.keepScreenOn = false }
     }
 }

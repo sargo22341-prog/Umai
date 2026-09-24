@@ -1,6 +1,7 @@
 package org.opensources.umai.search.domain
 
 import org.opensources.umai.core.format.ApiDates
+import org.opensources.umai.core.model.Organizer
 import org.opensources.umai.recipe.domain.CalorieFilter
 import org.opensources.umai.recipe.domain.CalorieTag
 import org.opensources.umai.recipe.domain.queryClause
@@ -99,8 +100,21 @@ data class RecipeFilters(
 
     companion object {
         val None = RecipeFilters()
+
+        /** Every recipe filed under one category, tag or tool. */
+        fun forOrganizer(kind: OrganizerKind, id: String): RecipeFilters = when (kind) {
+            OrganizerKind.CATEGORY -> RecipeFilters(categoryIds = setOf(id))
+            OrganizerKind.TAG -> RecipeFilters(tagIds = setOf(id))
+            OrganizerKind.TOOL -> RecipeFilters(toolIds = setOf(id))
+        }
     }
 }
+
+/** The three ways Mealie files a recipe, each a filter of its own. */
+enum class OrganizerKind { CATEGORY, TAG, TOOL }
+
+/** A category, tag or tool of a recipe, with what it is: a search on it filters that field. */
+data class OrganizerEntry(val kind: OrganizerKind, val organizer: Organizer)
 
 /**
  * Builds the `queryFilter` expression for the filters that have no dedicated

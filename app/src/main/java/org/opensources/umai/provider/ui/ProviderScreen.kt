@@ -92,8 +92,16 @@ fun ProviderScreen(
             item { SettingsSectionHeader(stringResource(R.string.provider_section_import)) }
             item {
                 SettingsSwitchRow(
-                    title = stringResource(R.string.provider_import_media),
-                    summary = stringResource(R.string.provider_import_media_summary),
+                    title = stringResource(
+                        if (provider.offersVideo) R.string.provider_import_media else R.string.provider_import_photos,
+                    ),
+                    summary = stringResource(
+                        if (provider.offersVideo) {
+                            R.string.provider_import_media_summary
+                        } else {
+                            R.string.provider_import_photos_summary
+                        },
+                    ),
                     checked = state.importsMedia,
                     onCheckedChange = onImportsMediaChange,
                 )

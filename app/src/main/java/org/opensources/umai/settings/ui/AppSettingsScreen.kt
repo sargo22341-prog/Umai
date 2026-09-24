@@ -52,6 +52,9 @@ fun AppSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         onKeepScreenOnChange = viewModel::setKeepScreenOn,
         onRecipeSectionChange = viewModel::setRecipeSectionVisible,
         modifier = modifier,
+        onDetectTimersChange = viewModel::setDetectTimers,
+        onTimerSoundChange = viewModel::setTimerSound,
+        onTimerVibrateChange = viewModel::setTimerVibrate,
     )
 }
 
@@ -69,6 +72,9 @@ fun AppSettingsScreen(
     onKeepScreenOnChange: (Boolean) -> Unit,
     onRecipeSectionChange: (RecipeSection, Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    onDetectTimersChange: (Boolean) -> Unit = {},
+    onTimerSoundChange: (Boolean) -> Unit = {},
+    onTimerVibrateChange: (Boolean) -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier,
@@ -154,12 +160,45 @@ fun AppSettingsScreen(
                 )
             }
 
+            item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
+            item { SettingsSectionHeader(stringResource(R.string.settings_section_cooking)) }
+
             item {
                 SettingsSwitchRow(
                     title = stringResource(R.string.settings_keep_screen_on),
                     summary = stringResource(R.string.settings_keep_screen_on_summary),
                     checked = preferences.keepScreenOnWhileCooking,
                     onCheckedChange = onKeepScreenOnChange,
+                )
+            }
+
+            item {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_detect_timers),
+                    summary = stringResource(R.string.settings_detect_timers_summary),
+                    checked = preferences.cookingTimers.detectTimers,
+                    onCheckedChange = onDetectTimersChange,
+                )
+            }
+
+            // How a timer calls the cook only matters when there are timers.
+            item {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_timer_sound),
+                    summary = stringResource(R.string.settings_timer_sound_summary),
+                    checked = preferences.cookingTimers.sound,
+                    onCheckedChange = onTimerSoundChange,
+                    enabled = preferences.cookingTimers.detectTimers,
+                )
+            }
+
+            item {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_timer_vibrate),
+                    summary = stringResource(R.string.settings_timer_vibrate_summary),
+                    checked = preferences.cookingTimers.vibrate,
+                    onCheckedChange = onTimerVibrateChange,
+                    enabled = preferences.cookingTimers.detectTimers,
                 )
             }
 

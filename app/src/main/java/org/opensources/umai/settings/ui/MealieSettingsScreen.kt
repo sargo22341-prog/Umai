@@ -155,6 +155,15 @@ fun MealieSettingsScreen(
                 item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
                 item { SettingsSectionHeader(stringResource(R.string.settings_section_household)) }
 
+                item {
+                    Text(
+                        text = stringResource(R.string.settings_household_intro),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
+
                 if (!state.canManageHousehold) {
                     item { ReadOnlyNotice() }
                 }
@@ -193,6 +202,7 @@ fun MealieSettingsScreen(
                             labelOf = { it.localizedName() },
                             onSelect = onFirstDayChange,
                             enabled = state.householdEditable,
+                            scopeNote = stringResource(R.string.settings_scope_first_day),
                         )
                     }
                     item {
@@ -202,6 +212,7 @@ fun MealieSettingsScreen(
                             checked = household.recipeShowNutrition,
                             onCheckedChange = onShowNutritionChange,
                             enabled = state.householdEditable,
+                            scopeNote = stringResource(R.string.settings_scope_nutrition),
                         )
                     }
                     item {
@@ -211,6 +222,7 @@ fun MealieSettingsScreen(
                             checked = household.recipeShowAssets,
                             onCheckedChange = onShowAssetsChange,
                             enabled = state.householdEditable,
+                            scopeNote = stringResource(R.string.settings_scope_server_only),
                         )
                     }
                     item {
@@ -220,6 +232,7 @@ fun MealieSettingsScreen(
                             checked = household.recipeDisableComments,
                             onCheckedChange = onDisableCommentsChange,
                             enabled = state.householdEditable,
+                            scopeNote = stringResource(R.string.settings_scope_comments),
                         )
                     }
                     item {
@@ -229,6 +242,7 @@ fun MealieSettingsScreen(
                             checked = household.recipePublic,
                             onCheckedChange = onRecipePublicChange,
                             enabled = state.householdEditable,
+                            scopeNote = stringResource(R.string.settings_scope_server_only),
                         )
                     }
                     item {
@@ -238,6 +252,7 @@ fun MealieSettingsScreen(
                             checked = household.privateHousehold,
                             onCheckedChange = onPrivateHouseholdChange,
                             enabled = state.householdEditable,
+                            scopeNote = stringResource(R.string.settings_scope_server_only),
                         )
                     }
                 }

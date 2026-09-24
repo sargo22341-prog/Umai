@@ -1,6 +1,7 @@
 package org.opensources.umai.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
@@ -21,6 +22,7 @@ import org.opensources.umai.BuildConfig
 import org.opensources.umai.R
 import org.opensources.umai.core.settings.AppLanguage
 import org.opensources.umai.core.settings.AppPreferences
+import org.opensources.umai.core.settings.CookingTimerOptions
 import org.opensources.umai.core.settings.RecipeDisplayOptions
 import org.opensources.umai.core.settings.RecipeSection
 import org.opensources.umai.core.settings.ThemeMode
@@ -45,6 +47,7 @@ class AppSettingsScreenTest {
         onThemeChange: (ThemeMode) -> Unit = {},
         onBack: () -> Unit = {},
         onRecipeSectionChange: (RecipeSection, Boolean) -> Unit = { _, _ -> },
+        onDetectTimersChange: (Boolean) -> Unit = {},
     ) {
         rule.setContent {
             UmaiTheme {
@@ -58,6 +61,7 @@ class AppSettingsScreenTest {
                     onDynamicColorChange = {},
                     onKeepScreenOnChange = {},
                     onRecipeSectionChange = onRecipeSectionChange,
+                    onDetectTimersChange = onDetectTimersChange,
                 )
             }
         }
@@ -168,5 +172,25 @@ class AppSettingsScreenTest {
         rule.onNodeWithText(string(R.string.settings_recipe_comments)).performClick()
 
         assertEquals(RecipeSection.COMMENTS to true, changed)
+    }
+
+    @Test
+    fun theTimersOfTheCookingModeCanBeTurnedOff() {
+        var detect: Boolean? = null
+        render(onDetectTimersChange = { detect = it })
+
+        rule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(string(R.string.settings_detect_timers)))
+        rule.onNodeWithText(string(R.string.settings_detect_timers)).performClick()
+
+        assertEquals(false, detect)
+    }
+
+    @Test
+    fun soundAndVibrationWaitForTheTimersToBeOn() {
+        render(preferences = AppPreferences(cookingTimers = CookingTimerOptions(detectTimers = false)))
+
+        rule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(string(R.string.settings_timer_vibrate)))
+        rule.onNodeWithText(string(R.string.settings_timer_sound)).assertIsNotEnabled()
+        rule.onNodeWithText(string(R.string.settings_timer_vibrate)).assertIsNotEnabled()
     }
 }

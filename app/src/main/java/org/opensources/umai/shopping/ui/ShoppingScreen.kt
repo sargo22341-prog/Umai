@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.ShoppingBasket
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -61,7 +62,7 @@ import org.opensources.umai.core.ui.component.NetworkErrorView
  * their food, which is how the web UI organizes an aisle-friendly list.
  */
 @Composable
-fun ShoppingScreen(modifier: Modifier = Modifier) {
+fun ShoppingScreen(onStartShoppingMode: (String) -> Unit, modifier: Modifier = Modifier) {
     val container = LocalAppContainer.current
     val viewModel: ShoppingViewModel = viewModel(factory = ShoppingViewModel.factory(container))
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -80,6 +81,7 @@ fun ShoppingScreen(modifier: Modifier = Modifier) {
         onDeleteItem = viewModel::deleteItem,
         onRetry = viewModel::loadLists,
         onRefresh = viewModel::refresh,
+        onStartShoppingMode = onStartShoppingMode,
         modifier = modifier,
     )
 }
@@ -98,6 +100,7 @@ fun ShoppingScreen(
     onRetry: () -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
+    onStartShoppingMode: (String) -> Unit = {},
 ) {
     var newListDialogVisible by remember { mutableStateOf(false) }
     var deleteDialogVisible by remember { mutableStateOf(false) }
@@ -141,6 +144,15 @@ fun ShoppingScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.shopping_title)) },
                 actions = {
+                    if (currentList != null && currentList.items.isNotEmpty()) {
+                        TextButton(onClick = { onStartShoppingMode(currentList.id) }) {
+                            Icon(Icons.Outlined.ShoppingBasket, contentDescription = null)
+                            Text(
+                                text = stringResource(R.string.shopping_mode_title),
+                                modifier = Modifier.padding(start = 6.dp),
+                            )
+                        }
+                    }
                     IconButton(onClick = { newListDialogVisible = true }) {
                         Icon(
                             Icons.Outlined.Add,
@@ -246,9 +258,7 @@ private fun ListContent(
     var draft by remember { mutableStateOf("") }
     val unchecked = items.filterNot { it.checked }
     val checked = items.filter { it.checked }
-    val grouped = remember(unchecked) {
-        unchecked.groupBy { it.labelName }.toSortedMap(compareBy(nullsLast()) { it })
-    }
+    val grouped = remember(unchecked) { unchecked.groupedByLabel() }
     val unlabelled = stringResource(R.string.shopping_unlabelled)
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -331,8 +341,9 @@ private fun ListContent(
     }
 }
 
+/** The name of an aisle — a Mealie label — with its colour. */
 @Composable
-private fun SectionHeader(text: String, color: String?, modifier: Modifier = Modifier) {
+internal fun SectionHeader(text: String, color: String?, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -422,6 +433,10 @@ private fun NewListDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
         },
     )
 }
+
+/** Items by the Mealie label of their food, labels in alphabetical order and unlabelled items last. */
+internal fun List<ShoppingItem>.groupedByLabel(): Map<String?, List<ShoppingItem>> =
+    groupBy { it.labelName }.toSortedMap(compareBy(nullsLast()) { it })
 
 /** Mealie labels carry a `#rrggbb` colour; anything else is ignored. */
 private fun parseHexColor(hex: String): Color? {

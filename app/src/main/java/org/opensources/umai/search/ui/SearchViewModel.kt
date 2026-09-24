@@ -25,6 +25,7 @@ import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.settings.RecipeLayout
 import org.opensources.umai.organizer.data.OrganizerRepository
 import org.opensources.umai.recipe.data.RecipeRepository
+import org.opensources.umai.recipe.domain.withoutCalorieTags
 import org.opensources.umai.search.domain.RecipeFilters
 import org.opensources.umai.search.domain.RecipeSort
 import org.opensources.umai.search.domain.SortField
@@ -62,17 +63,22 @@ data class FilterOptionsState(
     val error: NetworkError? = null,
 )
 
+/**
+ * [initialFilters] opens the search already filtered, as when a tag of a recipe
+ * is tapped.
+ */
 class SearchViewModel(
     private val recipeRepository: RecipeRepository,
     private val organizerRepository: OrganizerRepository,
     layout: Flow<RecipeLayout>,
+    initialFilters: RecipeFilters = RecipeFilters.None,
 ) : ViewModel() {
 
     private val queryFlow = MutableStateFlow("")
-    private val filtersFlow = MutableStateFlow(RecipeFilters.None)
+    private val filtersFlow = MutableStateFlow(initialFilters)
     private val sortFlow = MutableStateFlow(RecipeSort.Default)
 
-    private val _state = MutableStateFlow(SearchUiState())
+    private val _state = MutableStateFlow(SearchUiState(filters = initialFilters))
     val state: StateFlow<SearchUiState> = _state.asStateFlow()
 
     private val _filterOptions = MutableStateFlow(FilterOptionsState())
@@ -165,7 +171,7 @@ class SearchViewModel(
             _filterOptions.update {
                 it.copy(
                     categories = (categories as? ApiResult.Success)?.value.orEmpty(),
-                    tags = (tags as? ApiResult.Success)?.value.orEmpty(),
+                    tags = (tags as? ApiResult.Success)?.value.orEmpty().withoutCalorieTags(),
                     tools = (tools as? ApiResult.Success)?.value.orEmpty(),
                     loading = false,
                     error = failure,
@@ -249,12 +255,13 @@ class SearchViewModel(
         private const val DEBOUNCE_MS = 350L
         const val MIN_FOOD_QUERY = 2
 
-        fun factory(container: AppContainer) = viewModelFactory {
+        fun factory(container: AppContainer, initialFilters: RecipeFilters = RecipeFilters.None) = viewModelFactory {
             initializer {
                 SearchViewModel(
                     recipeRepository = container.recipeRepository,
                     organizerRepository = container.organizerRepository,
                     layout = container.preferencesRepository.preferences.map { it.recipeLayout },
+                    initialFilters = initialFilters,
                 )
             }
         }

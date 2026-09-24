@@ -36,6 +36,16 @@ data class RecipeDisplayOptions(
     val showComments: Boolean = true,
 )
 
+/**
+ * How the cooking mode handles the durations written in the steps: whether it
+ * offers a timer for each, and how a timer that reaches zero calls the cook.
+ */
+data class CookingTimerOptions(
+    val detectTimers: Boolean = true,
+    val sound: Boolean = true,
+    val vibrate: Boolean = true,
+)
+
 /** One of the sections [RecipeDisplayOptions] can hide. */
 enum class RecipeSection { TIMES, NUTRITION, SOURCE, COMMENTS }
 
@@ -46,6 +56,7 @@ data class AppPreferences(
     val recipeLayout: RecipeLayout = RecipeLayout.GRID,
     val keepScreenOnWhileCooking: Boolean = true,
     val recipeDisplay: RecipeDisplayOptions = RecipeDisplayOptions(),
+    val cookingTimers: CookingTimerOptions = CookingTimerOptions(),
 )
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "umai_settings")
@@ -69,6 +80,11 @@ class AppPreferencesRepository(context: Context) {
                     showSource = prefs[KeyShowSource] ?: true,
                     showComments = prefs[KeyShowComments] ?: true,
                 ),
+                cookingTimers = CookingTimerOptions(
+                    detectTimers = prefs[KeyDetectTimers] ?: true,
+                    sound = prefs[KeyTimerSound] ?: true,
+                    vibrate = prefs[KeyTimerVibrate] ?: true,
+                ),
             )
         }
 
@@ -81,6 +97,12 @@ class AppPreferencesRepository(context: Context) {
     suspend fun setRecipeLayout(layout: RecipeLayout) = edit { it[KeyLayout] = layout.name }
 
     suspend fun setKeepScreenOnWhileCooking(enabled: Boolean) = edit { it[KeyKeepScreenOn] = enabled }
+
+    suspend fun setDetectTimers(enabled: Boolean) = edit { it[KeyDetectTimers] = enabled }
+
+    suspend fun setTimerSound(enabled: Boolean) = edit { it[KeyTimerSound] = enabled }
+
+    suspend fun setTimerVibrate(enabled: Boolean) = edit { it[KeyTimerVibrate] = enabled }
 
     suspend fun setRecipeSectionVisible(section: RecipeSection, visible: Boolean) = edit {
         it[section.key()] = visible
@@ -110,5 +132,8 @@ class AppPreferencesRepository(context: Context) {
         val KeyShowNutrition = booleanPreferencesKey("recipe_show_nutrition")
         val KeyShowSource = booleanPreferencesKey("recipe_show_source")
         val KeyShowComments = booleanPreferencesKey("recipe_show_comments")
+        val KeyDetectTimers = booleanPreferencesKey("cooking_detect_timers")
+        val KeyTimerSound = booleanPreferencesKey("cooking_timer_sound")
+        val KeyTimerVibrate = booleanPreferencesKey("cooking_timer_vibrate")
     }
 }

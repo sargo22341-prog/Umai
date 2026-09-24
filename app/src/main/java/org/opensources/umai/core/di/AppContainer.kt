@@ -5,6 +5,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import okhttp3.OkHttpClient
+import org.opensources.umai.cooking.data.SystemTimerAlarm
+import org.opensources.umai.cooking.domain.TimerAlarm
 import org.opensources.umai.core.image.DeviceImageCropper
 import org.opensources.umai.core.network.LocalNetworkAccess
 import org.opensources.umai.core.network.MealieMedia
@@ -22,6 +24,8 @@ import org.opensources.umai.provider.data.HttpPhotoDownloader
 import org.opensources.umai.provider.data.ProviderMediaImporter
 import org.opensources.umai.provider.data.ProviderSettingsStore
 import org.opensources.umai.provider.jow.JowProvider
+import org.opensources.umai.provider.marmiton.MarmitonProvider
+import org.opensources.umai.provider.site750g.Site750gProvider
 import org.opensources.umai.recipe.data.CalorieTagRepository
 import org.opensources.umai.recipe.data.DeviceRecipeImageFiles
 import org.opensources.umai.recipe.data.RecipeCommentRepository
@@ -92,7 +96,7 @@ class AppContainer(context: Context) {
         .build()
 
     /** Removing a provider is removing its line here, and its package. */
-    val providerRegistry = ProviderRegistry(listOf(JowProvider))
+    val providerRegistry = ProviderRegistry(listOf(JowProvider, Site750gProvider, MarmitonProvider))
     val providerSettings = ProviderSettingsStore(appContext)
     val providerMediaImporter = ProviderMediaImporter(
         apiProvider = apiProvider,
@@ -100,6 +104,9 @@ class AppContainer(context: Context) {
         media = recipeMediaRepository,
         downloader = HttpPhotoDownloader(externalHttpClient),
     )
+
+    /** Rings when a cooking timer reaches zero. */
+    val timerAlarm: TimerAlarm = SystemTimerAlarm(appContext)
 
     /** Re-read on every call: the user can revoke the grant from Settings. */
     val localNetworkPermission: () -> Boolean = { LocalNetworkAccess.isGranted(appContext) }

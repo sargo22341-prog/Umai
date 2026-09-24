@@ -24,6 +24,9 @@ interface RecipeProvider {
     @get:StringRes
     val descriptionRes: Int
 
+    /** Whether the provider publishes a video of its recipes, or step photos only. */
+    val offersVideo: Boolean
+
     /** Whether the page at [url] is a recipe of this provider. */
     fun handles(url: String): Boolean
 

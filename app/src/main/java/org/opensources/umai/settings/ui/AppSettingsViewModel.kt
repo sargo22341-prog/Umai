@@ -52,6 +52,18 @@ class AppSettingsViewModel(
         preferencesRepository.setKeepScreenOnWhileCooking(enabled)
     }
 
+    fun setDetectTimers(enabled: Boolean) = viewModelScope.launch {
+        preferencesRepository.setDetectTimers(enabled)
+    }
+
+    fun setTimerSound(enabled: Boolean) = viewModelScope.launch {
+        preferencesRepository.setTimerSound(enabled)
+    }
+
+    fun setTimerVibrate(enabled: Boolean) = viewModelScope.launch {
+        preferencesRepository.setTimerVibrate(enabled)
+    }
+
     fun setRecipeSectionVisible(section: RecipeSection, visible: Boolean) = viewModelScope.launch {
         preferencesRepository.setRecipeSectionVisible(section, visible)
     }

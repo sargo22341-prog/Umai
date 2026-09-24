@@ -35,8 +35,12 @@ data class RecipeImportUiState(
     val error: NetworkError? = null,
     /** A recipe of the instance that comes from the same page; the import waits for a decision. */
     val duplicate: RecipeSummary? = null,
-    /** The provider of the page, when the app knows how to fetch more from it. */
+    /**
+     * The provider of the page, when the app knows how to fetch more from it
+     * and the reader lets it; [providerOffersVideo] tells what it brings.
+     */
     val providerName: String? = null,
+    val providerOffersVideo: Boolean = false,
     /** Set once Mealie has created the recipe; the screen then navigates to it. */
     val imported: ImportedRecipe? = null,
 ) {
@@ -69,8 +73,21 @@ class RecipeImportViewModel(
         initialUrl?.takeIf { it.isNotBlank() }?.let(::onUrlChange)
     }
 
-    fun onUrlChange(value: String) = _state.update {
-        it.copy(url = value, error = null, duplicate = null, providerName = providers.forUrl(value.trim())?.name)
+    fun onUrlChange(value: String) {
+        val provider = providers.forUrl(value.trim())
+        _state.update { it.copy(url = value, error = null, duplicate = null, providerName = null) }
+        if (provider == null) return
+        viewModelScope.launch {
+            if (!providerSettings.importsMediaNow(provider.id)) return@launch
+            _state.update {
+                // The address may have changed while the setting was read.
+                if (providers.forUrl(it.url.trim()) != provider) {
+                    it
+                } else {
+                    it.copy(providerName = provider.name, providerOffersVideo = provider.offersVideo)
+                }
+            }
+        }
     }
 
     fun onIncludeTagsChange(value: Boolean) = _state.update { it.copy(includeTags = value) }

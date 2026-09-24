@@ -13,6 +13,9 @@ import androidx.compose.material.icons.rounded.ShoppingCart
 import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.serialization.Serializable
 import org.opensources.umai.R
+import org.opensources.umai.search.domain.OrganizerEntry
+import org.opensources.umai.search.domain.OrganizerKind
+import org.opensources.umai.search.domain.RecipeFilters
 
 /** Type-safe routes; Navigation Compose serializes them with kotlinx.serialization. */
 @Serializable
@@ -27,8 +30,39 @@ data object PlanningRoute
 @Serializable
 data object SearchRoute
 
+/**
+ * A search opened on one category, tag or tool of a recipe; [kind] is an
+ * [OrganizerKind] name.
+ *
+ * It is a destination of its own rather than arguments of [SearchRoute]: the
+ * search tab keeps its saved state, and the two never restore each other.
+ */
+@Serializable
+data class OrganizerSearchRoute(val kind: String, val id: String) {
+
+    val filters: RecipeFilters
+        get() = OrganizerKind.entries.firstOrNull { it.name == kind }
+            ?.let { RecipeFilters.forOrganizer(it, id) }
+            ?: RecipeFilters.None
+
+    companion object {
+        fun of(entry: OrganizerEntry) = OrganizerSearchRoute(entry.kind.name, entry.organizer.id)
+    }
+}
+
+/**
+ * Picks a recipe for one meal of the plan: [date] is ISO-8601 and [mealType]
+ * a Mealie entry type.
+ */
+@Serializable
+data class PlanRecipePickerRoute(val date: String, val mealType: String)
+
 @Serializable
 data object ShoppingRoute
+
+/** The in-store view of one shopping list: big rows, one tap per item. */
+@Serializable
+data class ShoppingModeRoute(val listId: String)
 
 @Serializable
 data object ProfileRoute

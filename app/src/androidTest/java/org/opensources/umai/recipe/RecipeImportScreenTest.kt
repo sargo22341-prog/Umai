@@ -126,9 +126,16 @@ class RecipeImportScreenTest {
 
     @Test
     fun aKnownProviderSaysItsMediaWillFollow() {
-        render(RecipeImportUiState(url = "https://jow.fr/recipes/x", providerName = "Jow"))
+        render(RecipeImportUiState(url = "https://jow.fr/recipes/x", providerName = "Jow", providerOffersVideo = true))
 
         rule.onNodeWithText(string(R.string.import_provider_hint, "Jow")).assertIsDisplayed()
+    }
+
+    @Test
+    fun aProviderOfStepPhotosSaysOnlyThoseWillFollow() {
+        render(RecipeImportUiState(url = "https://www.750g.com/pavlova-r204378.htm", providerName = "750g"))
+
+        rule.onNodeWithText(string(R.string.import_provider_hint_photos, "750g")).assertIsDisplayed()
     }
 
     @Test

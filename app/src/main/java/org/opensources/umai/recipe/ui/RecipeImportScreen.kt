@@ -145,7 +145,10 @@ fun RecipeImportScreen(
 
             state.providerName?.let { name ->
                 Text(
-                    text = stringResource(R.string.import_provider_hint, name),
+                    text = stringResource(
+                        if (state.providerOffersVideo) R.string.import_provider_hint else R.string.import_provider_hint_photos,
+                        name,
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
