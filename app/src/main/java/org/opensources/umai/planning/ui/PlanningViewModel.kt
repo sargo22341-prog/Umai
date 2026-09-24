@@ -24,23 +24,26 @@ import org.opensources.umai.recipe.data.RecipeRepository
 import org.opensources.umai.search.domain.RecipeFilters
 import org.opensources.umai.search.domain.RecipeSort
 import org.opensources.umai.search.domain.SortField
+import java.time.DayOfWeek
 import java.time.LocalDate
 import kotlin.random.Random
 
 data class PlanningUiState(
     val today: LocalDate = LocalDate.now(),
-    /** The Monday of the week on screen. */
-    val weekStart: LocalDate = PlanningWeek.startOf(today),
+    /** The first day of the week in Mealie's household preferences. */
+    val firstDay: DayOfWeek = PlanningWeek.DEFAULT_FIRST_DAY,
+    /** The first day of the week on screen. */
+    val weekStart: LocalDate = PlanningWeek.startOf(today, firstDay),
     val entriesByDay: Map<LocalDate, List<MealPlanEntry>> = emptyMap(),
     val loading: Boolean = true,
     val refreshing: Boolean = false,
     val error: NetworkError? = null,
     val mutating: Boolean = false,
 ) {
-    /** Monday to Sunday. */
+    /** The seven days of the week, from [firstDay]. */
     val days: List<LocalDate> get() = PlanningWeek.days(weekStart)
 
-    /** The day the week opens on: today in the current week, Monday in any other. */
+    /** The day the week opens on: today in the current week, its first day in any other. */
     val focusedDay: LocalDate get() = today.takeIf { it in days } ?: weekStart
 
     val isEmpty: Boolean
@@ -83,7 +86,7 @@ class PlanningViewModel(
     private var hasLoadedOnce = false
 
     init {
-        load()
+        load(refreshing = false, readFirstDay = true)
     }
 
     /**
@@ -91,29 +94,35 @@ class PlanningViewModel(
      *
      * A meal added from a recipe page lands on the server while this ViewModel
      * is still alive, so returning to the tab has to ask Mealie again instead of
-     * showing what was loaded before. The day may have changed meanwhile too.
+     * showing what was loaded before. The day may have changed meanwhile too,
+     * and so may the first day of the week, set in the Mealie settings.
      */
     fun onScreenShown() {
         val today = clock()
         if (today != _state.value.today) {
-            _state.update { it.copy(today = today, weekStart = PlanningWeek.startOf(today)) }
-            load()
+            _state.update { it.copy(today = today, weekStart = PlanningWeek.startOf(today, it.firstDay)) }
+            load(refreshing = false, readFirstDay = true)
         } else if (hasLoadedOnce) {
-            refresh()
+            load(refreshing = true, readFirstDay = true)
         }
     }
 
-    fun load() = load(refreshing = false)
+    fun load() = load(refreshing = false, readFirstDay = false)
 
-    fun refresh() = load(refreshing = true)
+    fun refresh() = load(refreshing = true, readFirstDay = false)
 
-    private fun load(refreshing: Boolean) {
-        val days = _state.value.days
+    private fun load(refreshing: Boolean, readFirstDay: Boolean) {
         loadJob?.cancel()
         _state.update {
             it.copy(loading = !refreshing, refreshing = refreshing, error = null)
         }
         loadJob = viewModelScope.launch {
+            // Without the preference, the week keeps the start it has: the
+            // entries below report the failure if the server is really down.
+            if (readFirstDay) {
+                (mealPlanRepository.firstDayOfWeek() as? ApiResult.Success)?.let { applyFirstDay(it.value) }
+            }
+            val days = _state.value.days
             when (val result = mealPlanRepository.entries(days.first(), days.last())) {
                 is ApiResult.Failure -> _state.update {
                     it.copy(loading = false, refreshing = false, error = result.error)
@@ -133,6 +142,12 @@ class PlanningViewModel(
         }
     }
 
+    /** A new first day keeps the week around the day in focus, now starting on that day. */
+    private fun applyFirstDay(firstDay: DayOfWeek) = _state.update {
+        if (it.firstDay == firstDay) it
+        else it.copy(firstDay = firstDay, weekStart = PlanningWeek.startOf(it.focusedDay, firstDay))
+    }
+
     fun showPreviousWeek() {
         _state.update { it.copy(weekStart = it.weekStart.minusWeeks(1)) }
         load()
@@ -145,7 +160,7 @@ class PlanningViewModel(
 
     fun backToToday() {
         val today = clock()
-        _state.update { it.copy(today = today, weekStart = PlanningWeek.startOf(today)) }
+        _state.update { it.copy(today = today, weekStart = PlanningWeek.startOf(today, it.firstDay)) }
         load()
     }
 

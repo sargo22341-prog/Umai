@@ -107,7 +107,7 @@ class AddToShoppingListSheetTest {
 
         // Six servings of a four-serving recipe: every quantity times 1.5.
         rule.onNodeWithText("3 citrons").assertIsDisplayed()
-        rule.onNodeWithText(string(R.string.shopping_servings_scaled, 4)).assertExists()
+        rule.onNodeWithText(context.resources.getQuantityString(R.plurals.shopping_servings_scaled, 4, 4)).assertExists()
 
         rule.onNodeWithText("300 grammes riz").assertIsDisplayed()
 

@@ -11,14 +11,15 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.opensources.umai.R
 import org.opensources.umai.TestData
+import org.opensources.umai.cooking.domain.CookingTimer
 import org.opensources.umai.cooking.domain.CookingTimers
+import org.opensources.umai.cooking.domain.TimerRecipe
 import org.opensources.umai.cooking.ui.CookingScreen
 import org.opensources.umai.cooking.ui.CookingUiState
 import org.opensources.umai.core.network.NetworkError
@@ -67,6 +68,8 @@ class CookingScreenTest {
         onMarkCooked: () -> Unit = {},
         onStartTimer: (Duration) -> Unit = {},
         onDismissTimer: (Int) -> Unit = {},
+        onOpenTimer: (CookingTimer) -> Unit = {},
+        notificationsAllowed: Boolean = true,
     ) {
         rule.setContent {
             UmaiTheme {
@@ -86,6 +89,8 @@ class CookingScreenTest {
                     videoContent = { stepClip, number -> Text("video $number from ${stepClip.start}") },
                     onStartTimer = onStartTimer,
                     onDismissTimer = onDismissTimer,
+                    onOpenTimer = onOpenTimer,
+                    notificationsAllowed = notificationsAllowed,
                 )
             }
         }
@@ -255,6 +260,8 @@ class CookingScreenTest {
     }
 
     private val timedRecipe = TestData.recipe(steps = listOf(TestData.step(text = "Cuire 15 min à feu doux.")))
+    private val ownTimer = TimerRecipe(slug = timedRecipe.slug, name = timedRecipe.name, servings = 0)
+    private val otherTimer = TimerRecipe(slug = "tarte-tatin", name = "Tarte tatin", servings = 0)
 
     @Test
     fun aDurationWrittenInTheStepOffersATimer() {
@@ -282,8 +289,8 @@ class CookingScreenTest {
     @Test
     fun runningTimersCountDownTogether() {
         val timers = CookingTimers()
-            .start(stepIndex = 0, duration = Duration.ofMinutes(15), now = 0)
-            .start(stepIndex = 0, duration = Duration.ofMinutes(5), now = 0)
+            .start(ownTimer, stepIndex = 0, duration = Duration.ofMinutes(15), now = 0)
+            .start(ownTimer, stepIndex = 0, duration = Duration.ofMinutes(5), now = 0)
         render(CookingUiState(recipe = timedRecipe, loading = false, timers = timers, now = 60_000))
 
         rule.onNodeWithText("14:00").assertIsDisplayed()
@@ -293,7 +300,7 @@ class CookingScreenTest {
     @Test
     fun aFinishedTimerRingsUntilItIsStopped() {
         var stopped: Int? = null
-        val timers = CookingTimers().start(stepIndex = 0, duration = Duration.ofSeconds(30), now = 0)
+        val timers = CookingTimers().start(ownTimer, stepIndex = 0, duration = Duration.ofSeconds(30), now = 0)
         render(
             CookingUiState(recipe = timedRecipe, loading = false, timers = timers, now = 31_000),
             onDismissTimer = { stopped = it },
@@ -306,19 +313,43 @@ class CookingScreenTest {
     }
 
     @Test
-    fun leavingWithTimersRunningAsksFirst() {
+    fun leavingWithTimersRunningLeavesAtOnceAndKeepsThem() {
         var left = false
-        val timers = CookingTimers().start(stepIndex = 0, duration = Duration.ofMinutes(15), now = 0)
+        val timers = CookingTimers().start(ownTimer, stepIndex = 0, duration = Duration.ofMinutes(15), now = 0)
         render(
             CookingUiState(recipe = timedRecipe, loading = false, timers = timers, now = 0),
             onExit = { left = true },
         )
 
         rule.onNodeWithContentDescription(string(R.string.cooking_exit)).performClick()
-        assertFalse(left)
-        rule.onNodeWithText(string(R.string.cooking_timer_exit_title)).assertIsDisplayed()
-        rule.onNodeWithText(string(R.string.cooking_leave)).performClick()
 
         assertTrue(left)
+    }
+
+    @Test
+    fun aTimerOfAnotherRecipeIsNamedAfterItAndOpensIt() {
+        var opened: CookingTimer? = null
+        val timers = CookingTimers().start(otherTimer, stepIndex = 2, duration = Duration.ofMinutes(15), now = 0)
+        render(
+            CookingUiState(recipe = timedRecipe, loading = false, timers = timers, now = 0),
+            onOpenTimer = { opened = it },
+        )
+
+        val label = string(R.string.cooking_timer_label, 3, "15 min")
+        rule.onNodeWithText(string(R.string.cooking_timer_of_recipe, "Tarte tatin", label)).performClick()
+
+        assertEquals("tarte-tatin", opened?.recipe?.slug)
+        assertEquals(2, opened?.stepIndex)
+    }
+
+    @Test
+    fun withoutNotificationsTheTimersSayTheyOnlyShowHere() {
+        val timers = CookingTimers().start(ownTimer, stepIndex = 0, duration = Duration.ofMinutes(15), now = 0)
+        render(
+            CookingUiState(recipe = timedRecipe, loading = false, timers = timers, now = 0),
+            notificationsAllowed = false,
+        )
+
+        rule.onNodeWithText(string(R.string.cooking_timer_notifications_off)).assertIsDisplayed()
     }
 }

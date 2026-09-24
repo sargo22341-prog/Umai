@@ -25,12 +25,14 @@ import org.opensources.umai.core.session.SessionManager
 import org.opensources.umai.core.settings.RecipeDisplayOptions
 import org.opensources.umai.home.data.RecentRecipesStore
 import org.opensources.umai.planning.data.MealPlanRepository
+import org.opensources.umai.planning.domain.PlanningWeek
 import org.opensources.umai.recipe.data.RecipeCommentRepository
 import org.opensources.umai.recipe.data.RecipeRepository
 import org.opensources.umai.recipe.domain.withoutCalorieTags
 import org.opensources.umai.search.domain.OrganizerEntry
 import org.opensources.umai.search.domain.OrganizerKind
 import org.opensources.umai.shopping.data.ShoppingRepository
+import java.time.DayOfWeek
 import java.time.LocalDate
 import kotlin.math.roundToInt
 
@@ -57,6 +59,8 @@ data class RecipeDetailUiState(
     val display: RecipeDisplayOptions = RecipeDisplayOptions(),
     val shoppingLists: List<ShoppingListSummary> = emptyList(),
     val loadingShoppingLists: Boolean = false,
+    /** Where the weeks offered by the meal plan picker start, as on the meal plan. */
+    val planFirstDay: DayOfWeek = PlanningWeek.DEFAULT_FIRST_DAY,
     /**
      * Servings the reader asked for. It starts at the recipe's own value and is
      * deliberately never persisted: reopening the app shows the recipe as its
@@ -232,6 +236,14 @@ class RecipeDetailViewModel(
                     is ApiResult.Success -> it.copy(event = RecipeEvent.AddedToList(list.name))
                 }
             }
+        }
+    }
+
+    /** Reads the household's first day of the week before the meal plan picker shows its weeks. */
+    fun loadPlanFirstDay() {
+        viewModelScope.launch {
+            val result = mealPlanRepository.firstDayOfWeek()
+            if (result is ApiResult.Success) _state.update { it.copy(planFirstDay = result.value) }
         }
     }
 

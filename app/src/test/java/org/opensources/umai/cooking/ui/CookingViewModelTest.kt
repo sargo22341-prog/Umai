@@ -23,7 +23,16 @@ import org.opensources.umai.core.network.FakeMealieServer
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.recipe.data.RecipeMediaRepository
 import org.opensources.umai.recipe.data.RecipeRepository
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.coroutines.CoroutineScope
+import org.opensources.umai.cooking.data.CookingTimerController
+import org.opensources.umai.cooking.domain.CookingTimers
 import org.opensources.umai.cooking.domain.TimerAlarm
+import org.opensources.umai.cooking.domain.TimerHost
+import org.opensources.umai.cooking.domain.TimerRecipe
 import org.opensources.umai.core.settings.CookingTimerOptions
 import java.time.Duration
 
@@ -157,21 +166,36 @@ class CookingViewModelTest {
     }
 
     private var now = 0L
-    private val alarm = RecordingAlarm()
+
+    /** The timers of the app, which the cooking mode only starts and shows. */
+    private val timers = CookingTimerController(
+        scope = CoroutineScope(Dispatchers.Unconfined),
+        alarm = object : TimerAlarm {
+            override fun start(sound: Boolean, vibrate: Boolean) = Unit
+
+            override fun stop() = Unit
+        },
+        host = object : TimerHost {
+            override fun update(timers: CookingTimers, now: Long) = Unit
+        },
+        options = flowOf(CookingTimerOptions()),
+        clock = { now },
+    )
 
     private fun viewModel(
         keepScreenOn: Boolean = true,
         servings: Int = 0,
+        step: Int = 0,
         timerOptions: CookingTimerOptions = CookingTimerOptions(),
     ): CookingViewModel = CookingViewModel(
         slug = "test",
         servings = servings,
+        initialStep = step,
         recipeRepository = RecipeRepository({ fake.api() }),
         mediaRepository = RecipeMediaRepository { fake.api() },
         keepScreenOn = flowOf(keepScreenOn),
         timerOptions = flowOf(timerOptions),
-        alarm = alarm,
-        clock = { now },
+        timers = timers,
     )
 
     /** Suspends until the screen has something to show, or fails the test. */
@@ -262,39 +286,64 @@ class CookingViewModelTest {
     }
 
     @Test
-    fun `a timer that reaches zero rings until it is stopped`() = runBlocking {
+    fun `a timer is started for the step on screen, and named after the recipe`() = runBlocking {
         fake.enqueueJson(RECIPE)
-        val vm = viewModel(timerOptions = CookingTimerOptions(sound = true, vibrate = false))
+        val vm = viewModel(servings = 4)
         vm.awaitSettled()
 
         vm.goToStep(2)
-        vm.startTimer(Duration.ofSeconds(30))
         vm.startTimer(Duration.ofMinutes(15))
-        assertEquals(2, vm.state.value.timers.timers.size)
-        assertEquals(2, vm.state.value.timers.timers.first().stepIndex)
 
-        now = 31_000L
-        val ringing = withTimeout(TIMEOUT_MS) { vm.state.first { it.ringingTimers.isNotEmpty() } }
-        assertEquals(listOf(1), ringing.ringingTimers.map { it.id })
-        assertEquals(listOf("start sound=true vibrate=false"), alarm.calls)
-
-        vm.dismissTimer(1)
-        assertEquals(listOf("start sound=true vibrate=false", "stop"), alarm.calls)
-        // The other timer keeps counting down.
-        assertEquals(listOf(2), vm.state.value.timers.timers.map { it.id })
+        val timer = timers.timers.value.timers.single()
+        assertEquals(2, timer.stepIndex)
+        assertEquals(TimerRecipe(slug = "test", name = "Test", servings = 4), timer.recipe)
+        assertEquals(listOf(1), vm.state.value.timers.timers.map { it.id })
     }
 
     @Test
-    fun `a silent timer finishes without ringing`() = runBlocking {
+    fun `leaving the cooking mode leaves its timers running`() = runBlocking {
         fake.enqueueJson(RECIPE)
-        val vm = viewModel(timerOptions = CookingTimerOptions(sound = false, vibrate = false))
+        val store = ViewModelStore()
+        val vm = ViewModelProvider.create(store, viewModelFactory { initializer { viewModel() } })[
+            CookingViewModel::class,
+        ]
+        vm.awaitSettled()
+        vm.startTimer(Duration.ofMinutes(15))
+
+        store.clear()
+
+        assertEquals(1, timers.timers.value.timers.size)
+        assertTrue(timers.timers.value.anyRunning(now))
+    }
+
+    @Test
+    fun `a timer reached zero shows as ringing until it is stopped`() = runBlocking {
+        fake.enqueueJson(RECIPE)
+        val vm = viewModel()
         vm.awaitSettled()
 
-        vm.startTimer(Duration.ofSeconds(5))
-        now = 6_000L
-        withTimeout(TIMEOUT_MS) { vm.state.first { it.ringingTimers.isNotEmpty() } }
+        vm.startTimer(Duration.ofSeconds(30))
+        now = 31_000L
+        timers.refresh()
+        val ringing = withTimeout(TIMEOUT_MS) { vm.state.first { it.ringingTimers.isNotEmpty() } }
+        assertEquals(listOf(1), ringing.ringingTimers.map { it.id })
 
-        assertTrue(alarm.calls.isEmpty())
+        vm.dismissTimer(1)
+        assertTrue(vm.state.value.timers.isEmpty)
+    }
+
+    @Test
+    fun `the cooking mode opens on the step a timer asks for`() = runBlocking {
+        fake.enqueueJson(RECIPE)
+        val state = viewModel(step = 2).awaitSettled()
+        assertEquals(2, state.currentStep)
+    }
+
+    @Test
+    fun `a step beyond the recipe opens its last step`() = runBlocking {
+        fake.enqueueJson(RECIPE)
+        val state = viewModel(step = 9).awaitSettled()
+        assertEquals(2, state.currentStep)
     }
 
     @Test
@@ -328,15 +377,3 @@ class CookingViewModelTest {
     }
 }
 
-/** Records what the cooking mode asks of the alarm. */
-private class RecordingAlarm : TimerAlarm {
-    val calls = mutableListOf<String>()
-
-    override fun start(sound: Boolean, vibrate: Boolean) {
-        calls += "start sound=$sound vibrate=$vibrate"
-    }
-
-    override fun stop() {
-        calls += "stop"
-    }
-}

@@ -247,7 +247,7 @@ private fun ServingsRow(servings: Int, baseServings: Int, onChange: (Int) -> Uni
 
     if (servings != baseServings) {
         Text(
-            text = stringResource(R.string.shopping_servings_scaled, baseServings),
+            text = pluralStringResource(R.plurals.shopping_servings_scaled, baseServings, baseServings),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

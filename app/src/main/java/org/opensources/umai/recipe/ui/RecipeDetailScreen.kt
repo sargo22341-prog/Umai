@@ -113,6 +113,7 @@ fun RecipeDetailScreen(
 
     if (planPickerVisible) {
         MealPlanPicker(
+            firstDay = state.planFirstDay,
             onDismiss = { planPickerVisible = false },
             onConfirm = { date, type ->
                 viewModel.addToMealPlan(date, type)
@@ -134,7 +135,10 @@ fun RecipeDetailScreen(
             viewModel.loadShoppingLists()
             listSheetVisible = true
         },
-        onOpenPlanPicker = { planPickerVisible = true },
+        onOpenPlanPicker = {
+            viewModel.loadPlanFirstDay()
+            planPickerVisible = true
+        },
         onRetry = viewModel::load,
         onRefresh = viewModel::refresh,
         onServingsChange = viewModel::setServings,

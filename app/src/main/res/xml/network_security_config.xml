@@ -8,12 +8,19 @@
      never disables verification or accepts an untrusted chain by itself.
    * cleartext is permitted because some LAN instances are plain http; the setup
      screen shows an explicit warning before such an instance is saved.
+  Lint flags both choices (InsecureBaseConfiguration, AcceptsUserCertificates) because
+  they suit an app talking to a fixed, public backend. Here the server is whatever the
+  user configured, so both are deliberate and the warnings are ignored for that reason.
 -->
-<network-security-config>
-    <base-config cleartextTrafficPermitted="true">
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <base-config
+        cleartextTrafficPermitted="true"
+        tools:ignore="InsecureBaseConfiguration">
         <trust-anchors>
             <certificates src="system" />
-            <certificates src="user" />
+            <certificates
+                src="user"
+                tools:ignore="AcceptsUserCertificates" />
         </trust-anchors>
     </base-config>
 </network-security-config>

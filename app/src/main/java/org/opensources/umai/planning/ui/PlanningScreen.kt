@@ -67,8 +67,8 @@ import java.time.LocalDate
 import java.time.format.FormatStyle
 
 /**
- * The meal plan, one calendar week at a time from Monday to Sunday. The week
- * opens on today, highlighted and scrolled into view.
+ * The meal plan, one week at a time from the first day of the week chosen in
+ * Mealie. The week opens on today, highlighted and scrolled into view.
  */
 @Composable
 fun PlanningScreen(
@@ -158,7 +158,7 @@ fun PlanningScreen(
     val focusedIndex = state.days.indexOf(state.focusedDay)
     LaunchedEffect(state.weekStart, state.focusedDay) {
         // Today is scrolled fully into view while the day before keeps peeking
-        // on the left, so the order of the days stays obvious. Monday has
+        // on the left, so the order of the days stays obvious. The first day has
         // nothing before it and starts at the edge.
         listState.scrollToItem(
             index = focusedIndex,

@@ -12,9 +12,27 @@ class PlanningWeekTest {
         val monday = LocalDate.of(2026, 9, 21)
 
         (0L until 7L).forEach { offset ->
-            assertEquals(monday, PlanningWeek.startOf(monday.plusDays(offset)))
+            assertEquals(monday, PlanningWeek.startOf(monday.plusDays(offset), DayOfWeek.MONDAY))
         }
-        assertEquals(monday.plusWeeks(1), PlanningWeek.startOf(monday.plusDays(7)))
+        assertEquals(monday.plusWeeks(1), PlanningWeek.startOf(monday.plusDays(7), DayOfWeek.MONDAY))
+    }
+
+    @Test
+    fun `a week can start on any day the household chose`() {
+        val thursday = LocalDate.of(2026, 9, 24)
+
+        assertEquals(LocalDate.of(2026, 9, 20), PlanningWeek.startOf(thursday, DayOfWeek.SUNDAY))
+        assertEquals(LocalDate.of(2026, 9, 19), PlanningWeek.startOf(thursday, DayOfWeek.SATURDAY))
+        assertEquals(thursday, PlanningWeek.startOf(thursday, DayOfWeek.THURSDAY))
+        assertEquals(LocalDate.of(2026, 9, 18), PlanningWeek.startOf(thursday, DayOfWeek.FRIDAY))
+    }
+
+    @Test
+    fun `a week starting on Sunday ends on Saturday`() {
+        val days = PlanningWeek.days(PlanningWeek.startOf(LocalDate.of(2026, 9, 24), DayOfWeek.SUNDAY))
+
+        assertEquals(DayOfWeek.SUNDAY, days.first().dayOfWeek)
+        assertEquals(DayOfWeek.SATURDAY, days.last().dayOfWeek)
     }
 
     @Test

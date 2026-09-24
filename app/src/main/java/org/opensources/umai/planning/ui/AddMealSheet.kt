@@ -21,19 +21,21 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Casino
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -256,35 +258,63 @@ private fun RandomRecipeSection(
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionTitle(stringResource(R.string.planning_random_title))
 
-        ExposedDropdownMenuBox(expanded = menuExpanded, onExpandedChange = { menuExpanded = it }) {
-            OutlinedTextField(
-                value = selectedName,
-                onValueChange = {},
-                readOnly = true,
-                singleLine = true,
-                label = { Text(stringResource(R.string.planning_random_category)) },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuExpanded) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
-            )
-            ExposedDropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                DropdownMenuItem(
-                    text = { Text(allLabel) },
-                    onClick = {
-                        onSelectCategory(null)
-                        menuExpanded = false
-                    },
+        // The category and the draw sit side by side: picking one then drawing
+        // is a single gesture, and drawing again stays where the first draw was.
+        Row(
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ExposedDropdownMenuBox(
+                expanded = menuExpanded,
+                onExpandedChange = { menuExpanded = it },
+                modifier = Modifier.weight(1f),
+            ) {
+                OutlinedTextField(
+                    value = selectedName,
+                    onValueChange = {},
+                    readOnly = true,
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.planning_random_category)) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuExpanded) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
                 )
-                random.categories.forEach { category ->
+                ExposedDropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                     DropdownMenuItem(
-                        text = { Text(category.name) },
+                        text = { Text(allLabel) },
                         onClick = {
-                            onSelectCategory(category.id)
+                            onSelectCategory(null)
                             menuExpanded = false
                         },
                     )
+                    random.categories.forEach { category ->
+                        DropdownMenuItem(
+                            text = { Text(category.name) },
+                            onClick = {
+                                onSelectCategory(category.id)
+                                menuExpanded = false
+                            },
+                        )
+                    }
                 }
+            }
+            FilledTonalButton(
+                onClick = onDraw,
+                enabled = !random.drawing,
+                modifier = Modifier.heightIn(min = OutlinedTextFieldDefaults.MinHeight),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Casino,
+                    contentDescription = null,
+                    modifier = Modifier.size(ButtonDefaults.IconSize),
+                )
+                Text(
+                    text = stringResource(
+                        if (random.recipe != null) R.string.planning_random_again else R.string.planning_random_draw,
+                    ),
+                    modifier = Modifier.padding(start = ButtonDefaults.IconSpacing),
+                )
             }
         }
 
@@ -299,13 +329,8 @@ private fun RandomRecipeSection(
 
             drawn != null -> {
                 RecipeRow(recipe = drawn, imageUrl = recipeImageUrl(drawn), onClick = { onAdd(drawn) })
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(onClick = onDraw, modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.planning_random_again))
-                    }
-                    Button(onClick = { onAdd(drawn) }, modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.action_add))
-                    }
+                Button(onClick = { onAdd(drawn) }, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.action_add))
                 }
             }
 
@@ -318,13 +343,6 @@ private fun RandomRecipeSection(
                         text = "${error.title()}\n${error.message()}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
-                    )
-                }
-                OutlinedButton(onClick = onDraw, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Outlined.Casino, contentDescription = null)
-                    Text(
-                        text = stringResource(R.string.planning_random_draw),
-                        modifier = Modifier.padding(start = 8.dp),
                     )
                 }
             }

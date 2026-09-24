@@ -10,7 +10,9 @@ import org.opensources.umai.core.network.dto.CreateMealPlanEntryDto
 import org.opensources.umai.core.network.dto.MealPlanEntryDto
 import org.opensources.umai.core.network.dto.UpdateMealPlanEntryDto
 import org.opensources.umai.core.network.api.MealieApi
+import org.opensources.umai.profile.data.toDomain
 import org.opensources.umai.recipe.data.toDomain
+import java.time.DayOfWeek
 import java.time.LocalDate
 
 /**
@@ -18,6 +20,15 @@ import java.time.LocalDate
  * planning database: Mealie is the source of truth.
  */
 class MealPlanRepository(private val apiProvider: () -> MealieApi?) {
+
+    /**
+     * The day the household's weeks start on, a preference of Mealie
+     * (`GET /api/households/preferences`) the meal plan follows.
+     */
+    suspend fun firstDayOfWeek(): ApiResult<DayOfWeek> {
+        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
+        return apiCall { api.householdPreferences().toDomain().firstDay }
+    }
 
     suspend fun entries(start: LocalDate, end: LocalDate): ApiResult<List<MealPlanEntry>> {
         val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)

@@ -28,22 +28,24 @@ import org.opensources.umai.R
 import org.opensources.umai.core.model.MealType
 import org.opensources.umai.planning.ui.label
 import org.opensources.umai.planning.domain.PlanningWeek
+import java.time.DayOfWeek
 import java.time.LocalDate
 
 /**
  * Picks a day and a meal slot for the recipe: a day of this week or of the
- * next one, Monday to Sunday as the meal plan shows them.
+ * next one, each starting on [firstDay] as the meal plan shows them.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun MealPlanPicker(
+    firstDay: DayOfWeek,
     onDismiss: () -> Unit,
     onConfirm: (LocalDate, MealType) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val today = remember { LocalDate.now() }
-    val weeks = remember(today) {
-        val thisWeek = PlanningWeek.startOf(today)
+    val weeks = remember(today, firstDay) {
+        val thisWeek = PlanningWeek.startOf(today, firstDay)
         listOf(
             R.string.planning_this_week to PlanningWeek.days(thisWeek),
             R.string.planning_next_week to PlanningWeek.days(thisWeek.plusWeeks(1)),

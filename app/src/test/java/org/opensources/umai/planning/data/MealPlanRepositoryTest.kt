@@ -13,6 +13,7 @@ import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.FakeMealieServer
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.network.query
+import java.time.DayOfWeek
 import java.time.LocalDate
 
 class MealPlanRepositoryTest {
@@ -152,6 +153,26 @@ class MealPlanRepositoryTest {
     }
 
     @Test
+    fun `the first day of the week is read from the household preferences`() = runTest {
+        // Mealie numbers the days from Sunday: 0 is Sunday, not an out-of-range Monday.
+        fake.enqueueJson(PREFERENCES_FROM_SUNDAY)
+
+        val result = repository.firstDayOfWeek()
+
+        assertEquals(DayOfWeek.SUNDAY, (result as ApiResult.Success).value)
+        assertEquals("/api/households/preferences", fake.takeRequest().url.encodedPath)
+    }
+
+    @Test
+    fun `an unreadable first day of the week is a failure, not a guess`() = runTest {
+        fake.enqueueError(403)
+
+        val result = repository.firstDayOfWeek()
+
+        assertTrue(result is ApiResult.Failure)
+    }
+
+    @Test
     fun `without an instance the plan cannot be read`() = runTest {
         val offline = MealPlanRepository { null }
         val result = offline.entries(LocalDate.now(), LocalDate.now())
@@ -159,6 +180,13 @@ class MealPlanRepositoryTest {
     }
 
     private companion object {
+        const val PREFERENCES_FROM_SUNDAY = """
+            {"privateHousehold":false,"showAnnouncements":true,
+             "lockRecipeEditsFromOtherHouseholds":true,"firstDayOfWeek":0,"recipePublic":true,
+             "recipeShowNutrition":true,"recipeShowAssets":false,"recipeLandscapeView":false,
+             "recipeDisableComments":false}
+        """
+
         const val EMPTY_PAGE =
             """{"page":1,"per_page":50,"total":0,"total_pages":0,"items":[],"next":null,"previous":null}"""
 

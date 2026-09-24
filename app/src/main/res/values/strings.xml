@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Product name: identical in every language. -->
     <string name="app_name" translatable="false">Umai</string>
 
@@ -14,8 +14,6 @@
     <string name="action_back">Back</string>
     <string name="action_clear">Clear</string>
     <string name="action_connect">Connect</string>
-    <string name="action_done">Done</string>
-    <string name="action_change">Change</string>
     <string name="action_create">Create</string>
     <string name="action_select_all">Select all</string>
     <string name="action_select_none">Clear selection</string>
@@ -74,7 +72,6 @@
     <string name="setup_error_credentials_empty">Fill in your username and your password.</string>
     <string name="setup_error_token_empty">Paste your API token.</string>
     <string name="setup_error_password_login_disabled">This instance has password sign-in disabled. Use an API token instead.</string>
-    <string name="setup_detected_version">Mealie %1$s detected</string>
     <string name="setup_expired_title">Sign in again</string>
     <string name="setup_expired_message">Your session on %1$s has expired.</string>
     <string name="setup_error_local_network_denied">Umai needs access to your local network to reach an instance hosted at home. Grant the permission, or allow it from the system settings of the app.</string>
@@ -89,17 +86,13 @@
     <string name="home_empty_title">No recipe yet</string>
     <string name="home_empty_message">Add a first recipe from Mealie and it will show up here.</string>
     <string name="home_search_hint">Search a recipe</string>
-    <string name="home_favorites">Favourites</string>
 
     <!-- Search -->
-    <string name="search_title">Search</string>
     <string name="search_placeholder">Recipe, ingredient, keyword…</string>
-    <string name="search_filters">Filters</string>
     <string name="search_empty_title">No result</string>
     <string name="search_empty_message">Try another keyword or loosen your filters.</string>
     <string name="search_start_title">Search your recipes</string>
     <string name="search_start_message">Type a few letters, or open the filters to browse by category, tag, ingredient or rating.</string>
-    <string name="search_results_count">%1$d recipes</string>
     <string name="search_clear_filters">Clear filters</string>
 
     <!-- Filters -->
@@ -134,7 +127,6 @@
     <string name="recipe_instructions">Instructions</string>
     <string name="recipe_notes">Notes</string>
     <string name="recipe_nutrition">Nutrition</string>
-    <string name="recipe_source">Source</string>
     <string name="recipe_open_source">Open the original page</string>
     <string name="recipe_cook_mode">Cooking mode</string>
     <string name="recipe_add_to_list">Add to a shopping list</string>
@@ -179,9 +171,7 @@
     <string name="cooking_exit">Leave cooking mode</string>
     <string name="cooking_steps">All steps</string>
     <string name="cooking_ingredients_for_step">Ingredients for this step</string>
-    <string name="cooking_all_ingredients">All ingredients</string>
     <string name="cooking_no_steps">This recipe has no instruction to follow.</string>
-    <string name="cooking_image_failed">The image of this step could not be loaded.</string>
     <string name="cooking_done_title">Recipe finished</string>
     <string name="cooking_done_message">Enjoy your meal!</string>
 
@@ -192,8 +182,6 @@
     <string name="planning_tomorrow">Tomorrow</string>
     <string name="planning_add_meal">Add a meal</string>
     <string name="planning_empty_day">Nothing planned</string>
-    <string name="planning_empty_title">Your meal plan is empty</string>
-    <string name="planning_empty_message">Add a recipe or a note to a day to start planning.</string>
     <string name="planning_meal_type">Meal</string>
     <string name="planning_choose_recipe">Choose a recipe</string>
     <string name="planning_or_note">Or write a note</string>
@@ -204,7 +192,6 @@
     <string name="planning_back_to_today">Back to today</string>
     <string name="planning_search_recipe">Search a recipe</string>
     <string name="planning_entry_for">%1$s — %2$s</string>
-    <string name="planning_change_recipe">Change the recipe</string>
 
     <string name="meal_breakfast">Breakfast</string>
     <string name="meal_lunch">Lunch</string>
@@ -216,7 +203,6 @@
 
     <!-- Shopping -->
     <string name="shopping_title">Shopping</string>
-    <string name="shopping_lists">Lists</string>
     <string name="shopping_new_list">New list</string>
     <string name="shopping_list_name">List name</string>
     <string name="shopping_no_lists_title">No shopping list</string>
@@ -226,14 +212,15 @@
     <string name="shopping_add_item">Add an item</string>
     <string name="shopping_item_placeholder">Two lemons, olive oil…</string>
     <string name="shopping_checked_section">Done (%1$d)</string>
-    <string name="shopping_to_buy_section">To buy</string>
     <string name="shopping_unlabelled">Other</string>
     <string name="shopping_delete_list">Delete this list</string>
     <string name="shopping_delete_list_title">Delete %1$s?</string>
     <string name="shopping_delete_list_message">The list and its items will be removed from your Mealie instance.</string>
-    <string name="shopping_linked_recipes">Recipes added to this list</string>
     <string name="shopping_choose_list">Choose a list</string>
-    <string name="shopping_servings_scaled">Quantities are scaled from the %1$d servings of the recipe.</string>
+    <plurals name="shopping_servings_scaled">
+        <item quantity="one">Quantities are scaled from the %1$d serving of the recipe.</item>
+        <item quantity="other">Quantities are scaled from the %1$d servings of the recipe.</item>
+    </plurals>
 
     <!-- Profile -->
     <string name="profile_title">Profile</string>
@@ -369,17 +356,9 @@
         <item quantity="one">%1$d serving</item>
         <item quantity="other">%1$d servings</item>
     </plurals>
-    <plurals name="plural_recipes">
-        <item quantity="one">%1$d recipe</item>
-        <item quantity="other">%1$d recipes</item>
-    </plurals>
     <plurals name="plural_active_filters">
         <item quantity="one">%1$d active filter</item>
         <item quantity="other">%1$d active filters</item>
-    </plurals>
-    <plurals name="plural_items">
-        <item quantity="one">%1$d item</item>
-        <item quantity="other">%1$d items</item>
     </plurals>
     <plurals name="plural_drafts">
         <item quantity="one">%1$d draft</item>
@@ -500,7 +479,8 @@
 
     <!-- Calorie filter -->
     <string name="filter_calories">Calories</string>
-    <string name="filter_calories_up_to">Up to %1$d kcal</string>
+    <!-- "kcal" is a unit symbol: it never takes a plural form. -->
+    <string name="filter_calories_up_to" tools:ignore="PluralsCandidate">Up to %1$d kcal</string>
     <string name="filter_calories_unknown">No calories</string>
     <string name="filter_calories_hint">Calories are free text in Mealie: the filter relies on the “calorie-…” tag each recipe with calories carries. Recipes are tagged when they are created, edited or imported.</string>
     <string name="settings_section_recipes">Recipes</string>
@@ -508,7 +488,7 @@
     <string name="settings_calorie_tags_summary">Gives every recipe with calories the “calorie-…” tag the calorie filter relies on, and fixes the ones that changed. Recipes already right are left alone.</string>
     <string name="settings_calorie_tags_action">Update the calorie tags</string>
     <string name="settings_calorie_tags_running">Updating…</string>
-    <string name="settings_calorie_tags_done">%1$d recipes checked, %2$d updated, %3$d failed.</string>
+    <string name="settings_calorie_tags_done">Recipes checked: %1$d. Updated: %2$d. Failed: %3$d.</string>
 
     <!-- Planning: week to shopping list -->
     <string name="week_shopping_title">Add the week to a shopping list</string>
@@ -543,7 +523,7 @@
     <string name="planning_random_title">Random recipe</string>
     <string name="planning_random_category">Category</string>
     <string name="planning_random_all_categories">All categories</string>
-    <string name="planning_random_draw">Draw a recipe</string>
+    <string name="planning_random_draw">Draw</string>
     <string name="planning_random_again">Another one</string>
     <string name="planning_random_no_match">No recipe in this category.</string>
 
@@ -558,7 +538,7 @@
     <!-- Mealie settings: where each preference applies -->
     <string name="settings_household_intro">These preferences are stored on your Mealie server and apply to its website. Most of them change nothing in the app, as marked below.</string>
     <string name="settings_scope_server_only">Mealie server only — no effect in the app</string>
-    <string name="settings_scope_first_day">Mealie server only — the app\'s meal plan always runs Monday to Sunday</string>
+    <string name="settings_scope_first_day">Also applies in the app: the weeks of the meal plan start on this day</string>
     <string name="settings_scope_nutrition">Mealie server only — the app shows nutrition whenever a recipe has some; see the app settings</string>
     <string name="settings_scope_comments">Also applies in the app, to the recipes created afterwards</string>
 
@@ -571,8 +551,21 @@
     <string name="cooking_timer_pause">Pause the timer %1$s</string>
     <string name="cooking_timer_resume">Resume the timer %1$s</string>
     <string name="cooking_timer_cancel">Cancel the timer %1$s</string>
-    <string name="cooking_timer_exit_title">Stop the timers?</string>
-    <string name="cooking_timer_exit_message">Leaving the cooking mode stops the timers that are running.</string>
+    <string name="cooking_timer_action_pause">Pause</string>
+    <string name="cooking_timer_action_resume">Resume</string>
+    <string name="cooking_timer_paused">%1$s · paused, %2$s left</string>
+    <string name="cooking_timer_of_recipe">%1$s · %2$s</string>
+    <string name="cooking_timer_open">Open the step of this timer</string>
+    <string name="cooking_timer_stop_named">Stop the timer %1$s</string>
+    <plurals name="cooking_timers_running">
+        <item quantity="one">%1$d cooking timer</item>
+        <item quantity="other">%1$d cooking timers</item>
+    </plurals>
+    <string name="cooking_timer_channel_running">Running timers</string>
+    <string name="cooking_timer_channel_running_description">Shows the cooking timers while they count down.</string>
+    <string name="cooking_timer_channel_alarm">Finished timers</string>
+    <string name="cooking_timer_channel_alarm_description">Shows a cooking timer that reached zero, while it rings.</string>
+    <string name="cooking_timer_notifications_off">Notifications are off: the timers still ring, but only show in the app.</string>
     <string name="settings_section_cooking">Cooking mode</string>
     <string name="settings_detect_timers">Timers from the steps</string>
     <string name="settings_detect_timers_summary">Offer a timer for each duration written in a step (“bake 15 min” → Start 15 min)</string>

@@ -1,5 +1,6 @@
 package org.opensources.umai.cooking.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -30,11 +31,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.opensources.umai.R
 import org.opensources.umai.cooking.domain.CookingTimer
+import org.opensources.umai.cooking.domain.TimerFormat
 import java.time.Duration
-import java.util.Locale
 
 /** One button per duration written in the step: "Start 15 min". */
 @OptIn(ExperimentalLayoutApi::class)
@@ -58,25 +60,40 @@ internal fun StepTimerButtons(durations: List<Duration>, onStart: (Duration) -> 
 }
 
 /**
- * Every timer started in the cooking mode, whatever the step on screen: each
- * counts down on its own, can be paused or cancelled, and one that reached zero
- * rings until it is stopped here.
+ * Every timer of the app, whatever the step on screen and whatever the recipe:
+ * each counts down on its own, can be paused or cancelled, and one that reached
+ * zero rings until it is stopped. A timer of another recipe is named after it.
+ * Tapping a timer opens the step it was started from.
  */
 @Composable
 internal fun TimersPanel(
     timers: List<CookingTimer>,
     now: Long,
+    recipeSlug: String?,
+    notificationsAllowed: Boolean,
+    onOpen: (CookingTimer) -> Unit,
     onPause: (Int) -> Unit,
     onResume: (Int) -> Unit,
     onDismiss: (Int) -> Unit,
 ) {
     Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Column {
+            if (!notificationsAllowed) {
+                Text(
+                    text = stringResource(R.string.cooking_timer_notifications_off),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                )
+                HorizontalDivider()
+            }
             timers.forEachIndexed { index, timer ->
                 if (index > 0) HorizontalDivider()
                 TimerRow(
                     timer = timer,
                     now = now,
+                    showRecipe = timer.recipe.slug != recipeSlug,
+                    onOpen = { onOpen(timer) },
                     onPause = { onPause(timer.id) },
                     onResume = { onResume(timer.id) },
                     onDismiss = { onDismiss(timer.id) },
@@ -90,12 +107,14 @@ internal fun TimersPanel(
 private fun TimerRow(
     timer: CookingTimer,
     now: Long,
+    showRecipe: Boolean,
+    onOpen: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val finished = timer.isFinished(now)
-    val label = stringResource(R.string.cooking_timer_label, timer.stepIndex + 1, durationLabel(timer.duration))
+    val label = timerLabel(timer, showRecipe)
     Surface(
         color = if (finished) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
         contentColor = if (finished) {
@@ -107,13 +126,19 @@ private fun TimerRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .clickable(onClickLabel = stringResource(R.string.cooking_timer_open), onClick = onOpen)
                 .padding(start = 20.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Icon(imageVector = if (finished) Icons.Outlined.Alarm else Icons.Outlined.Timer, contentDescription = null)
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = label, style = MaterialTheme.typography.labelMedium)
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 if (finished) {
                     Text(
                         text = stringResource(R.string.cooking_timer_done),
@@ -121,7 +146,10 @@ private fun TimerRow(
                         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     )
                 } else {
-                    Text(text = countdown(timer.remainingMillis(now)), style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        text = TimerFormat.countdown(timer.remainingMillis(now)),
+                        style = MaterialTheme.typography.titleLarge,
+                    )
                 }
             }
             if (finished) {
@@ -147,33 +175,20 @@ private fun TimerRow(
     }
 }
 
+/** "Step 2 · 15 min", preceded by the recipe name when [withRecipe]. */
+@Composable
+internal fun timerLabel(timer: CookingTimer, withRecipe: Boolean): String {
+    val step = stringResource(R.string.cooking_timer_label, timer.stepIndex + 1, durationLabel(timer.duration))
+    return if (withRecipe) stringResource(R.string.cooking_timer_of_recipe, timer.recipe.name, step) else step
+}
+
 /** "1 h 30", "15 min", "1 min 30 s", "45 s". */
 @Composable
-private fun durationLabel(duration: Duration): String {
-    val hours = duration.toHours()
-    val minutes = duration.toMinutesPart()
-    val seconds = duration.toSecondsPart()
-    val hourUnit = stringResource(R.string.unit_hour_short)
-    val minuteUnit = stringResource(R.string.unit_minute_short)
-    val secondUnit = stringResource(R.string.unit_second_short)
-    return buildList {
-        if (hours > 0) add("$hours $hourUnit")
-        if (minutes > 0) add(if (hours > 0 && seconds == 0) "$minutes" else "$minutes $minuteUnit")
-        if (seconds > 0) add("$seconds $secondUnit")
-    }.joinToString(" ")
-}
-
-/** What is left, rounded up to the second: "1:05:00", "14:59", "0:07". */
-private fun countdown(millis: Long): String {
-    val total = (millis + MILLIS_PER_SECOND - 1) / MILLIS_PER_SECOND
-    val hours = total / 3_600
-    val minutes = total % 3_600 / 60
-    val seconds = total % 60
-    return if (hours > 0) {
-        String.format(Locale.ROOT, "%d:%02d:%02d", hours, minutes, seconds)
-    } else {
-        String.format(Locale.ROOT, "%d:%02d", minutes, seconds)
-    }
-}
-
-private const val MILLIS_PER_SECOND = 1_000L
+private fun durationLabel(duration: Duration): String = TimerFormat.duration(
+    duration,
+    TimerFormat.Units(
+        hour = stringResource(R.string.unit_hour_short),
+        minute = stringResource(R.string.unit_minute_short),
+        second = stringResource(R.string.unit_second_short),
+    ),
+)

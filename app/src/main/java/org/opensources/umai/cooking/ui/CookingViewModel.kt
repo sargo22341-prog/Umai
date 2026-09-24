@@ -4,20 +4,20 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.opensources.umai.cooking.data.CookingTimerController
 import org.opensources.umai.cooking.domain.CookingTimer
 import org.opensources.umai.cooking.domain.CookingTimers
 import org.opensources.umai.cooking.domain.StepDurations
-import org.opensources.umai.cooking.domain.TimerAlarm
+import org.opensources.umai.cooking.domain.TimerRecipe
 import org.opensources.umai.core.di.AppContainer
 import org.opensources.umai.core.model.Recipe
 import org.opensources.umai.core.model.RecipeIngredient
@@ -46,6 +46,7 @@ data class CookingUiState(
     val markedCooked: Boolean = false,
     val markError: NetworkError? = null,
     val timerOptions: CookingTimerOptions = CookingTimerOptions(),
+    /** Every timer of the app: this recipe's, and the ones started from other recipes. */
     val timers: CookingTimers = CookingTimers(),
     /** The clock the timers are read against, moved on every second while one runs. */
     val now: Long = 0L,
@@ -89,29 +90,23 @@ data class CookingUiState(
 }
 
 /**
- * [clock] is monotonic, in milliseconds: the timers must not jump when the
- * wall clock is changed.
+ * The recipe, step by step. Its timers belong to [timers], the timers of the
+ * whole app: leaving the cooking mode leaves them running.
  */
 class CookingViewModel(
     private val slug: String,
     private val servings: Int,
+    /** The step to open on, as asked for by a timer started from it. */
+    private val initialStep: Int,
     private val recipeRepository: RecipeRepository,
     private val mediaRepository: RecipeMediaRepository,
     keepScreenOn: Flow<Boolean>,
     timerOptions: Flow<CookingTimerOptions>,
-    private val alarm: TimerAlarm,
-    private val clock: () -> Long = { System.nanoTime() / NANOS_PER_MILLI },
+    private val timers: CookingTimerController,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CookingUiState())
     val state: StateFlow<CookingUiState> = _state.asStateFlow()
-
-    private var tickJob: Job? = null
-
-    /** Finished timers the alarm already rang for: each rings once. */
-    private var announced = emptySet<Int>()
-    private var alarmOn = false
-    private var alarmStartedAt = 0L
 
     init {
         load()
@@ -121,6 +116,10 @@ class CookingViewModel(
         }
         viewModelScope.launch {
             timerOptions.collect { options -> _state.update { it.copy(timerOptions = options) } }
+        }
+        viewModelScope.launch {
+            combine(timers.timers, timers.ticks()) { all, now -> all to now }
+                .collect { (all, now) -> _state.update { it.copy(timers = all, now = now) } }
         }
     }
 
@@ -134,7 +133,7 @@ class CookingViewModel(
                         recipe = result.value,
                         loading = false,
                         error = null,
-                        currentStep = 0,
+                        currentStep = initialStep.coerceIn(0, (result.value.steps.size - 1).coerceAtLeast(0)),
                         servings = servings.takeIf { value -> value > 0 }
                             ?: result.value.baseServings ?: 0,
                     )
@@ -185,82 +184,35 @@ class CookingViewModel(
 
     /** Starts a timer for [duration], found in the current step. */
     fun startTimer(duration: Duration) {
-        val now = clock()
-        _state.update { it.copy(timers = it.timers.start(it.currentStep, duration, now), now = now) }
-        ensureTicking()
+        val state = _state.value
+        val recipe = state.recipe ?: return
+        // The servings asked for on the recipe page: the cooking mode reopens scaled the same.
+        timers.start(TimerRecipe(slug = slug, name = recipe.name, servings = servings), state.currentStep, duration)
     }
 
-    fun pauseTimer(id: Int) = changeTimers { timers, now -> timers.pause(id, now) }
+    fun pauseTimer(id: Int) = timers.pause(id)
 
-    fun resumeTimer(id: Int) = changeTimers { timers, now -> timers.resume(id, now) }
+    fun resumeTimer(id: Int) = timers.resume(id)
 
     /** Cancels a running timer, or silences one that finished. */
-    fun dismissTimer(id: Int) = changeTimers { timers, _ -> timers.remove(id) }
+    fun dismissTimer(id: Int) = timers.dismiss(id)
 
-    private fun changeTimers(change: (CookingTimers, Long) -> CookingTimers) {
-        val now = clock()
-        _state.update { it.copy(timers = change(it.timers, now), now = now) }
-        updateAlarm(now)
-        ensureTicking()
-    }
-
-    /** Moves the clock on every second while a timer counts down or rings. */
-    private fun ensureTicking() {
-        if (tickJob?.isActive == true) return
-        tickJob = viewModelScope.launch {
-            while (true) {
-                val now = clock()
-                // The alarm rings before the finished timer shows, never after.
-                updateAlarm(now)
-                _state.update { it.copy(now = now) }
-                if (!_state.value.timers.anyRunning(now) && !alarmOn) break
-                delay(TICK_MILLIS - now % TICK_MILLIS)
-            }
-        }
-    }
-
-    private fun updateAlarm(now: Long) {
-        val state = _state.value
-        val finished = state.timers.finished(now).map { it.id }.toSet()
-        val fresh = finished - announced
-        // Dismissed timers are forgotten; the ones that just finished are remembered.
-        announced = (announced intersect state.timers.timers.map { it.id }.toSet()) + fresh
-        val options = state.timerOptions
-        when {
-            fresh.isNotEmpty() && (options.sound || options.vibrate) -> {
-                alarm.start(sound = options.sound, vibrate = options.vibrate)
-                alarmOn = true
-                alarmStartedAt = now
-            }
-            alarmOn && (finished.isEmpty() || now - alarmStartedAt >= MAX_RING_MILLIS) -> {
-                alarm.stop()
-                alarmOn = false
-            }
-        }
-    }
-
-    override fun onCleared() {
-        alarm.stop()
-    }
+    /** Notifications were just allowed: the timers already running can show there now. */
+    fun onNotificationsAllowed() = timers.refresh()
 
     companion object {
-        private const val NANOS_PER_MILLI = 1_000_000L
-        private const val TICK_MILLIS = 1_000L
-
-        /** A forgotten alarm falls silent after this long; the timer stays shown as finished. */
-        private const val MAX_RING_MILLIS = 120_000L
-
-        fun factory(container: AppContainer, slug: String, servings: Int) = viewModelFactory {
+        fun factory(container: AppContainer, slug: String, servings: Int, step: Int) = viewModelFactory {
             initializer {
                 CookingViewModel(
                     slug = slug,
                     servings = servings,
+                    initialStep = step,
                     recipeRepository = container.recipeRepository,
                     mediaRepository = container.recipeMediaRepository,
                     keepScreenOn = container.preferencesRepository.preferences
                         .map { it.keepScreenOnWhileCooking },
                     timerOptions = container.preferencesRepository.preferences.map { it.cookingTimers },
-                    alarm = container.timerAlarm,
+                    timers = container.cookingTimers,
                 )
             }
         }

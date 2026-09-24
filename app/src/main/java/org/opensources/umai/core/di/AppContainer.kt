@@ -1,12 +1,16 @@
 package org.opensources.umai.core.di
 
 import android.content.Context
+import android.os.SystemClock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.map
 import okhttp3.OkHttpClient
+import org.opensources.umai.cooking.data.CookingTimerController
 import org.opensources.umai.cooking.data.SystemTimerAlarm
-import org.opensources.umai.cooking.domain.TimerAlarm
+import org.opensources.umai.cooking.data.SystemTimerHost
+import org.opensources.umai.cooking.data.TimerNotifications
 import org.opensources.umai.core.image.DeviceImageCropper
 import org.opensources.umai.core.network.LocalNetworkAccess
 import org.opensources.umai.core.network.MealieMedia
@@ -105,8 +109,22 @@ class AppContainer(context: Context) {
         downloader = HttpPhotoDownloader(externalHttpClient),
     )
 
-    /** Rings when a cooking timer reaches zero. */
-    val timerAlarm: TimerAlarm = SystemTimerAlarm(appContext)
+    /**
+     * Monotonic, and counting while the device sleeps: the cooking timers are
+     * read against it.
+     */
+    val timerClock: () -> Long = SystemClock::elapsedRealtime
+    val timerNotifications = TimerNotifications(appContext)
+    val timerHost = SystemTimerHost(appContext, timerNotifications)
+
+    /** The cooking timers, which outlive the cooking mode and the app's screens. */
+    val cookingTimers = CookingTimerController(
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        alarm = SystemTimerAlarm(appContext),
+        host = timerHost,
+        options = preferencesRepository.preferences.map { it.cookingTimers },
+        clock = timerClock,
+    )
 
     /** Re-read on every call: the user can revoke the grant from Settings. */
     val localNetworkPermission: () -> Boolean = { LocalNetworkAccess.isGranted(appContext) }

@@ -1,7 +1,10 @@
 package org.opensources.umai.navigation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -33,11 +36,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import androidx.lifecycle.viewmodel.compose.viewModel
 import org.opensources.umai.core.di.AppContainer
 import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.session.ServerSession
 import org.opensources.umai.core.session.SessionState
 import org.opensources.umai.core.ui.component.LoadingView
+import org.opensources.umai.cooking.data.CookingStepRequest
+import org.opensources.umai.cooking.ui.ActiveTimerPills
+import org.opensources.umai.cooking.ui.ActiveTimersViewModel
 import org.opensources.umai.cooking.ui.CookingScreen
 import org.opensources.umai.home.ui.HomeScreen
 import org.opensources.umai.planning.ui.PlanningScreen
@@ -68,12 +75,15 @@ import java.time.LocalDate
 /**
  * [sharedUrl] is a recipe page shared to the app from another one: it opens the
  * import as soon as an instance is available, then [onSharedUrlHandled] clears it.
+ * [cookingRequest] likewise opens the cooking mode a timer notification asks for.
  */
 @Composable
 fun UmaiApp(
     modifier: Modifier = Modifier,
     sharedUrl: String? = null,
     onSharedUrlHandled: () -> Unit = {},
+    cookingRequest: CookingStepRequest? = null,
+    onCookingRequestHandled: () -> Unit = {},
 ) {
     val container = LocalAppContainer.current
     val sessionState by container.sessionManager.state.collectAsStateWithLifecycle()
@@ -85,6 +95,8 @@ fun UmaiApp(
             session = state.session,
             sharedUrl = sharedUrl,
             onSharedUrlHandled = onSharedUrlHandled,
+            cookingRequest = cookingRequest,
+            onCookingRequestHandled = onCookingRequestHandled,
             modifier = modifier,
         )
     }
@@ -95,9 +107,13 @@ private fun MainNavigation(
     session: ServerSession,
     sharedUrl: String?,
     onSharedUrlHandled: () -> Unit,
+    cookingRequest: CookingStepRequest?,
+    onCookingRequestHandled: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val container = LocalAppContainer.current
+    val activeTimers: ActiveTimersViewModel = viewModel(factory = ActiveTimersViewModel.factory(container))
+    val timers by activeTimers.state.collectAsStateWithLifecycle()
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
@@ -110,6 +126,13 @@ private fun MainNavigation(
         if (sharedUrl != null) {
             navController.navigate(RecipeImportRoute(sharedUrl))
             onSharedUrlHandled()
+        }
+    }
+
+    LaunchedEffect(cookingRequest) {
+        if (cookingRequest != null) {
+            navController.openCooking(cookingRequest.slug, cookingRequest.servings, cookingRequest.step)
+            onCookingRequestHandled()
         }
     }
 
@@ -350,23 +373,41 @@ private fun MainNavigation(
                     CookingScreen(
                         slug = route.slug,
                         servings = route.servings,
+                        step = route.step,
                         onExit = { navController.popIfCurrent(entry) },
                         onCooked = {
                             if (navController.popIfCurrent(entry)) notice = AppNotice.RECIPE_COOKED
                         },
+                        onOpenTimer = { navController.openCooking(it.recipe.slug, it.recipe.servings, it.stepIndex) },
                     )
                 }
             }
 
-            NoticePill(
-                message = notice?.let { stringResource(it.messageRes) },
-                success = notice?.success ?: true,
+            Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
                     // Above the tab bar when there is one, above the system bar otherwise.
                     .then(if (destination.isFullScreen()) Modifier.navigationBarsPadding() else Modifier)
-                    .padding(bottom = 16.dp),
-            )
+                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                // The cooking mode shows its timers itself; every other screen gets
+                // them as pills, on the left, clear of the buttons on the right.
+                if (destination?.hasRoute(CookingRoute::class) != true) {
+                    ActiveTimerPills(
+                        state = timers,
+                        onOpen = { navController.openCooking(it.recipe.slug, it.recipe.servings, it.stepIndex) },
+                        onStop = activeTimers::dismiss,
+                        modifier = Modifier.align(Alignment.Start),
+                    )
+                }
+                NoticePill(
+                    message = notice?.let { stringResource(it.messageRes) },
+                    success = notice?.success ?: true,
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                )
+            }
         }
     }
 }
@@ -452,6 +493,16 @@ private fun NavHostController.showSavedRecipe(editedSlug: String, savedSlug: Str
         navigate(RecipeRoute(savedSlug)) {
             popUpTo<RecipeRoute> { inclusive = true }
         }
+    }
+}
+
+/**
+ * Opens the cooking mode of a recipe at a step, as a timer asks: it replaces
+ * the cooking mode on screen, if any, rather than stacking a second one.
+ */
+private fun NavHostController.openCooking(slug: String, servings: Int, step: Int) {
+    navigate(CookingRoute(slug, servings, step)) {
+        popUpTo<CookingRoute> { inclusive = true }
     }
 }
 

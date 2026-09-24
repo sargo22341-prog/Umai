@@ -185,7 +185,7 @@ class MealieSettingsScreenTest {
             .replaceFirstChar { it.titlecase(context.resources.configuration.locales[0]) }
 
     @Test
-    fun preferencesThatChangeNothingInTheAppSaySo() {
+    fun eachPreferenceSaysWhereItApplies() {
         render(manager)
 
         rule.onNode(hasScrollToNodeAction())

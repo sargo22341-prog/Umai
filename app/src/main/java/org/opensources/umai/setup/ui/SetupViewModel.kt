@@ -174,11 +174,6 @@ class SetupViewModel(
         if (granted) connect()
     }
 
-    override fun onCleared() {
-        connectJob?.cancel()
-        super.onCleared()
-    }
-
     @StringRes
     private fun validateUrl(raw: String): Int? = when (MealieUrl.parse(raw)) {
         MealieUrl.Result.Empty -> R.string.setup_error_url_empty

@@ -16,6 +16,21 @@
     <!-- A cooking timer that reaches zero may vibrate, if the reader allows it in the settings. -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!--
+      Cooking timers work as in a timer app: they keep running once the cooking mode or the
+      app is left, and must ring on time.
+       * POST_NOTIFICATIONS shows them outside the app; asked for when the first one starts.
+       * FOREGROUND_SERVICE* keeps the app running while a timer exists (CookingTimerService).
+       * USE_EXACT_ALARM wakes the device up when a timer ends, even in Doze: timers are a core
+         feature, and this permission is granted at install, unlike SCHEDULE_EXACT_ALARM.
+       * WAKE_LOCK keeps the device awake while the alarm rings, then lets it sleep again.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <application
         android:name=".UmaiApplication"
         android:allowBackup="false"
@@ -36,7 +51,6 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.Umai.Starting"
             android:windowSoftInputMode="adjustResize"
@@ -52,6 +66,21 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+
+        <!-- Keeps the cooking timers alive while the app is in the background. -->
+        <service
+            android:name=".cooking.data.CookingTimerService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Cooking timers that keep counting down and ring when they reach zero, as in a timer app." />
+        </service>
+
+        <!-- The wake-up alarm of the next timer and the actions of the timer notifications. -->
+        <receiver
+            android:name=".cooking.data.TimerActionReceiver"
+            android:exported="false" />
 
         <!-- Lets the camera app write the photo Umai asked for (CameraCapture). -->
         <provider

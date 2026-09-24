@@ -1,6 +1,10 @@
 package org.opensources.umai.cooking.ui
 
-import androidx.activity.compose.BackHandler
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -52,12 +56,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.opensources.umai.R
+import org.opensources.umai.cooking.domain.CookingTimer
 import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.format.IngredientText
 import org.opensources.umai.core.markdown.MarkdownText
@@ -77,21 +84,42 @@ import java.time.Duration
  * Step-by-step cooking mode: one step fills the screen, navigation is reduced
  * to two large touch targets, and the screen is kept awake while the mode is
  * open so the phone can be put down on the worktop.
+ *
+ * [step] is the step to open on. [onOpenTimer] opens the cooking mode of a
+ * timer started from another recipe; this recipe's timers open their step here.
  */
 @Composable
 fun CookingScreen(
     slug: String,
     servings: Int,
+    step: Int,
     onExit: () -> Unit,
     onCooked: () -> Unit,
+    onOpenTimer: (CookingTimer) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val container = LocalAppContainer.current
     val viewModel: CookingViewModel = viewModel(
-        factory = CookingViewModel.factory(container, slug, servings),
+        factory = CookingViewModel.factory(container, slug, servings, step),
         key = "cooking-$slug",
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    // Timers ring without notifications; these only show them outside the app.
+    // They are asked for with the first timer, and read again on every return,
+    // as the reader may allow them from the system settings meanwhile.
+    val context = LocalContext.current
+    var notificationsAllowed by remember { mutableStateOf(context.notificationsAllowed()) }
+    LifecycleResumeEffect(Unit) {
+        notificationsAllowed = context.notificationsAllowed()
+        onPauseOrDispose {}
+    }
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        notificationsAllowed = granted
+        if (granted) viewModel.onNotificationsAllowed()
+    }
 
     LaunchedEffect(state.markedCooked) {
         if (state.markedCooked) onCooked()
@@ -114,12 +142,22 @@ fun CookingScreen(
         stepImageUrl = { source -> container.imageUrls.stepImage(recipeId, source) },
         stepPhotoUrl = { file -> container.imageUrls.recipeAsset(recipeId, file, state.recipe?.mediaVersion) },
         modifier = modifier,
-        onStartTimer = viewModel::startTimer,
+        onStartTimer = { duration ->
+            viewModel.startTimer(duration)
+            if (!notificationsAllowed) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        },
         onPauseTimer = viewModel::pauseTimer,
         onResumeTimer = viewModel::resumeTimer,
         onDismissTimer = viewModel::dismissTimer,
+        onOpenTimer = { timer ->
+            if (timer.recipe.slug == slug) viewModel.goToStep(timer.stepIndex) else onOpenTimer(timer)
+        },
+        notificationsAllowed = notificationsAllowed,
     )
 }
+
+private fun Context.notificationsAllowed(): Boolean =
+    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
 /** Stateless cooking mode, driven by [CookingUiState]. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -142,42 +180,17 @@ fun CookingScreen(
     onPauseTimer: (Int) -> Unit = {},
     onResumeTimer: (Int) -> Unit = {},
     onDismissTimer: (Int) -> Unit = {},
+    onOpenTimer: (CookingTimer) -> Unit = {},
+    notificationsAllowed: Boolean = true,
 ) {
     var stepListVisible by remember { mutableStateOf(false) }
     var finishing by remember { mutableStateOf(false) }
-    var confirmingExit by remember { mutableStateOf(false) }
 
     KeepScreenOn(enabled = state.keepScreenOn)
 
-    // Leaving the cooking mode drops its timers: never without asking.
+    // Leaving the cooking mode leaves its timers running: they live on in the
+    // notifications and on the timer pills of the other screens.
     val hasTimers = state.timers.timers.isNotEmpty()
-    val exit: () -> Unit = {
-        if (hasTimers) {
-            confirmingExit = true
-        } else {
-            onExit()
-        }
-    }
-    BackHandler(enabled = hasTimers) { confirmingExit = true }
-
-    if (confirmingExit) {
-        AlertDialog(
-            onDismissRequest = { confirmingExit = false },
-            title = { Text(stringResource(R.string.cooking_timer_exit_title)) },
-            text = { Text(stringResource(R.string.cooking_timer_exit_message)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmingExit = false
-                        onExit()
-                    },
-                ) { Text(stringResource(R.string.cooking_leave)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmingExit = false }) { Text(stringResource(R.string.action_cancel)) }
-            },
-        )
-    }
 
     if (finishing) {
         FinishDialog(
@@ -218,7 +231,7 @@ fun CookingScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = exit) {
+                    IconButton(onClick = onExit) {
                         Icon(
                             imageVector = Icons.Outlined.Close,
                             contentDescription = stringResource(R.string.cooking_exit),
@@ -243,6 +256,9 @@ fun CookingScreen(
                     TimersPanel(
                         timers = state.timers.timers,
                         now = state.now,
+                        recipeSlug = state.recipe?.slug,
+                        notificationsAllowed = notificationsAllowed,
+                        onOpen = onOpenTimer,
                         onPause = onPauseTimer,
                         onResume = onResumeTimer,
                         onDismiss = onDismissTimer,
@@ -262,7 +278,7 @@ fun CookingScreen(
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             val error = state.error
-        when {
+            when {
                 state.loading -> LoadingView()
 
                 error != null -> NetworkErrorView(

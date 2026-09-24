@@ -99,10 +99,11 @@ data class RecipeEditRoute(val slug: String)
 /**
  * [servings] carries the number of servings the reader selected on the recipe
  * page, so the cooking mode scales the ingredients the same way. Zero means
- * "use the servings the recipe was written for".
+ * "use the servings the recipe was written for". [step] is the step to open
+ * on: the one a timer was started from, when the cooking mode is reopened by it.
  */
 @Serializable
-data class CookingRoute(val slug: String, val servings: Int = 0)
+data class CookingRoute(val slug: String, val servings: Int = 0, val step: Int = 0)
 
 /**
  * The four tabs that sit on either side of the central search button.

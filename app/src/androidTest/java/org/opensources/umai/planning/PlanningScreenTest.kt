@@ -34,7 +34,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
 
-/** The week from Monday to Sunday, opened on today, highlighted. */
+/** The week from its first day (Monday unless Mealie says otherwise), opened on today, highlighted. */
 @RunWith(AndroidJUnit4::class)
 class PlanningScreenTest {
 
@@ -54,7 +54,15 @@ class PlanningScreenTest {
         weekStart: LocalDate = monday,
         entries: Map<LocalDate, List<MealPlanEntry>> = emptyMap(),
         error: NetworkError? = null,
-    ) = PlanningUiState(today = today, weekStart = weekStart, entriesByDay = entries, loading = false, error = error)
+        firstDay: DayOfWeek = DayOfWeek.MONDAY,
+    ) = PlanningUiState(
+        today = today,
+        firstDay = firstDay,
+        weekStart = weekStart,
+        entriesByDay = entries,
+        loading = false,
+        error = error,
+    )
 
     private fun render(
         state: PlanningUiState,
@@ -124,6 +132,16 @@ class PlanningScreenTest {
         render(state(weekStart = monday.plusWeeks(1)))
 
         rule.onNodeWithText(dayName(DayOfWeek.MONDAY)).assertIsDisplayed()
+    }
+
+    @Test
+    fun aWeekStartingOnSundayIsNamedAndOpenedByItsSunday() {
+        val sunday = LocalDate.of(2026, 9, 27)
+        render(state(weekStart = sunday, firstDay = DayOfWeek.SUNDAY))
+
+        val formatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
+        rule.onNodeWithText(string(R.string.planning_week_of, sunday.format(formatter))).assertIsDisplayed()
+        rule.onNodeWithText(dayName(DayOfWeek.SUNDAY)).assertIsDisplayed()
     }
 
     @Test
