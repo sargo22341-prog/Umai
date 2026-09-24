@@ -26,3 +26,4 @@ liste des commits. Détails : [docs/release.md](docs/release.md).
 - Mode cuisine : les minuteurs continuent de tourner après avoir quitté le mode cuisine ou l'application, s'affichent dans les notifications (pause, reprise, arrêt) et sonnent à l'heure même téléphone en veille.
 - Hors du mode cuisine, une pastille montre chaque minuteur en cours ; un appui rouvre la recette à l'étape du minuteur.
 - Listes de courses : le rappel des portions d'origine s'accorde au singulier.
+- Planning : en touchant le champ « Rechercher une recette », il glisse jusqu'en haut de l'écran de recherche, qui apparaît autour de lui.

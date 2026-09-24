@@ -231,20 +231,22 @@ private fun MainNavigation(
                 ) {
                     PlanningScreen(
                         onRecipeClick = { navController.navigate(RecipeRoute(it)) },
-                        onSearchRecipe = { date, type ->
-                            navController.navigate(PlanRecipePickerRoute(date.toString(), type.apiValue))
+                        onSearchRecipe = { date, type, fieldOriginY ->
+                            navController.navigate(PlanRecipePickerRoute(date.toString(), type.apiValue, fieldOriginY))
                         },
                     )
                 }
 
                 composable<PlanRecipePickerRoute>(
-                    enterTransition = { riseEnter() },
+                    // The picker animates its own entrance, from the field of the sheet it replaces.
+                    enterTransition = { EnterTransition.None },
                     popExitTransition = { sinkExit() },
                 ) { entry ->
                     val route: PlanRecipePickerRoute = entry.toRoute()
                     PlanRecipePickerScreen(
                         date = LocalDate.parse(route.date),
                         mealType = MealType.fromApi(route.mealType),
+                        fieldOriginY = route.fieldOriginY,
                         onBack = { navController.popIfCurrent(entry) },
                         onAdded = { if (navController.popIfCurrent(entry)) notice = AppNotice.RECIPE_PLANNED },
                     )

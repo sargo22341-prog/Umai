@@ -70,7 +70,7 @@ class PlanningScreenTest {
         onDeleteEntry: (MealPlanEntry) -> Unit = {},
         onBackToToday: () -> Unit = {},
         onRetry: () -> Unit = {},
-        onSearchRecipe: (LocalDate, MealType) -> Unit = { _, _ -> },
+        onSearchRecipe: (LocalDate, MealType, Float) -> Unit = { _, _, _ -> },
         onAddRecipe: (LocalDate, MealType, RecipeSummary) -> Unit = { _, _, _ -> },
         onAddNote: (LocalDate, MealType, String) -> Unit = { _, _, _ -> },
         onDrawRandom: () -> Unit = {},
@@ -204,7 +204,7 @@ class PlanningScreenTest {
     @Test
     fun theRecipeFieldOpensTheFullSearchForTheChosenMeal() {
         var searched: Pair<LocalDate, MealType>? = null
-        render(state(), onSearchRecipe = { date, type -> searched = date to type })
+        render(state(), onSearchRecipe = { date, type, _ -> searched = date to type })
 
         rule.onAllNodesWithText(string(R.string.planning_add_meal)).onFirst().performClick()
         rule.onNodeWithText(string(R.string.meal_lunch)).performClick()

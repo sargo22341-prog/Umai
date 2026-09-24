@@ -40,14 +40,18 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -66,13 +70,17 @@ import java.time.format.FormatStyle
 
 /** The callbacks of [AddMealSheet], grouped so the signature stays readable. */
 class AddMealActions(
-    /** Opens the full-screen recipe search for the day and the meal. */
-    val onSearchRecipe: (LocalDate, MealType) -> Unit,
+    /**
+     * Opens the full-screen recipe search for the day and the meal; the last
+     * argument is the on-screen centre of the field tapped, where the search
+     * field of that screen starts its way up.
+     */
+    val onSearchRecipe: (LocalDate, MealType, Float) -> Unit,
     val onAddRecipe: (LocalDate, MealType, RecipeSummary) -> Unit,
     val onAddNote: (LocalDate, MealType, String) -> Unit,
     /** The sheet opened: the categories of the random draw are needed. */
     val onOpen: () -> Unit,
-    /** The sheet closed: the drawn recipe is forgotten. */
+    /** The sheet went away: the drawn recipe is forgotten. */
     val onClose: () -> Unit,
     val onSelectRandomCategory: (String?) -> Unit,
     val onDrawRandom: () -> Unit,
@@ -101,10 +109,15 @@ fun AddMealSheet(
 
     LaunchedEffect(Unit) { actions.onOpen() }
 
-    val close = {
-        actions.onClose()
-        onDismiss()
-    }
+    // The drawn recipe is forgotten whenever the sheet goes, also when it goes
+    // along with the week, left for the full-screen search.
+    DisposableEffect(Unit) { onDispose { actions.onClose() } }
+
+    // Left for the full-screen search, the sheet is not dismissed: it stays up
+    // while that screen composes behind it and goes with the week once the
+    // navigation is over, so its field hands over to the search field at the
+    // same place, with nothing shown in between.
+    var leftForSearch by remember { mutableStateOf(false) }
 
     // With the keyboard up, the note at the bottom of the sheet would sit
     // behind it: the extra room lets the sheet scroll the note up to its top,
@@ -118,7 +131,7 @@ fun AddMealSheet(
         if (noteFocused && roomReady) scrollState.animateScrollTo(scrollState.maxValue)
     }
 
-    ModalBottomSheet(onDismissRequest = close, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
             modifier = Modifier
                 .navigationBarsPadding()
@@ -155,9 +168,11 @@ fun AddMealSheet(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionTitle(stringResource(R.string.planning_choose_recipe))
                 RecipeSearchLauncher(
-                    onClick = {
-                        actions.onSearchRecipe(date, mealType)
-                        close()
+                    onClick = { centerY ->
+                        if (!leftForSearch) {
+                            leftForSearch = true
+                            actions.onSearchRecipe(date, mealType, centerY)
+                        }
                     },
                 )
             }
@@ -171,7 +186,7 @@ fun AddMealSheet(
                 onDraw = actions.onDrawRandom,
                 onAdd = { recipe ->
                     actions.onAddRecipe(date, mealType, recipe)
-                    close()
+                    onDismiss()
                 },
             )
 
@@ -191,7 +206,7 @@ fun AddMealSheet(
                 Button(
                     onClick = {
                         actions.onAddNote(date, mealType, note.trim())
-                        close()
+                        onDismiss()
                     },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = note.isNotBlank(),
@@ -210,14 +225,18 @@ private fun SectionTitle(text: String) {
 
 /**
  * Looks like the search field it opens: tapping it brings the whole recipe
- * search, filters included, on a screen of its own.
+ * search, filters included, on a screen of its own. [onClick] receives the
+ * vertical centre of the launcher on screen: the sheet is a window of its own,
+ * so only screen coordinates are shared with the screen it opens.
  */
 @Composable
-private fun RecipeSearchLauncher(onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun RecipeSearchLauncher(onClick: (Float) -> Unit, modifier: Modifier = Modifier) {
+    var centerY by remember { mutableFloatStateOf(0f) }
     Surface(
-        onClick = onClick,
+        onClick = { onClick(centerY) },
         modifier = modifier
             .fillMaxWidth()
+            .onGloballyPositioned { centerY = it.positionOnScreen().y + it.size.height / 2f }
             .semantics { role = Role.Button },
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surface,

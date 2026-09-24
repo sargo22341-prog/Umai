@@ -73,7 +73,7 @@ import java.time.format.FormatStyle
 @Composable
 fun PlanningScreen(
     onRecipeClick: (String) -> Unit,
-    onSearchRecipe: (LocalDate, MealType) -> Unit,
+    onSearchRecipe: (LocalDate, MealType, Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val container = LocalAppContainer.current

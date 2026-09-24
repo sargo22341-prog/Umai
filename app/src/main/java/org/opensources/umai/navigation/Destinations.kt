@@ -52,10 +52,11 @@ data class OrganizerSearchRoute(val kind: String, val id: String) {
 
 /**
  * Picks a recipe for one meal of the plan: [date] is ISO-8601 and [mealType]
- * a Mealie entry type.
+ * a Mealie entry type. [fieldOriginY] is where, on screen, the centre of the
+ * search field the picker was opened from stood, so its own field starts there.
  */
 @Serializable
-data class PlanRecipePickerRoute(val date: String, val mealType: String)
+data class PlanRecipePickerRoute(val date: String, val mealType: String, val fieldOriginY: Float)
 
 @Serializable
 data object ShoppingRoute

@@ -6,9 +6,7 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.ui.unit.IntOffset
 import androidx.navigation.NavBackStackEntry
@@ -39,17 +37,14 @@ internal fun AnimatedContentTransitionScope<NavBackStackEntry>.screenPopExit(): 
 private fun slideSpec() = tween<IntOffset>(SCREEN_TRANSITION_MILLIS, easing = FastOutSlowInEasing)
 
 /*
- * The recipe picker of the meal plan rises from the sheet it was opened from, as if its search field
- * grew into a whole screen, and sinks back when left. The week stays in place underneath.
+ * The recipe picker of the meal plan appears on its own, its search field sliding up from where the
+ * sheet's field stood (see PlanRecipePickerScreen). Leaving, it sinks back over the week, which
+ * stays in place underneath.
  */
-
-internal fun riseEnter(): EnterTransition =
-    fadeIn(tween(SCREEN_TRANSITION_MILLIS, easing = FastOutSlowInEasing)) +
-        slideInVertically(tween(SCREEN_TRANSITION_MILLIS, easing = FastOutSlowInEasing)) { it / RISE_FRACTION }
 
 internal fun sinkExit(): ExitTransition =
     fadeOut(tween(SCREEN_TRANSITION_MILLIS, easing = FastOutSlowInEasing)) +
-        slideOutVertically(tween(SCREEN_TRANSITION_MILLIS, easing = FastOutSlowInEasing)) { it / RISE_FRACTION }
+        slideOutVertically(tween(SCREEN_TRANSITION_MILLIS, easing = FastOutSlowInEasing)) { it / SINK_FRACTION }
 
-/** How far below its place the picker starts: a fraction of its height. */
-private const val RISE_FRACTION = 5
+/** How far below its place the picker ends: a fraction of its height. */
+private const val SINK_FRACTION = 5

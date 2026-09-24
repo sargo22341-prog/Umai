@@ -1,5 +1,8 @@
 package org.opensources.umai.planning.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,8 +22,16 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -49,6 +60,7 @@ import java.time.format.FormatStyle
 fun PlanRecipePickerScreen(
     date: LocalDate,
     mealType: MealType,
+    fieldOriginY: Float,
     onBack: () -> Unit,
     onAdded: () -> Unit,
     modifier: Modifier = Modifier,
@@ -75,10 +87,20 @@ fun PlanRecipePickerScreen(
         onErrorShown = picker::dismissError,
         recipeImageUrl = { recipe -> container.imageUrls.thumbnail(recipe.id, recipe.imageToken) },
         modifier = modifier,
+        fieldOriginY = fieldOriginY,
     )
 }
 
-/** Stateless recipe picker, driven by [PlanRecipePickerUiState] and [SearchUiState]. */
+/**
+ * Stateless recipe picker, driven by [PlanRecipePickerUiState] and [SearchUiState].
+ *
+ * Opened from a field at [fieldOriginY], the on-screen centre of that field,
+ * its own search field first shows there, then slides up to its place while the
+ * rest of the screen fades in around it. The sheet stays up until the screen is
+ * composed, over this screen still transparent with its field at the origin: the
+ * animation starts once the field is measured and plays whole, however long the
+ * screen took to compose. The keyboard comes up once the field is in its place.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlanRecipePickerScreen(
@@ -91,7 +113,21 @@ fun PlanRecipePickerScreen(
     onErrorShown: () -> Unit,
     recipeImageUrl: (RecipeSummary) -> String?,
     modifier: Modifier = Modifier,
+    fieldOriginY: Float? = null,
 ) {
+    // Measured before any translation, so the distance to travel is the real one.
+    var fieldCenterY by remember { mutableStateOf<Float?>(null) }
+    val travel = fieldOriginY?.let { origin -> fieldCenterY?.let { origin - it } }
+    // Saved, so that coming back to the screen does not play the entrance again.
+    var revealed by rememberSaveable { mutableStateOf(fieldOriginY == null) }
+    val reveal = remember { Animatable(if (revealed) 1f else 0f) }
+    LaunchedEffect(travel != null) {
+        if (travel != null && !revealed) {
+            reveal.animateTo(1f, tween(REVEAL_MILLIS, easing = FastOutSlowInEasing))
+            revealed = true
+        }
+    }
+    val background = MaterialTheme.colorScheme.background
     val snackbarHostState = remember { SnackbarHostState() }
     val dateFormatter = rememberDateFormatter(FormatStyle.MEDIUM)
 
@@ -105,10 +141,13 @@ fun PlanRecipePickerScreen(
     }
 
     Scaffold(
-        modifier = modifier,
+        // Transparent before the entrance: the week shows under the sheet until it goes.
+        modifier = modifier.drawBehind { drawRect(background, alpha = reveal.value) },
+        containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
+                modifier = Modifier.graphicsLayer { alpha = reveal.value },
                 title = {
                     Column {
                         Text(
@@ -148,7 +187,25 @@ fun PlanRecipePickerScreen(
                 actions = searchActions,
                 onRecipeClick = { if (!state.adding) onPick(it) },
                 recipeImageUrl = recipeImageUrl,
+                autoFocus = revealed,
+                fieldModifier = Modifier
+                    .onGloballyPositioned { fieldCenterY = it.positionOnScreen().y + it.size.height / 2f }
+                    .graphicsLayer {
+                        // Hidden for the frame it takes to measure the field, so it
+                        // never flashes at its place before starting from the sheet's.
+                        alpha = if (fieldOriginY == null || travel != null) 1f else 0f
+                        translationY = (travel ?: 0f) * (1f - reveal.value)
+                    },
+                bodyModifier = Modifier.graphicsLayer {
+                    alpha = ((reveal.value - BODY_DELAY) / (1f - BODY_DELAY)).coerceIn(0f, 1f)
+                    translationY = (travel ?: 0f) * (1f - reveal.value)
+                },
             )
         }
     }
 }
+
+/** The results wait for the field to be well on its way before fading in. */
+private const val BODY_DELAY = 0.3f
+
+private const val REVEAL_MILLIS = 350

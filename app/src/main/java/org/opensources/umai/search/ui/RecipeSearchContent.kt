@@ -88,6 +88,8 @@ class RecipeSearchActions(
  *
  * [autoFocus] puts the cursor in the field as soon as it shows: not when the
  * search opens already filtered, where the results matter first.
+ * [fieldModifier] and [bodyModifier] apply to the field and to everything
+ * below it, so a screen can animate the two apart as it appears.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -99,6 +101,8 @@ internal fun RecipeSearchContent(
     recipeImageUrl: (RecipeSummary) -> String?,
     modifier: Modifier = Modifier,
     autoFocus: Boolean = true,
+    fieldModifier: Modifier = Modifier,
+    bodyModifier: Modifier = Modifier,
 ) {
     var filtersVisible by remember { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
@@ -139,62 +143,65 @@ internal fun RecipeSearchContent(
                 actions.onLoadFilterOptions()
                 filtersVisible = true
             },
+            modifier = fieldModifier,
         )
 
-        SortBar(sort = state.sort, onSelect = actions.onSelectSort)
+        Column(modifier = bodyModifier.fillMaxSize()) {
+            SortBar(sort = state.sort, onSelect = actions.onSelectSort)
 
-        if (state.filters.activeCount > 0) {
-            ActiveFiltersRow(
-                count = state.filters.activeCount,
-                onClear = actions.onResetFilters,
-            )
-        }
+            if (state.filters.activeCount > 0) {
+                ActiveFiltersRow(
+                    count = state.filters.activeCount,
+                    onClear = actions.onResetFilters,
+                )
+            }
 
-        val error = state.error
-        when {
-            state.loading && state.results.items.isEmpty() -> LoadingView()
+            val error = state.error
+            when {
+                state.loading && state.results.items.isEmpty() -> LoadingView()
 
-            error != null && state.results.items.isEmpty() ->
-                NetworkErrorView(
-                    error = error,
+                error != null && state.results.items.isEmpty() ->
+                    NetworkErrorView(
+                        error = error,
+                        modifier = Modifier.fillMaxSize(),
+                        onRetry = actions.onRetry,
+                    )
+
+                state.isIdle -> EmptyView(
+                    title = stringResource(R.string.search_start_title),
+                    message = stringResource(R.string.search_start_message),
+                    icon = Icons.Outlined.Search,
                     modifier = Modifier.fillMaxSize(),
-                    onRetry = actions.onRetry,
                 )
 
-            state.isIdle -> EmptyView(
-                title = stringResource(R.string.search_start_title),
-                message = stringResource(R.string.search_start_message),
-                icon = Icons.Outlined.Search,
-                modifier = Modifier.fillMaxSize(),
-            )
-
-            state.isEmptyResult -> EmptyView(
-                title = stringResource(R.string.search_empty_title),
-                message = stringResource(R.string.search_empty_message),
-                icon = Icons.Outlined.Search,
-                modifier = Modifier.fillMaxSize(),
-            )
-
-            else -> PullToRefreshBox(
-                isRefreshing = state.refreshing,
-                onRefresh = actions.onRefresh,
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                LazyVerticalGrid(
-                    columns = recipeGridCells(state.layout),
-                    state = gridState,
+                state.isEmptyResult -> EmptyView(
+                    title = stringResource(R.string.search_empty_title),
+                    message = stringResource(R.string.search_empty_message),
+                    icon = Icons.Outlined.Search,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = RecipeGridArrangement,
-                    verticalArrangement = RecipeGridArrangement,
+                )
+
+                else -> PullToRefreshBox(
+                    isRefreshing = state.refreshing,
+                    onRefresh = actions.onRefresh,
+                    modifier = Modifier.fillMaxSize(),
                 ) {
-                    recipeCards(
-                        recipes = state.results.items,
-                        layout = state.layout,
-                        imageUrlFor = recipeImageUrl,
-                        onRecipeClick = onRecipeClick,
-                        loadingMore = state.loadingMore,
-                    )
+                    LazyVerticalGrid(
+                        columns = recipeGridCells(state.layout),
+                        state = gridState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = RecipeGridArrangement,
+                        verticalArrangement = RecipeGridArrangement,
+                    ) {
+                        recipeCards(
+                            recipes = state.results.items,
+                            layout = state.layout,
+                            imageUrlFor = recipeImageUrl,
+                            onRecipeClick = onRecipeClick,
+                            loadingMore = state.loadingMore,
+                        )
+                    }
                 }
             }
         }
