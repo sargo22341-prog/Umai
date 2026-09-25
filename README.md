@@ -44,16 +44,23 @@ Main features:
   categories and tags;
 - **recipe page**: photo, times, tags (a tap searches the recipes that share it), favourite and
   5-star rating, **servings scaling** of the ingredients, instructions with their photos, comments;
-- **cooking mode**: one step per screen, the ingredients of the current step, **timers** offered
-  for the durations written in the steps (several at once, with sound and vibration), screen kept
-  on (optional);
+- **cooking mode**: one step per screen, the ingredients of the current step, the **video of the
+  step played in a loop** when the recipe has one, **timers** offered for the durations written in
+  the steps (several at once, with sound and vibration), screen kept on (optional);
 - **meal plan**: the week from Monday to Sunday, opened on today; add a recipe found with the full
-  search and its filters, a recipe drawn at random (optionally within a category), or a note;
+  search and its filters, or a note; **automatic planning** of a day or of the week: a dish at
+  lunch and one at dinner (never a dessert or a drink), chosen to share their ingredients,
+  following Mealie's meal plan rules;
 - **shopping lists**: several lists, items grouped by label, send the ingredients of a recipe to a
   list (scaled to the chosen servings), and a **shopping mode** with large rows ticked in one tap;
 - **recipe creation and editing**: import from a web page (Mealie parses it), with the video and
-  step photos of Jow and the step photos of 750g and Marmiton; write a recipe step by step with
-  drafts kept on the phone, crop the recipe photo;
+  step photos of Jow and the step photos of 750g and Marmiton; **import of a YouTube video**
+  rebuilt into a full recipe (ingredients, steps, the part of the video of each step) from its
+  description, chapters and transcript; write a recipe step by step with drafts kept on the phone,
+  crop the recipe photo;
+- optional **local AI**: a language model downloaded separately runs on the phone, with no online
+  service, for the video import and the recognition of dishes ([details and figures](docs/local-ai.md),
+  in French);
 - **profile**: counters of your instance, profile picture with cropping;
 - **two languages**: English and French, switchable from the settings;
 - light, dark or system theme, Material 3, optional wallpaper colours;
@@ -116,7 +123,10 @@ Good to know:
   **password is never stored**, in any form.
 - The only data kept on the phone is what Mealie does not store: display preferences, language,
   the session, the list of recently viewed recipes and unfinished recipe drafts.
-- Your Mealie instance is the only server the app contacts.
+- The app only contacts your Mealie instance and, only when you use them: the known recipe
+  websites (Jow, 750g, Marmiton) for their media, YouTube to import and play a video, and Hugging
+  Face to download the local AI model. The model runs on the phone: nothing you import or plan is
+  sent anywhere else.
 
 ## Known limitations
 
@@ -135,6 +145,8 @@ They come from the Mealie API, not from the app:
 | UI | Jetpack Compose, Material 3, Navigation Compose |
 | Network | Retrofit, OkHttp, Kotlin Serialization |
 | Images | Coil |
+| Video | Media3 ExoPlayer (HLS) |
+| Local AI | llama.cpp (NDK), GGUF models |
 | Storage | DataStore |
 | Security | Android Keystore (AES-GCM) |
 | Injection | Hand-written container |

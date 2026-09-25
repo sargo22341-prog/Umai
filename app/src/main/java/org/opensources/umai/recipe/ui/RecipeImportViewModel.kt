@@ -20,12 +20,38 @@ import org.opensources.umai.provider.data.ProviderSettings
 import org.opensources.umai.provider.data.importsMediaNow
 import org.opensources.umai.recipe.data.CalorieTagRepository
 import org.opensources.umai.recipe.data.RecipeEditRepository
+import org.opensources.umai.llm.domain.LlmProgress
+import org.opensources.umai.youtube.data.VideoImportOutcome
+import org.opensources.umai.youtube.data.VideoImportProgress
+import org.opensources.umai.youtube.data.VideoRecipeImporter
+import org.opensources.umai.youtube.domain.BlueprintOrigin
+import org.opensources.umai.youtube.domain.YouTubeFailure
+import org.opensources.umai.youtube.domain.YouTubeLinks
 
-/** Where an import stands while it runs. */
-enum class ImportPhase { CHECKING, IMPORTING, FETCHING_MEDIA }
+/**
+ * Where an import stands while it runs. A web page goes through [CHECKING],
+ * [IMPORTING] and [FETCHING_MEDIA]; a video through [CHECKING],
+ * [READING_VIDEO], [UNDERSTANDING] and [SAVING].
+ */
+enum class ImportPhase { CHECKING, IMPORTING, FETCHING_MEDIA, READING_VIDEO, UNDERSTANDING, SAVING }
 
-/** A recipe imported, and whether the media of its provider could not be fetched. */
-data class ImportedRecipe(val slug: String, val mediaFailed: Boolean)
+/** What the user is told about an import that went through, but not entirely as hoped. */
+enum class ImportNotice {
+    /** The media of the provider could not be fetched. */
+    MEDIA_FAILED,
+
+    /** No language model is installed: the video was rebuilt with plain rules. */
+    VIDEO_WITHOUT_MODEL,
+
+    /** The language model failed, and plain rules took over. */
+    VIDEO_MODEL_FAILED,
+
+    /** The steps could not be tied to the video. */
+    VIDEO_NOT_LINKED,
+}
+
+/** A recipe imported, and what did not go as hoped, if anything. */
+data class ImportedRecipe(val slug: String, val notice: ImportNotice?)
 
 data class RecipeImportUiState(
     val url: String = "",
@@ -41,6 +67,15 @@ data class RecipeImportUiState(
      */
     val providerName: String? = null,
     val providerOffersVideo: Boolean = false,
+    /** The address is a YouTube video, rebuilt into a recipe rather than scraped. */
+    val isVideo: Boolean = false,
+    /** Whether the local language model will rebuild the video, rather than plain rules. */
+    val videoUsesModel: Boolean = false,
+    /** How far the language model is, while it reads the video. */
+    val modelProgress: LlmProgress? = null,
+    val videoFailure: YouTubeFailure? = null,
+    /** The video holds nothing a recipe could be rebuilt from. */
+    val videoEmpty: Boolean = false,
     /** Set once Mealie has created the recipe; the screen then navigates to it. */
     val imported: ImportedRecipe? = null,
 ) {
@@ -50,6 +85,8 @@ data class RecipeImportUiState(
 
 /**
  * Hands a web address to Mealie's own scraper; Umai parses nothing itself.
+ * A YouTube video is different: Mealie only keeps its title and description,
+ * so the app rebuilds the recipe from the video itself ([VideoRecipeImporter]).
  *
  * Before that, it checks the recipe is not already on the instance. After, the
  * recipe gets its calorie tag and, for a page of a known provider, the video
@@ -62,6 +99,8 @@ class RecipeImportViewModel(
     private val providers: ProviderRegistry,
     private val providerSettings: ProviderSettings,
     private val mediaImporter: ProviderMediaImporter,
+    private val videoImporter: VideoRecipeImporter,
+    private val modelReady: suspend () -> Boolean,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(RecipeImportUiState())
@@ -75,7 +114,25 @@ class RecipeImportViewModel(
 
     fun onUrlChange(value: String) {
         val provider = providers.forUrl(value.trim())
-        _state.update { it.copy(url = value, error = null, duplicate = null, providerName = null) }
+        val isVideo = YouTubeLinks.isVideo(value)
+        _state.update {
+            it.copy(
+                url = value,
+                error = null,
+                duplicate = null,
+                providerName = null,
+                isVideo = isVideo,
+                videoFailure = null,
+                videoEmpty = false,
+            )
+        }
+        if (isVideo) {
+            viewModelScope.launch {
+                val usesModel = modelReady()
+                _state.update { if (it.isVideo) it.copy(videoUsesModel = usesModel) else it }
+            }
+            return
+        }
         if (provider == null) return
         viewModelScope.launch {
             if (!providerSettings.importsMediaNow(provider.id)) return@launch
@@ -100,7 +157,9 @@ class RecipeImportViewModel(
         val current = _state.value
         if (!current.canSubmit) return
         val url = current.url.trim()
-        _state.update { it.copy(phase = ImportPhase.CHECKING, error = null, duplicate = null) }
+        _state.update {
+            it.copy(phase = ImportPhase.CHECKING, error = null, duplicate = null, videoFailure = null, videoEmpty = false)
+        }
 
         importJob?.cancel()
         importJob = viewModelScope.launch {
@@ -111,6 +170,11 @@ class RecipeImportViewModel(
                     _state.update { it.copy(phase = null, duplicate = existing) }
                     return@launch
                 }
+            }
+
+            if (current.isVideo) {
+                importVideo(url)
+                return@launch
             }
 
             _state.update { it.copy(phase = ImportPhase.IMPORTING) }
@@ -137,8 +201,48 @@ class RecipeImportViewModel(
             } else {
                 false
             }
-            _state.update { it.copy(phase = null, imported = ImportedRecipe(slug, mediaFailed)) }
+            _state.update {
+                it.copy(phase = null, imported = ImportedRecipe(slug, ImportNotice.MEDIA_FAILED.takeIf { mediaFailed }))
+            }
         }
+    }
+
+    private suspend fun importVideo(url: String) {
+        val outcome = videoImporter.import(url) { progress ->
+            _state.update {
+                when (progress) {
+                    VideoImportProgress.ReadingVideo -> it.copy(phase = ImportPhase.READING_VIDEO)
+                    is VideoImportProgress.Understanding ->
+                        it.copy(phase = ImportPhase.UNDERSTANDING, modelProgress = progress.progress)
+                    VideoImportProgress.Saving -> it.copy(phase = ImportPhase.SAVING, modelProgress = null)
+                }
+            }
+        }
+        if (outcome is VideoImportOutcome.Imported) calorieTags.sync(outcome.result.slug)
+        _state.update {
+            when (outcome) {
+                is VideoImportOutcome.Imported -> {
+                    val result = outcome.result
+                    val notice = when {
+                        result.modelFailure != null -> ImportNotice.VIDEO_MODEL_FAILED
+                        result.origin == BlueprintOrigin.RULES -> ImportNotice.VIDEO_WITHOUT_MODEL
+                        !result.videoLinked -> ImportNotice.VIDEO_NOT_LINKED
+                        else -> null
+                    }
+                    it.copy(phase = null, modelProgress = null, imported = ImportedRecipe(result.slug, notice))
+                }
+                is VideoImportOutcome.VideoFailed ->
+                    it.copy(phase = null, modelProgress = null, videoFailure = outcome.failure)
+                VideoImportOutcome.NothingToRebuild -> it.copy(phase = null, modelProgress = null, videoEmpty = true)
+                is VideoImportOutcome.SaveFailed -> it.copy(phase = null, modelProgress = null, error = outcome.error)
+            }
+        }
+    }
+
+    /** Stops an import on its way; a recipe already created on Mealie stays. */
+    fun cancel() {
+        importJob?.cancel()
+        _state.update { it.copy(phase = null, modelProgress = null) }
     }
 
     fun dismissDuplicate() = _state.update { it.copy(duplicate = null) }
@@ -155,6 +259,8 @@ class RecipeImportViewModel(
                     providers = container.providerRegistry,
                     providerSettings = container.providerSettings,
                     mediaImporter = container.providerMediaImporter,
+                    videoImporter = container.videoRecipeImporter,
+                    modelReady = container.localLanguageModel::isReady,
                 )
             }
         }

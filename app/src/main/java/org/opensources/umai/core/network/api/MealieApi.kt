@@ -14,6 +14,7 @@ import org.opensources.umai.core.network.dto.IngredientFoodListDto
 import org.opensources.umai.core.network.dto.LabelDto
 import org.opensources.umai.core.network.dto.MealPlanEntryDto
 import org.opensources.umai.core.network.dto.PaginationDto
+import org.opensources.umai.core.network.dto.PlanRuleDto
 import org.opensources.umai.core.network.dto.RecipeCategoryDto
 import org.opensources.umai.core.network.dto.RecipeCommentCreateDto
 import org.opensources.umai.core.network.dto.RecipeCommentDto
@@ -23,6 +24,7 @@ import org.opensources.umai.core.network.dto.RecipeLastMadeDto
 import org.opensources.umai.core.network.dto.RecipeSummaryDto
 import org.opensources.umai.core.network.dto.RecipeTagDto
 import org.opensources.umai.core.network.dto.RecipeToolDto
+import org.opensources.umai.core.network.dto.ScrapeRecipeDataDto
 import org.opensources.umai.core.network.dto.ScrapeRecipeDto
 import org.opensources.umai.core.network.dto.ScrapeRecipeTestDto
 import org.opensources.umai.core.network.dto.ShoppingListAddRecipeDto
@@ -125,6 +127,7 @@ interface MealieApi {
         @Query("requireAllTools") requireAllTools: Boolean? = null,
         @Query("requireAllFoods") requireAllFoods: Boolean? = null,
         @Query("orderBy") orderBy: String? = null,
+        @Query("orderByNullPosition") orderByNullPosition: String? = null,
         @Query("orderDirection") orderDirection: String? = null,
         @Query("queryFilter") queryFilter: String? = null,
         // Mealie requires a stable seed when `orderBy=random`, so paging through
@@ -142,6 +145,10 @@ interface MealieApi {
     /** Scrapes a web page into a new recipe and answers with its slug. */
     @POST("api/recipes/create/url")
     suspend fun createRecipeFromUrl(@Body body: ScrapeRecipeDto): String
+
+    /** Creates a recipe from a schema.org Recipe given as JSON, and answers with its slug. */
+    @POST("api/recipes/create/html-or-json")
+    suspend fun createRecipeFromJson(@Body body: ScrapeRecipeDataDto): String
 
     /** Takes the same shape as the detail response; sends the whole recipe. */
     @PUT("api/recipes/{slug}")
@@ -297,6 +304,12 @@ interface MealieApi {
         @Query("orderBy") orderBy: String? = "date",
         @Query("orderDirection") orderDirection: String? = "asc",
     ): PaginationDto<MealPlanEntryDto>
+
+    @GET("api/households/mealplans/rules")
+    suspend fun mealPlanRules(
+        @Query("page") page: Int = 1,
+        @Query("perPage") perPage: Int = 100,
+    ): PaginationDto<PlanRuleDto>
 
     @POST("api/households/mealplans")
     suspend fun createMealPlan(@Body entry: CreateMealPlanEntryDto): MealPlanEntryDto

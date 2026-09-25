@@ -88,8 +88,6 @@
     <string name="search_placeholder">Recette, ingrédient, mot-clé…</string>
     <string name="search_empty_title">Aucun résultat</string>
     <string name="search_empty_message">Essayez un autre mot-clé ou assouplissez vos filtres.</string>
-    <string name="search_start_title">Cherchez dans vos recettes</string>
-    <string name="search_start_message">Saisissez quelques lettres, ou ouvrez les filtres pour parcourir par catégorie, tag, ingrédient ou note.</string>
     <string name="search_clear_filters">Effacer les filtres</string>
 
     <!-- Filtres -->
@@ -583,4 +581,131 @@
     <string name="provider_import_photos">Récupérer automatiquement les photos d\'étapes</string>
     <string name="provider_import_photos_summary">Quand une recette de ce fournisseur est importée, la photo de chaque étape est enregistrée avec la recette sur Mealie et associée à son étape.</string>
     <string name="import_provider_hint_photos">Page %1$s : ses photos d\'étapes seront aussi récupérées, si elle en a.</string>
+
+    <!-- Local AI -->
+    <string name="local_ai_title">IA locale</string>
+    <string name="local_ai_summary">Un modèle de langage qui tourne sur le téléphone, pour les fonctions intelligentes</string>
+    <string name="local_ai_intro">Un modèle de langage téléchargé une fois tourne sur ce téléphone, sans aucun service en ligne : rien de ce que vous importez ou planifiez ne quitte l\'appareil. Il reconstruit les recettes à partir des vidéos et reconnaît les plats pour le planning. Toutes les fonctions marchent aussi sans lui, avec des règles plus simples.</string>
+    <string name="local_ai_unsupported">Ce téléphone ne peut pas faire tourner l\'IA locale : il lui faut un processeur ARM 64 bits.</string>
+    <string name="local_ai_enabled">Utiliser l\'IA locale</string>
+    <string name="local_ai_enabled_summary">Désactivée, le modèle reste téléchargé et les fonctions utilisent leurs règles simples.</string>
+    <string name="local_ai_section_installed">Modèle installé</string>
+    <string name="local_ai_none_installed">Aucun modèle n\'est encore installé. Choisissez-en un ci-dessous : il se télécharge en Wi-Fi.</string>
+    <string name="local_ai_section_models">Modèles</string>
+    <string name="local_ai_device_memory">Ce téléphone a %1$s Go de mémoire. Le modèle n\'est chargé que pendant qu\'il travaille, et libéré une minute après.</string>
+    <string name="local_ai_section_custom">Un autre modèle</string>
+    <string name="local_ai_model_meta">%1$s Go · %2$s</string>
+    <string name="local_ai_benchmark">Tester la vitesse</string>
+    <string name="local_ai_benchmark_running">Chargement du modèle et rédaction d\'une courte réponse…</string>
+    <string name="local_ai_benchmark_failed">Le modèle n\'a pas pu tourner. Le téléphone manque peut-être de mémoire libre : fermez d\'autres applications, ou choisissez un modèle plus petit.</string>
+    <string name="local_ai_benchmark_generation">Écrit %1$s jetons par seconde</string>
+    <string name="local_ai_benchmark_prompt">Lit %1$s jetons par seconde</string>
+    <plurals name="local_ai_benchmark_details">
+        <item quantity="one">Chargé en %1$s s · %2$s Go de mémoire · %3$d cœur</item>
+        <item quantity="many">Chargé en %1$s s · %2$s Go de mémoire · %3$d cœurs</item>
+        <item quantity="other">Chargé en %1$s s · %2$s Go de mémoire · %3$d cœurs</item>
+    </plurals>
+    <string name="local_ai_downloading">Téléchargement de %1$s</string>
+    <string name="local_ai_download_waiting">En attente d\'un réseau Wi-Fi</string>
+    <string name="local_ai_download_progress">%1$s sur %2$s Go</string>
+    <string name="local_ai_download_description">Modèle de langage pour Umai</string>
+    <string name="local_ai_verifying">Vérification de %1$s</string>
+    <string name="local_ai_failure_storage">%1$s n\'a pas pu être enregistré : le stockage du téléphone n\'est pas disponible.</string>
+    <string name="local_ai_failure_space">Pas assez d\'espace libre pour %1$s.</string>
+    <string name="local_ai_failure_download">Le téléchargement de %1$s a échoué. Réessayez plus tard.</string>
+    <string name="local_ai_failure_corrupted">Le fichier de %1$s est abîmé et a été supprimé. Réessayez.</string>
+    <string name="local_ai_failure_not_model">%1$s n\'est pas un fichier de modèle GGUF.</string>
+    <string name="local_ai_recommended">Recommandé</string>
+    <string name="local_ai_model_tight">Gros pour ce téléphone : il peut ne pas se charger quand d\'autres applications occupent la mémoire.</string>
+    <string name="local_ai_model_installed">Installé</string>
+    <string name="local_ai_download">Télécharger</string>
+    <string name="local_ai_custom_hint">Tout modèle d\'instruction au format GGUF que lit llama.cpp, par l\'adresse de son fichier, comme un lien de téléchargement Hugging Face. Il remplace le modèle installé.</string>
+    <string name="local_ai_custom_label">Adresse d\'un fichier .gguf</string>
+    <string name="local_ai_custom_invalid">Une adresse https qui se termine par le nom du fichier .gguf</string>
+    <string name="local_ai_model_qwen4b">Rapide, et bon pour comprendre les recettes en français et en anglais. Le meilleur équilibre sur un téléphone récent.</string>
+    <string name="local_ai_model_gemma4">Le modèle de Google pour les téléphones, solide dans de nombreuses langues. Plus lent à lire les longues transcriptions.</string>
+    <string name="local_ai_model_qwen9b">Le plus capable, pour les meilleurs résultats, mais environ deux fois plus lent : une vidéo prend plusieurs minutes.</string>
+    <string name="local_ai_channel">IA locale</string>
+    <string name="local_ai_channel_description">Montre le modèle de langage au travail sur le téléphone.</string>
+    <string name="local_ai_working">L\'IA locale travaille</string>
+    <string name="local_ai_reading">Lecture</string>
+    <plurals name="local_ai_writing">
+        <item quantity="one">%d jeton écrit</item>
+        <item quantity="many">%d jetons écrits</item>
+        <item quantity="other">%d jetons écrits</item>
+    </plurals>
+
+    <!-- Import of a YouTube video -->
+    <string name="import_video_hint_model">Vidéo YouTube : l\'IA locale reconstruit la recette à partir de la transcription, des chapitres et de la description, et relie chaque étape à son passage de la vidéo. Comptez quelques minutes.</string>
+    <string name="import_video_hint_rules">Vidéo YouTube : la recette est reconstruite à partir de la description et des chapitres. Installez l\'IA locale, dans votre profil, pour une recette réécrite à partir de toute la vidéo.</string>
+    <string name="import_reading_video">Lecture de la vidéo…</string>
+    <string name="import_understanding">Reconstruction de la recette…</string>
+    <string name="import_saving">Enregistrement sur Mealie…</string>
+    <string name="import_model_loading">Chargement du modèle…</string>
+    <string name="import_model_reading">Lecture de la vidéo : %1$d %%</string>
+    <plurals name="import_model_writing">
+        <item quantity="one">Rédaction de la recette : %d jeton</item>
+        <item quantity="many">Rédaction de la recette : %d jetons</item>
+        <item quantity="other">Rédaction de la recette : %d jetons</item>
+    </plurals>
+    <string name="import_model_background">Vous pouvez passer à une autre application en attendant : l\'import continue.</string>
+    <string name="import_video_empty">Cette vidéo n\'a ni liste d\'ingrédients, ni chapitres, ni sous-titres : il n\'y a rien pour reconstruire une recette.</string>
+    <string name="import_video_not_video">Cette adresse n\'est pas une vidéo YouTube.</string>
+    <string name="import_video_unavailable">Cette vidéo est privée, supprimée ou indisponible ici.</string>
+    <string name="import_video_blocked">YouTube demande de se connecter avant de montrer cette vidéo. Réessayez dans un moment.</string>
+    <string name="import_video_network">YouTube est injoignable. Vérifiez la connexion.</string>
+    <string name="import_video_unreadable">YouTube a répondu d\'une façon que l\'application ne sait pas lire. Une mise à jour de l\'application est peut-être nécessaire.</string>
+    <string name="notice_video_without_model">Recette reconstruite à partir de la description : vérifiez les étapes</string>
+    <string name="notice_video_model_failed">L\'IA locale a échoué : recette reconstruite à partir de la description</string>
+    <string name="notice_video_not_linked">Recette importée, mais ses étapes ne sont pas reliées à la vidéo</string>
+    <string name="notice_meal_plan_created">Repas ajoutés au planning</string>
+
+    <!-- Automatic planning -->
+    <string name="auto_plan_title">Planifier automatiquement</string>
+    <string name="auto_plan_intro">Un plat à midi et un plat le soir : jamais de dessert, de boisson ni d\'accompagnement. Les repas déjà prévus sont gardés, et les plats sont choisis pour partager leurs ingrédients, pour une liste de courses plus courte.</string>
+    <string name="auto_plan_scope_week">Cette semaine</string>
+    <string name="auto_plan_scope_day">Un jour</string>
+    <string name="auto_plan_nothing_to_fill">Tous les déjeuners et dîners sont déjà prévus.</string>
+    <plurals name="auto_plan_meals_to_fill">
+        <item quantity="one">%d repas à planifier</item>
+        <item quantity="many">%d repas à planifier</item>
+        <item quantity="other">%d repas à planifier</item>
+    </plurals>
+    <string name="auto_plan_propose">Proposer un planning</string>
+    <string name="auto_plan_no_dishes">Aucun plat trouvé parmi les recettes. Vérifiez comment les catégories et les tags sont reconnus.</string>
+    <string name="auto_plan_reading_recipes">Lecture des recettes…</string>
+    <string name="auto_plan_reading_dishes">Lecture des ingrédients des plats…</string>
+    <string name="auto_plan_recognizing">L\'IA locale reconnaît les recettes que rien ne situe…</string>
+    <string name="auto_plan_composing">Composition du planning…</string>
+    <string name="auto_plan_saving">Ajout des repas au planning…</string>
+    <plurals name="auto_plan_unfilled">
+        <item quantity="one">%d repas n\'a pas pu être rempli : plus aucun plat que les règles du planning autorisent.</item>
+        <item quantity="many">%d repas n\'ont pas pu être remplis : plus aucun plat que les règles du planning autorisent.</item>
+        <item quantity="other">%d repas n\'ont pas pu être remplis : plus aucun plat que les règles du planning autorisent.</item>
+    </plurals>
+    <plurals name="auto_plan_ingredient_count">
+        <item quantity="one">%d ingrédient à acheter, hors produits de base</item>
+        <item quantity="many">%d ingrédients différents à acheter, hors produits de base</item>
+        <item quantity="other">%d ingrédients différents à acheter, hors produits de base</item>
+    </plurals>
+    <string name="auto_plan_shared">Utilisés par plusieurs plats :</string>
+    <string name="auto_plan_shared_item">%1$s × %2$d</string>
+    <string name="auto_plan_regenerate">Autre proposition</string>
+    <string name="auto_plan_accept">Ajouter au planning</string>
+    <string name="auto_plan_replace">Remplacer %1$s par un autre plat</string>
+    <string name="dish_types_title">Types de plats reconnus</string>
+    <string name="dish_types_intro">Le planning automatique ne met que des plats à midi et le soir. Il reconnaît le type d\'une recette à ses catégories et tags, à son nom et à la façon dont elle a déjà été planifiée. Corrigez ici une catégorie ou un tag : le choix reste sur cet appareil.</string>
+    <string name="dish_types_empty_title">Ni catégories ni tags</string>
+    <string name="dish_types_empty_message">Les recettes de cette instance sont reconnues à leur nom et à leurs repas passés seulement.</string>
+    <string name="dish_types_chosen">%1$s · choisi par vous</string>
+    <string name="dish_types_detected">%1$s · reconnu à son nom</string>
+    <string name="dish_types_neutral">%1$s · ne dit rien du type de plat</string>
+    <string name="dish_types_category">Catégorie</string>
+    <string name="dish_types_tag">Tag</string>
+    <string name="dish_course_any">Indéfini</string>
+    <string name="dish_course_auto">Automatique</string>
+    <string name="dish_course_main">Plat</string>
+    <string name="dish_course_dessert">Dessert</string>
+    <string name="dish_course_drink">Boisson</string>
+    <string name="dish_course_other">Entrée, accompagnement…</string>
 </resources>

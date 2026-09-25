@@ -49,6 +49,8 @@ import org.opensources.umai.cooking.ui.CookingScreen
 import org.opensources.umai.home.ui.HomeScreen
 import org.opensources.umai.planning.ui.PlanningScreen
 import org.opensources.umai.profile.ui.ProfileScreen
+import org.opensources.umai.llm.ui.LocalAiRoute
+import org.opensources.umai.planning.ui.DishTypesRoute
 import org.opensources.umai.provider.ui.ProviderScreen
 import org.opensources.umai.provider.ui.ProvidersScreen
 import org.opensources.umai.recipe.ui.RecipeCreateScreen
@@ -231,6 +233,8 @@ private fun MainNavigation(
                 ) {
                     PlanningScreen(
                         onRecipeClick = { navController.navigate(RecipeRoute(it)) },
+                        onOpenDishTypes = { navController.navigate(DishCoursesRoute) },
+                        onMealsPlanned = { notice = AppNotice.MEAL_PLAN_CREATED },
                         onSearchRecipe = { date, type, fieldOriginY ->
                             navController.navigate(PlanRecipePickerRoute(date.toString(), type.apiValue, fieldOriginY))
                         },
@@ -270,6 +274,7 @@ private fun MainNavigation(
                         onOpenMealieSettings = { navController.navigate(MealieSettingsRoute) },
                         onImportRecipe = { navController.navigate(RecipeImportRoute()) },
                         onOpenProviders = { navController.navigate(ProvidersRoute) },
+                        onOpenLocalAi = { navController.navigate(LocalAiSettingsRoute) },
                         onCreateRecipe = { navController.navigate(RecipeCreateRoute()) },
                         onOpenDrafts = { navController.navigate(RecipeDraftsRoute) },
                     )
@@ -291,11 +296,19 @@ private fun MainNavigation(
                         onImported = { imported ->
                             if (navController.isCurrent(entry)) {
                                 navController.openImportedRecipe(entry, imported.slug)
-                                if (imported.mediaFailed) notice = AppNotice.RECIPE_IMPORTED_WITHOUT_MEDIA
+                                imported.notice?.let { notice = AppNotice.of(it) }
                             }
                         },
                         onOpenRecipe = { navController.navigate(RecipeRoute(it)) },
                     )
+                }
+
+                composable<DishCoursesRoute> {
+                    DishTypesRoute(onBack = { navController.popBackStack() })
+                }
+
+                composable<LocalAiSettingsRoute> {
+                    LocalAiRoute(onBack = { navController.popBackStack() })
                 }
 
                 composable<ProvidersRoute> {

@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.AddCircleOutline
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Extension
@@ -70,6 +71,7 @@ fun ProfileScreen(
     onOpenAppSettings: () -> Unit,
     onOpenMealieSettings: () -> Unit,
     onOpenProviders: () -> Unit,
+    onOpenLocalAi: () -> Unit,
     onImportRecipe: () -> Unit,
     onCreateRecipe: () -> Unit,
     onOpenDrafts: () -> Unit,
@@ -112,6 +114,7 @@ fun ProfileScreen(
         onPickAvatar = imagePicker::open,
         onOpenAppSettings = onOpenAppSettings,
         onOpenProviders = onOpenProviders,
+        onOpenLocalAi = onOpenLocalAi,
         onOpenMealieSettings = onOpenMealieSettings,
         onImportRecipe = onImportRecipe,
         onCreateRecipe = onCreateRecipe,
@@ -137,6 +140,7 @@ fun ProfileScreen(
     onCreateRecipe: () -> Unit,
     onOpenDrafts: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenLocalAi: () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier,
@@ -228,6 +232,12 @@ fun ProfileScreen(
                             summary = stringResource(R.string.providers_summary),
                             icon = Icons.Outlined.Extension,
                             onClick = onOpenProviders,
+                        )
+                        NavigationRow(
+                            title = stringResource(R.string.local_ai_title),
+                            summary = stringResource(R.string.local_ai_summary),
+                            icon = Icons.Outlined.AutoAwesome,
+                            onClick = onOpenLocalAi,
                         )
                     }
                 }

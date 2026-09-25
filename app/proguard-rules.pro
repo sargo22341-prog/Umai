@@ -20,3 +20,10 @@
 -dontwarn org.conscrypt.**
 -dontwarn org.bouncycastle.**
 -dontwarn org.openjsse.**
+
+# llm_bridge.cpp calls back GenerationListener.onProgress by name, and binds the
+# native methods of LlamaNative by their class and method names.
+-keep interface org.opensources.umai.llm.data.GenerationListener { *; }
+-keepclasseswithmembernames class org.opensources.umai.llm.data.LlamaNative {
+    native <methods>;
+}

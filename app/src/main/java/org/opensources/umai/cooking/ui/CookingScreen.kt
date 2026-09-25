@@ -129,9 +129,7 @@ fun CookingScreen(
     val recipeId = state.recipe?.id.orEmpty()
     CookingScreen(
         state = state,
-        clip = state.chapter?.let { chapter ->
-            state.video?.videoUrl?.let { StepClip(it, chapter.start, chapter.end) }
-        },
+        clip = state.clip,
         onExit = onExit,
         onPrevious = viewModel::previous,
         onNext = viewModel::next,

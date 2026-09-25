@@ -29,4 +29,7 @@ class LocaleController(context: Context) {
         val override = localeManager?.applicationLocales?.takeUnless { it.isEmpty }?.get(0)
         return (override ?: Locale.getDefault()).toLanguageTag()
     }
+
+    /** The language the app shows, "fr" or "en": the only two it is written in. */
+    fun appLanguage(): String = if (acceptLanguage().startsWith("fr")) "fr" else "en"
 }

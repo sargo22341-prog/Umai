@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AddShoppingCart
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Delete
@@ -75,6 +76,8 @@ fun PlanningScreen(
     onRecipeClick: (String) -> Unit,
     onSearchRecipe: (LocalDate, MealType, Float) -> Unit,
     modifier: Modifier = Modifier,
+    onOpenDishTypes: () -> Unit = {},
+    onMealsPlanned: () -> Unit = {},
 ) {
     val container = LocalAppContainer.current
     val viewModel: PlanningViewModel = viewModel(factory = PlanningViewModel.factory(container))
@@ -82,9 +85,42 @@ fun PlanningScreen(
     val weekShopping: WeekShoppingViewModel = viewModel(factory = WeekShoppingViewModel.factory(container))
     val shopping by weekShopping.state.collectAsStateWithLifecycle()
 
+    val autoPlan: AutoPlanViewModel = viewModel(factory = AutoPlanViewModel.factory(container))
+    val autoPlanState by autoPlan.state.collectAsStateWithLifecycle()
+
     // The tab keeps its ViewModel while the user walks through other screens,
     // so the plan is asked for again every time the screen comes back.
     LaunchedEffect(Unit) { viewModel.onScreenShown() }
+
+    LaunchedEffect(autoPlanState.saved) {
+        if (autoPlanState.saved) {
+            autoPlan.consumeSaved()
+            viewModel.refresh()
+            onMealsPlanned()
+        }
+    }
+
+    if (autoPlanState.visible) {
+        AutoPlanSheet(
+            state = autoPlanState,
+            actions = remember(autoPlan) {
+                AutoPlanActions(
+                    onDismiss = autoPlan::close,
+                    onScopeChange = autoPlan::setScope,
+                    onDayChange = autoPlan::setDay,
+                    onPropose = autoPlan::propose,
+                    onRegenerate = autoPlan::regenerate,
+                    onReplace = autoPlan::replace,
+                    onAccept = autoPlan::accept,
+                    onOpenDishTypes = {
+                        autoPlan.close()
+                        onOpenDishTypes()
+                    },
+                )
+            },
+            recipeImageUrl = { recipe -> container.imageUrls.thumbnail(recipe.id, recipe.imageToken) },
+        )
+    }
 
     if (shopping.visible) {
         WeekShoppingSheet(
@@ -122,6 +158,7 @@ fun PlanningScreen(
         recipeImageUrl = { recipe -> container.imageUrls.thumbnail(recipe.id, recipe.imageToken) },
         onAddToShopping = { weekShopping.open(state.days.flatMap { state.entriesByDay[it].orEmpty() }) },
         modifier = modifier,
+        onAutoPlan = { autoPlan.open(state.today, state.days, state.entriesByDay, state.focusedDay) },
     )
 }
 
@@ -141,6 +178,7 @@ fun PlanningScreen(
     recipeImageUrl: (RecipeSummary) -> String?,
     modifier: Modifier = Modifier,
     onAddToShopping: () -> Unit = {},
+    onAutoPlan: () -> Unit = {},
 ) {
     val listState = rememberLazyListState()
 
@@ -183,6 +221,12 @@ fun PlanningScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onAutoPlan, enabled = !state.loading && state.error == null) {
+                        Icon(
+                            Icons.Outlined.AutoAwesome,
+                            contentDescription = stringResource(R.string.auto_plan_title),
+                        )
+                    }
                     IconButton(onClick = onAddToShopping, enabled = state.hasRecipes) {
                         Icon(
                             Icons.Outlined.AddShoppingCart,

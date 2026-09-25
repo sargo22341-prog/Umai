@@ -36,6 +36,8 @@ Avant de coder : lire ce fichier, parcourir le dépôt, et consulter `.context/`
 | Build | AGP 9.x + Gradle 9.x |
 | Réseau | Retrofit 3 + OkHttp 5 + kotlinx.serialization |
 | Images | Coil 3 (`coil-network-okhttp`) |
+| Vidéo | Media3 ExoPlayer (+ HLS) |
+| IA locale | llama.cpp (C++, NDK r30, `app/src/main/cpp`), modèles GGUF téléchargés à part |
 | Stockage | DataStore Preferences + Android Keystore |
 | Injection | `AppContainer` écrit à la main (§4) |
 
@@ -56,6 +58,13 @@ Pièges du build, déjà rencontrés — ne pas les réintroduire :
   `kotlin { compilerOptions }` racine.
 * Pas de rétrocompatibilité : utiliser directement les API Android 17, sans
   `Build.VERSION` ni bibliothèque de compat superflue.
+* llama.cpp est téléchargé à la compilation (release épinglée + SHA-256 dans
+  `app/src/main/cpp/CMakeLists.txt`) et n'est **jamais** copié dans le dépôt. Seuls ses dossiers
+  utiles sont extraits : `tools/ui` dépasse la limite de chemins de Windows.
+* `jniLibs.useLegacyPackaging = true` est nécessaire : llama.cpp choisit sa variante CPU en
+  listant le dossier des bibliothèques natives, vide si elles restent dans l'APK.
+* Le premier build natif prend une dizaine de minutes (7 variantes CPU) ; il est ensuite en cache.
+  Détails, mesures et choix du modèle : `docs/local-ai.md`.
 
 ---
 
@@ -92,6 +101,9 @@ org.opensources.umai
 ├── settings/    ui
 ├── profile/     data · ui
 ├── organizer/   data
+├── provider/    data · ui · (un paquet par site)
+├── youtube/     data · domain
+├── llm/         data · domain · ui
 ├── navigation/
 └── core/        di · format · image · markdown · model · network(api, dto) · session · settings · ui(component, theme)
 ```

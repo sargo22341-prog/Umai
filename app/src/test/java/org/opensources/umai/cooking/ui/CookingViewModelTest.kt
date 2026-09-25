@@ -22,6 +22,7 @@ import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.network.FakeMealieServer
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.recipe.data.RecipeMediaRepository
+import org.opensources.umai.recipe.domain.VideoStream
 import org.opensources.umai.recipe.data.RecipeRepository
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
@@ -193,6 +194,7 @@ class CookingViewModelTest {
         initialStep = step,
         recipeRepository = RecipeRepository({ fake.api() }),
         mediaRepository = RecipeMediaRepository { fake.api() },
+        streamFor = { VideoStream(it, isHls = false) },
         keepScreenOn = flowOf(keepScreenOn),
         timerOptions = flowOf(timerOptions),
         timers = timers,
@@ -329,7 +331,10 @@ class CookingViewModelTest {
         assertEquals(listOf(1), ringing.ringingTimers.map { it.id })
 
         vm.dismissTimer(1)
-        assertTrue(vm.state.value.timers.isEmpty)
+        // The timers reach the state through a flow that also ticks the clock:
+        // the change is awaited rather than read on the spot.
+        val dismissed = withTimeout(TIMEOUT_MS) { vm.state.first { it.timers.isEmpty } }
+        assertTrue(dismissed.ringingTimers.isEmpty())
     }
 
     @Test

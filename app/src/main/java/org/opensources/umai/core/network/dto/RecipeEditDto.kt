@@ -27,6 +27,20 @@ data class ScrapeRecipeDto(
 )
 
 /**
+ * Body of `POST /api/recipes/create/html-or-json` (`ScrapeRecipeData`): [data]
+ * is a schema.org Recipe as JSON, which Mealie reads as it reads a web page,
+ * without fetching [url]; [url] becomes the source of the recipe.
+ */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class ScrapeRecipeDataDto(
+    val data: String,
+    val url: String?,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS) val includeTags: Boolean = false,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS) val includeCategories: Boolean = false,
+)
+
+/**
  * Body of `POST /api/recipes/test-scrape-url`. Mealie answers with the recipe
  * schema it found on the page, before any cleaning — which keeps what its own
  * recipe model drops, such as the video of the steps.

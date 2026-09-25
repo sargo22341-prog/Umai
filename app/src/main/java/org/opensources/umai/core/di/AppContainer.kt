@@ -1,5 +1,6 @@
 package org.opensources.umai.core.di
 
+import android.app.ActivityManager
 import android.content.Context
 import android.os.SystemClock
 import kotlinx.coroutines.CoroutineScope
@@ -20,8 +21,15 @@ import org.opensources.umai.core.session.SessionStore
 import org.opensources.umai.core.settings.AppPreferencesRepository
 import org.opensources.umai.core.settings.LocaleController
 import org.opensources.umai.home.data.RecentRecipesStore
+import org.opensources.umai.llm.data.LocalAiSettingsStore
+import org.opensources.umai.llm.data.LocalAiWork
+import org.opensources.umai.llm.data.LocalLanguageModel
+import org.opensources.umai.llm.data.ModelInstaller
 import org.opensources.umai.organizer.data.OrganizerRepository
+import org.opensources.umai.planning.data.DishCourseStore
+import org.opensources.umai.planning.data.DishPoolRepository
 import org.opensources.umai.planning.data.MealPlanRepository
+import org.opensources.umai.planning.domain.ModelCourseClassifier
 import org.opensources.umai.profile.data.ProfileRepository
 import org.opensources.umai.provider.ProviderRegistry
 import org.opensources.umai.provider.data.HttpPhotoDownloader
@@ -37,7 +45,10 @@ import org.opensources.umai.recipe.data.RecipeDraftStore
 import org.opensources.umai.recipe.data.RecipeEditRepository
 import org.opensources.umai.recipe.data.RecipeMediaRepository
 import org.opensources.umai.recipe.data.RecipeRepository
+import org.opensources.umai.recipe.data.VideoStreams
 import org.opensources.umai.shopping.data.ShoppingRepository
+import org.opensources.umai.youtube.data.VideoRecipeImporter
+import org.opensources.umai.youtube.data.YouTubeClient
 import java.util.concurrent.TimeUnit
 
 /**
@@ -124,6 +135,45 @@ class AppContainer(context: Context) {
         host = timerHost,
         options = preferencesRepository.preferences.map { it.cookingTimers },
         clock = timerClock,
+    )
+
+    /** The phone's memory, which bounds the language models it can run. */
+    val deviceMemoryBytes: Long = ActivityManager.MemoryInfo()
+        .also { appContext.getSystemService(ActivityManager::class.java).getMemoryInfo(it) }
+        .totalMem
+
+    val localAiSettings = LocalAiSettingsStore(appContext)
+    val localAiWork = LocalAiWork(appContext)
+    val modelInstaller = ModelInstaller(appContext, localAiSettings, applicationScope).also { it.resume() }
+
+    /** The on-device language model; every feature using it also works without it. */
+    val localLanguageModel = LocalLanguageModel(
+        context = appContext,
+        store = localAiSettings,
+        installer = modelInstaller,
+        work = localAiWork,
+        scope = applicationScope,
+    )
+
+    /** Reads YouTube videos without an account, for the import and the cooking mode. */
+    val youTubeClient = YouTubeClient(externalHttpClient, language = localeController::appLanguage)
+
+    val videoStreams = VideoStreams(youTubeClient)
+
+    val videoRecipeImporter = VideoRecipeImporter(
+        youTube = youTubeClient,
+        model = localLanguageModel,
+        apiProvider = apiProvider,
+        edits = recipeEditRepository,
+        media = recipeMediaRepository,
+        language = localeController::appLanguage,
+    )
+
+    val dishCourseStore = DishCourseStore(appContext)
+    val dishPoolRepository = DishPoolRepository(
+        apiProvider = apiProvider,
+        courses = dishCourseStore,
+        modelClassifier = ModelCourseClassifier(localLanguageModel),
     )
 
     /** Re-read on every call: the user can revoke the grant from Settings. */

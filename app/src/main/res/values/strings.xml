@@ -91,8 +91,6 @@
     <string name="search_placeholder">Recipe, ingredient, keyword…</string>
     <string name="search_empty_title">No result</string>
     <string name="search_empty_message">Try another keyword or loosen your filters.</string>
-    <string name="search_start_title">Search your recipes</string>
-    <string name="search_start_message">Type a few letters, or open the filters to browse by category, tag, ingredient or rating.</string>
     <string name="search_clear_filters">Clear filters</string>
 
     <!-- Filters -->
@@ -574,4 +572,125 @@
     <string name="provider_import_photos">Fetch the step photos automatically</string>
     <string name="provider_import_photos_summary">When a recipe of this provider is imported, the photo of each step is saved with the recipe on Mealie and attached to its step.</string>
     <string name="import_provider_hint_photos">%1$s page: its step photos will be fetched too, when it has some.</string>
+
+    <!-- Local AI -->
+    <string name="local_ai_title">Local AI</string>
+    <string name="local_ai_summary">A language model that runs on the phone, for the smart features</string>
+    <string name="local_ai_intro">A language model downloaded once runs on this phone, without any online service: nothing you import or plan leaves the device. It rebuilds recipes from videos and recognizes dishes when planning meals. Every feature also works without it, with simpler rules.</string>
+    <string name="local_ai_unsupported">This phone cannot run the local AI: it needs a 64-bit ARM processor.</string>
+    <string name="local_ai_enabled">Use the local AI</string>
+    <string name="local_ai_enabled_summary">Turned off, the model stays downloaded and the features use their simple rules.</string>
+    <string name="local_ai_section_installed">Installed model</string>
+    <string name="local_ai_none_installed">No model is installed yet. Pick one below: it is downloaded over Wi-Fi.</string>
+    <string name="local_ai_section_models">Models</string>
+    <string name="local_ai_device_memory">This phone has %1$s GB of memory. The model is loaded only while it works, and freed a minute later.</string>
+    <string name="local_ai_section_custom">Another model</string>
+    <string name="local_ai_model_meta">%1$s GB · %2$s</string>
+    <string name="local_ai_benchmark">Test the speed</string>
+    <string name="local_ai_benchmark_running">Loading the model and writing a short answer…</string>
+    <string name="local_ai_benchmark_failed">The model could not run. The phone may lack free memory: close other apps, or pick a smaller model.</string>
+    <string name="local_ai_benchmark_generation">Writes %1$s tokens per second</string>
+    <string name="local_ai_benchmark_prompt">Reads %1$s tokens per second</string>
+    <plurals name="local_ai_benchmark_details">
+        <item quantity="one">Loaded in %1$s s · %2$s GB of memory · %3$d core</item>
+        <item quantity="other">Loaded in %1$s s · %2$s GB of memory · %3$d cores</item>
+    </plurals>
+    <string name="local_ai_downloading">Downloading %1$s</string>
+    <string name="local_ai_download_waiting">Waiting for a Wi-Fi network</string>
+    <string name="local_ai_download_progress">%1$s of %2$s GB</string>
+    <string name="local_ai_download_description">Language model for Umai</string>
+    <string name="local_ai_verifying">Checking %1$s</string>
+    <string name="local_ai_failure_storage">%1$s could not be saved: the phone\'s storage is not available.</string>
+    <string name="local_ai_failure_space">Not enough free space for %1$s.</string>
+    <string name="local_ai_failure_download">The download of %1$s failed. Try again later.</string>
+    <string name="local_ai_failure_corrupted">The file of %1$s is damaged and was deleted. Try again.</string>
+    <string name="local_ai_failure_not_model">%1$s is not a GGUF model file.</string>
+    <string name="local_ai_recommended">Recommended</string>
+    <string name="local_ai_model_tight">Large for this phone: it may not load while other apps take memory.</string>
+    <string name="local_ai_model_installed">Installed</string>
+    <string name="local_ai_download">Download</string>
+    <string name="local_ai_custom_hint">Any instruction model in GGUF format that llama.cpp reads, by the address of its file, such as a Hugging Face download link. It replaces the installed model.</string>
+    <string name="local_ai_custom_label">Address of a .gguf file</string>
+    <string name="local_ai_custom_invalid">An https address ending with the .gguf file name</string>
+    <string name="local_ai_model_qwen4b">Quick, and good at understanding recipes in French and English. The best balance on a recent phone.</string>
+    <string name="local_ai_model_gemma4">Google\'s model for phones, strong in many languages. Slower to read long transcripts.</string>
+    <string name="local_ai_model_qwen9b">The most capable, for the finest results, but about twice as slow: a video takes several minutes.</string>
+    <string name="local_ai_channel">Local AI</string>
+    <string name="local_ai_channel_description">Shows the language model working on the phone.</string>
+    <string name="local_ai_working">The local AI is working</string>
+    <string name="local_ai_reading">Reading</string>
+    <plurals name="local_ai_writing">
+        <item quantity="one">%d token written</item>
+        <item quantity="other">%d tokens written</item>
+    </plurals>
+
+    <!-- Import of a YouTube video -->
+    <string name="import_video_hint_model">YouTube video: the local AI rebuilds the recipe from its transcript, chapters and description, and ties each step to its part of the video. It takes a few minutes.</string>
+    <string name="import_video_hint_rules">YouTube video: the recipe is rebuilt from its description and chapters. Install the local AI, in your profile, for a recipe rewritten from the whole video.</string>
+    <string name="import_reading_video">Reading the video…</string>
+    <string name="import_understanding">Rebuilding the recipe…</string>
+    <string name="import_saving">Saving on Mealie…</string>
+    <string name="import_model_loading">Loading the model…</string>
+    <string name="import_model_reading">Reading the video: %1$d%%</string>
+    <plurals name="import_model_writing">
+        <item quantity="one">Writing the recipe: %d token</item>
+        <item quantity="other">Writing the recipe: %d tokens</item>
+    </plurals>
+    <string name="import_model_background">You can switch to another app meanwhile: the import goes on.</string>
+    <string name="import_video_empty">This video has no ingredient list, no chapters and no captions: there is nothing to rebuild a recipe from.</string>
+    <string name="import_video_not_video">This address is not a YouTube video.</string>
+    <string name="import_video_unavailable">This video is private, removed or not available here.</string>
+    <string name="import_video_blocked">YouTube is asking to sign in before showing this video. Try again in a little while.</string>
+    <string name="import_video_network">YouTube cannot be reached. Check the connection.</string>
+    <string name="import_video_unreadable">YouTube answered in a way the app cannot read. An update of the app may be needed.</string>
+    <string name="notice_video_without_model">Recipe rebuilt from the description: check the steps</string>
+    <string name="notice_video_model_failed">The local AI failed: recipe rebuilt from the description</string>
+    <string name="notice_video_not_linked">Recipe imported, but its steps are not tied to the video</string>
+    <string name="notice_meal_plan_created">Meals added to the plan</string>
+
+    <!-- Automatic planning -->
+    <string name="auto_plan_title">Plan automatically</string>
+    <string name="auto_plan_intro">One dish at lunch and one at dinner: never a dessert, a drink or a side. Meals already planned stay, and the dishes are chosen to share their ingredients, for a shorter shopping list.</string>
+    <string name="auto_plan_scope_week">This week</string>
+    <string name="auto_plan_scope_day">One day</string>
+    <string name="auto_plan_nothing_to_fill">Every lunch and dinner is already planned.</string>
+    <plurals name="auto_plan_meals_to_fill">
+        <item quantity="one">%d meal to plan</item>
+        <item quantity="other">%d meals to plan</item>
+    </plurals>
+    <string name="auto_plan_propose">Propose a plan</string>
+    <string name="auto_plan_no_dishes">No dish found among the recipes. Check how the categories and tags are recognized.</string>
+    <string name="auto_plan_reading_recipes">Reading the recipes…</string>
+    <string name="auto_plan_reading_dishes">Reading the ingredients of the dishes…</string>
+    <string name="auto_plan_recognizing">The local AI recognizes the recipes nothing places…</string>
+    <string name="auto_plan_composing">Putting the plan together…</string>
+    <string name="auto_plan_saving">Adding the meals to the plan…</string>
+    <plurals name="auto_plan_unfilled">
+        <item quantity="one">%d meal could not be filled: no dish left that the plan rules allow.</item>
+        <item quantity="other">%d meals could not be filled: no dish left that the plan rules allow.</item>
+    </plurals>
+    <plurals name="auto_plan_ingredient_count">
+        <item quantity="one">%d ingredient to buy, staples aside</item>
+        <item quantity="other">%d different ingredients to buy, staples aside</item>
+    </plurals>
+    <string name="auto_plan_shared">Used by several dishes:</string>
+    <string name="auto_plan_shared_item">%1$s × %2$d</string>
+    <string name="auto_plan_regenerate">Another plan</string>
+    <string name="auto_plan_accept">Add to the plan</string>
+    <string name="auto_plan_replace">Swap %1$s for another dish</string>
+    <string name="dish_types_title">Recognized dish types</string>
+    <string name="dish_types_intro">The automatic planning only puts dishes at lunch and dinner. It recognizes the type of a recipe from its categories and tags, its name and how it was planned before. Correct a category or a tag here: the choice stays on this device.</string>
+    <string name="dish_types_empty_title">No categories nor tags</string>
+    <string name="dish_types_empty_message">The recipes of this instance are recognized from their names and past meals only.</string>
+    <string name="dish_types_chosen">%1$s · chosen by you</string>
+    <string name="dish_types_detected">%1$s · recognized from its name</string>
+    <string name="dish_types_neutral">%1$s · says nothing about the type of dish</string>
+    <string name="dish_types_category">Category</string>
+    <string name="dish_types_tag">Tag</string>
+    <string name="dish_course_any">Any</string>
+    <string name="dish_course_auto">Automatic</string>
+    <string name="dish_course_main">Dish</string>
+    <string name="dish_course_dessert">Dessert</string>
+    <string name="dish_course_drink">Drink</string>
+    <string name="dish_course_other">Starter, side…</string>
 </resources>

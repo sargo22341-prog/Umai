@@ -167,13 +167,6 @@ internal fun RecipeSearchContent(
                         onRetry = actions.onRetry,
                     )
 
-                state.isIdle -> EmptyView(
-                    title = stringResource(R.string.search_start_title),
-                    message = stringResource(R.string.search_start_message),
-                    icon = Icons.Outlined.Search,
-                    modifier = Modifier.fillMaxSize(),
-                )
-
                 state.isEmptyResult -> EmptyView(
                     title = stringResource(R.string.search_empty_title),
                     message = stringResource(R.string.search_empty_message),

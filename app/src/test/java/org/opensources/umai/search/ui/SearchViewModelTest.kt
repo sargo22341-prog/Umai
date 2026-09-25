@@ -54,13 +54,39 @@ class SearchViewModelTest {
         withTimeout(TIMEOUT_MS) { state.first { it.hasQueried && !it.loading } }
 
     @Test
-    fun `an empty search shows the invitation and hits no endpoint`() = runBlocking {
+    fun `opening the search lists the newest recipes right away`() = runBlocking {
+        fake.enqueueJson(PAGE)
         val vm = viewModel()
 
-        val state = vm.state.value
-        assertTrue(state.isIdle)
-        assertFalse(state.hasQueried)
-        assertEquals(0, fake.server.requestCount)
+        assertTrue(vm.state.value.loading)
+        val state = vm.awaitResults()
+
+        assertEquals(2, state.results.items.size)
+        val request = fake.takeRequest()
+        assertEquals(null, request.query("search"))
+        assertEquals("createdAt", request.query("orderBy"))
+        assertEquals("desc", request.query("orderDirection"))
+        assertEquals("last", request.query("orderByNullPosition"))
+    }
+
+    @Test
+    fun `flipping the default order back to descending still lists the recipes`() = runBlocking {
+        repeat(3) { fake.enqueueJson(PAGE) }
+        val vm = viewModel()
+        vm.awaitResults()
+
+        vm.selectSort(SortField.CREATED)
+        withTimeout(TIMEOUT_MS) { vm.state.first { !it.sort.descending && it.hasQueried && !it.loading } }
+        vm.selectSort(SortField.CREATED)
+        val state = withTimeout(TIMEOUT_MS) {
+            vm.state.first { it.sort.descending && fake.server.requestCount == 3 && !it.loading }
+        }
+
+        assertEquals(2, state.results.items.size)
+        assertFalse(state.isEmptyResult)
+        fake.takeRequest()
+        assertEquals("asc", fake.takeRequest().query("orderDirection"))
+        assertEquals("desc", fake.takeRequest().query("orderDirection"))
     }
 
     @Test
@@ -103,16 +129,21 @@ class SearchViewModelTest {
     }
 
     @Test
-    fun `clearing the query returns to the invitation`() = runBlocking {
+    fun `clearing the query lists the whole collection again`() = runBlocking {
+        fake.enqueueJson(EMPTY_PAGE)
         fake.enqueueJson(PAGE)
         val vm = viewModel()
-        vm.onQueryChange("curry")
+        vm.onQueryChange("zzzz")
         vm.awaitResults()
 
         vm.clearQuery()
-        val state = withTimeout(TIMEOUT_MS) { vm.state.first { it.isIdle && !it.hasQueried } }
+        val state = withTimeout(TIMEOUT_MS) {
+            vm.state.first { it.query.isEmpty() && it.results.items.isNotEmpty() && !it.loading }
+        }
 
-        assertTrue(state.results.items.isEmpty())
+        assertEquals(2, state.results.items.size)
+        assertEquals("zzzz", fake.takeRequest().query("search"))
+        assertEquals(null, fake.takeRequest().query("search"))
     }
 
     @Test
@@ -123,7 +154,7 @@ class SearchViewModelTest {
         vm.applyFilters(RecipeFilters(minRating = 4))
         val state = vm.awaitResults()
 
-        assertFalse(state.isIdle)
+        assertFalse(state.isEmptyResult)
         assertEquals("rating >= 4", fake.takeRequest().url.queryParameter("queryFilter"))
     }
 
@@ -153,10 +184,13 @@ class SearchViewModelTest {
 
     @Test
     fun `the filter sheet loads categories, tags and tools`() = runBlocking {
+        fake.enqueueJson(PAGE)
         fake.enqueueJson(CATEGORIES)
         fake.enqueueJson(TAGS)
         fake.enqueueJson(TOOLS)
         val vm = viewModel()
+        // The search lists the collection as it opens: that request goes first.
+        vm.awaitResults()
 
         vm.loadFilterOptions()
         val options = withTimeout(TIMEOUT_MS) { vm.filterOptions.first { !it.loading && it.categories.isNotEmpty() } }
@@ -180,10 +214,13 @@ class SearchViewModelTest {
 
     @Test
     fun `calorie tags are not offered as tags to filter on`() = runBlocking {
+        fake.enqueueJson(PAGE)
         fake.enqueueJson(CATEGORIES)
         fake.enqueueJson(TAGS_WITH_CALORIES)
         fake.enqueueJson(TOOLS)
         val vm = viewModel()
+        // The search lists the collection as it opens: that request goes first.
+        vm.awaitResults()
 
         vm.loadFilterOptions()
         val options = withTimeout(TIMEOUT_MS) { vm.filterOptions.first { !it.loading && it.categories.isNotEmpty() } }
@@ -193,9 +230,15 @@ class SearchViewModelTest {
 
     @Test
     fun `a too short ingredient query is not sent to the server`() = runBlocking {
+        fake.enqueueJson(PAGE)
         val vm = viewModel()
+        vm.awaitResults()
+
         vm.searchFoods("a")
-        assertEquals(0, fake.server.requestCount)
+
+        // Only the listing the search opens on reached the server.
+        assertEquals(1, fake.server.requestCount)
+        assertEquals("/api/recipes", fake.takeRequest().url.encodedPath)
     }
 
     @Test
@@ -206,7 +249,7 @@ class SearchViewModelTest {
         vm.selectSort(SortField.NAME)
         val state = vm.awaitResults()
 
-        assertFalse(state.isIdle)
+        assertFalse(state.isEmptyResult)
         assertEquals(2, state.results.items.size)
         val request = fake.takeRequest()
         assertEquals("name", request.query("orderBy"))

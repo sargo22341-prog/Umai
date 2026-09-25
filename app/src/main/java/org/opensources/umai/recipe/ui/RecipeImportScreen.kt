@@ -19,6 +19,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -32,6 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -42,6 +44,8 @@ import org.opensources.umai.R
 import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
+import org.opensources.umai.llm.domain.LlmProgress
+import org.opensources.umai.youtube.domain.YouTubeFailure
 
 /**
  * [initialUrl] fills the address in, as when a page is shared to the app.
@@ -81,6 +85,7 @@ fun RecipeImportScreen(
         onImportAnyway = { viewModel.import(evenIfPresent = true) },
         onOpenExisting = onOpenRecipe,
         modifier = modifier,
+        onCancel = viewModel::cancel,
     )
 }
 
@@ -97,6 +102,7 @@ fun RecipeImportScreen(
     onImportAnyway: () -> Unit,
     onOpenExisting: (String) -> Unit,
     modifier: Modifier = Modifier,
+    onCancel: () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier,
@@ -143,6 +149,16 @@ fun RecipeImportScreen(
                 ),
             )
 
+            if (state.isVideo) {
+                Text(
+                    text = stringResource(
+                        if (state.videoUsesModel) R.string.import_video_hint_model else R.string.import_video_hint_rules,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+
             state.providerName?.let { name ->
                 Text(
                     text = stringResource(
@@ -154,33 +170,27 @@ fun RecipeImportScreen(
                 )
             }
 
-            SwitchRow(
-                title = stringResource(R.string.import_include_tags),
-                checked = state.includeTags,
-                enabled = !state.importing,
-                onCheckedChange = onIncludeTagsChange,
-            )
-            SwitchRow(
-                title = stringResource(R.string.import_include_categories),
-                checked = state.includeCategories,
-                enabled = !state.importing,
-                onCheckedChange = onIncludeCategoriesChange,
-            )
-
-            state.error?.let { error ->
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.errorContainer,
-                ) {
-                    Text(
-                        text = "${error.title()}\n${error.message()}",
-                        modifier = Modifier.padding(12.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                    )
-                }
+            // A video has no tags nor categories for Mealie to pick up.
+            if (!state.isVideo) {
+                SwitchRow(
+                    title = stringResource(R.string.import_include_tags),
+                    checked = state.includeTags,
+                    enabled = !state.importing,
+                    onCheckedChange = onIncludeTagsChange,
+                )
+                SwitchRow(
+                    title = stringResource(R.string.import_include_categories),
+                    checked = state.includeCategories,
+                    enabled = !state.importing,
+                    onCheckedChange = onIncludeCategoriesChange,
+                )
             }
+
+            val videoProblem = state.videoFailure?.let { stringResource(it.messageRes()) }
+                ?: stringResource(R.string.import_video_empty).takeIf { state.videoEmpty }
+            videoProblem?.let { ErrorPanel(it) }
+
+            state.error?.let { error -> ErrorPanel("${error.title()}\n${error.message()}") }
 
             state.duplicate?.let { existing ->
                 DuplicateWarning(
@@ -209,11 +219,22 @@ fun RecipeImportScreen(
                                 ImportPhase.CHECKING -> R.string.import_checking
                                 ImportPhase.IMPORTING -> R.string.import_running
                                 ImportPhase.FETCHING_MEDIA -> R.string.import_fetching_media
+                                ImportPhase.READING_VIDEO -> R.string.import_reading_video
+                                ImportPhase.UNDERSTANDING -> R.string.import_understanding
+                                ImportPhase.SAVING -> R.string.import_saving
                             },
                         ),
                     )
                 } else {
                     Text(stringResource(R.string.import_action))
+                }
+            }
+
+            if (state.phase == ImportPhase.UNDERSTANDING) ModelProgress(state.modelProgress)
+
+            if (state.importing && state.isVideo) {
+                TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.action_cancel))
                 }
             }
 
@@ -224,6 +245,60 @@ fun RecipeImportScreen(
             )
         }
     }
+}
+
+/** How far the language model is: reading the video, then writing the recipe. */
+@Composable
+private fun ModelProgress(progress: LlmProgress?) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        when {
+            progress == null -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            progress.readingPrompt -> LinearProgressIndicator(
+                progress = { progress.promptFraction },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            else -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+        Text(
+            text = when {
+                progress == null -> stringResource(R.string.import_model_loading)
+                progress.readingPrompt ->
+                    stringResource(R.string.import_model_reading, (progress.promptFraction * 100).toInt())
+                else -> pluralStringResource(R.plurals.import_model_writing, progress.generated, progress.generated)
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = stringResource(R.string.import_model_background),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun ErrorPanel(text: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.errorContainer,
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(12.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+        )
+    }
+}
+
+private fun YouTubeFailure.messageRes(): Int = when (this) {
+    YouTubeFailure.NOT_A_VIDEO -> R.string.import_video_not_video
+    YouTubeFailure.UNAVAILABLE -> R.string.import_video_unavailable
+    YouTubeFailure.BLOCKED -> R.string.import_video_blocked
+    YouTubeFailure.NETWORK -> R.string.import_video_network
+    YouTubeFailure.UNREADABLE -> R.string.import_video_unreadable
 }
 
 @Composable

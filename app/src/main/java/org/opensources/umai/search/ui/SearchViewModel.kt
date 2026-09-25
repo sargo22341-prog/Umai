@@ -36,19 +36,14 @@ data class SearchUiState(
     val filters: RecipeFilters = RecipeFilters.None,
     val sort: RecipeSort = RecipeSort.Default,
     val results: PagedItems<RecipeSummary> = PagedItems(),
-    val loading: Boolean = false,
+    /** The search opens on the whole collection, which is loading right away. */
+    val loading: Boolean = true,
     val refreshing: Boolean = false,
     val loadingMore: Boolean = false,
     val error: NetworkError? = null,
     val hasQueried: Boolean = false,
     val layout: RecipeLayout = RecipeLayout.GRID,
 ) {
-    /**
-     * Nothing typed, no filter set and the default order: show the invitation
-     * instead of a blank list. Choosing an order is a request to browse, so it
-     * lists every recipe in that order.
-     */
-    val isIdle: Boolean get() = isIdleSearch(query, filters, sort)
     val isEmptyResult: Boolean
         get() = hasQueried && !loading && error == null && results.items.isEmpty()
 }
@@ -207,20 +202,6 @@ class SearchViewModel(
     private fun runSearch(request: SearchRequest, refreshing: Boolean = false) {
         searchJob?.cancel()
 
-        if (request.isIdle) {
-            _state.update {
-                it.copy(
-                    results = PagedItems(),
-                    loading = false,
-                    refreshing = false,
-                    loadingMore = false,
-                    error = null,
-                    hasQueried = false,
-                )
-            }
-            return
-        }
-
         if (request.sort.isRandom) paginationSeed = newSeed()
         _state.update { it.copy(loading = !refreshing, refreshing = refreshing, error = null) }
 
@@ -268,14 +249,12 @@ class SearchViewModel(
     }
 }
 
-/** What a search depends on; a change to any part of it runs a new search. */
+/**
+ * What a search depends on; a change to any part of it runs a new search. With
+ * nothing typed and no filter, it lists the whole collection in the chosen order.
+ */
 private data class SearchRequest(
     val query: String,
     val filters: RecipeFilters,
     val sort: RecipeSort,
-) {
-    val isIdle: Boolean get() = isIdleSearch(query, filters, sort)
-}
-
-private fun isIdleSearch(query: String, filters: RecipeFilters, sort: RecipeSort): Boolean =
-    query.isBlank() && filters.isEmpty && sort == RecipeSort.Default
+)

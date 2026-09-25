@@ -27,7 +27,9 @@ import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.settings.CookingTimerOptions
 import org.opensources.umai.recipe.data.RecipeMediaRepository
 import org.opensources.umai.recipe.data.RecipeRepository
+import org.opensources.umai.recipe.domain.StepClip
 import org.opensources.umai.recipe.domain.VideoChapter
+import org.opensources.umai.recipe.domain.VideoStream
 import org.opensources.umai.recipe.domain.VideoManifest
 import java.time.Duration
 
@@ -41,6 +43,8 @@ data class CookingUiState(
     val servings: Int = 0,
     /** The chapters of the recipe video, when it has one. */
     val video: VideoManifest? = null,
+    /** Where the video is read from, once found; a YouTube video is looked up first. */
+    val stream: VideoStream? = null,
     val markingCooked: Boolean = false,
     /** Set once Mealie recorded the recipe as cooked; the screen then closes. */
     val markedCooked: Boolean = false,
@@ -80,6 +84,14 @@ data class CookingUiState(
     /** Where the current step starts and ends in the video, `null` when it is not in it. */
     val chapter: VideoChapter? get() = video?.chapterFor(currentStep)
 
+    /** The part of the video to loop on for the current step. */
+    val clip: StepClip?
+        get() {
+            val chapter = chapter ?: return null
+            val stream = stream ?: return null
+            return StepClip(stream.url, chapter.start, chapter.end, stream.isHls, stream.headers)
+        }
+
     /** Mirrors the scaling applied on the recipe page. */
     val scale: Double
         get() {
@@ -100,6 +112,8 @@ class CookingViewModel(
     private val initialStep: Int,
     private val recipeRepository: RecipeRepository,
     private val mediaRepository: RecipeMediaRepository,
+    /** Where a video is read from: a YouTube page is turned into a stream the player reads. */
+    private val streamFor: suspend (String) -> VideoStream?,
     keepScreenOn: Flow<Boolean>,
     timerOptions: Flow<CookingTimerOptions>,
     private val timers: CookingTimerController,
@@ -148,6 +162,8 @@ class CookingViewModel(
         val manifest = (mediaRepository.videoManifest(recipe.id, recipe.assets) as? ApiResult.Success)?.value
             ?: return
         _state.update { it.copy(video = manifest) }
+        val stream = manifest.videoUrl?.let { streamFor(it) } ?: return
+        _state.update { it.copy(stream = stream) }
     }
 
     /** Records in Mealie that the recipe was cooked; [subject] titles the timeline entry. */
@@ -209,6 +225,7 @@ class CookingViewModel(
                     initialStep = step,
                     recipeRepository = container.recipeRepository,
                     mediaRepository = container.recipeMediaRepository,
+                    streamFor = container.videoStreams::streamFor,
                     keepScreenOn = container.preferencesRepository.preferences
                         .map { it.keepScreenOnWhileCooking },
                     timerOptions = container.preferencesRepository.preferences.map { it.cookingTimers },

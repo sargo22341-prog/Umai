@@ -48,17 +48,24 @@ Fonctionnalités principales :
 - **fiche recette** : photo, durées, tags (un appui cherche les recettes qui le partagent), favori
   et note sur 5 étoiles, **ajustement des portions** des ingrédients, instructions avec leurs
   photos, commentaires ;
-- **mode cuisine** : une étape par écran, les ingrédients de l'étape en cours, **minuteurs**
-  proposés pour les durées écrites dans les étapes (plusieurs à la fois, avec son et vibration),
-  écran maintenu allumé (facultatif) ;
+- **mode cuisine** : une étape par écran, les ingrédients de l'étape en cours, la **vidéo de
+  l'étape jouée en boucle** quand la recette en a une, **minuteurs** proposés pour les durées
+  écrites dans les étapes (plusieurs à la fois, avec son et vibration), écran maintenu allumé
+  (facultatif) ;
 - **planning** : la semaine du lundi au dimanche, ouverte sur aujourd'hui ; ajout d'une recette
-  trouvée avec la recherche complète et ses filtres, d'une recette tirée au sort (éventuellement
-  dans une catégorie) ou d'une note ;
+  trouvée avec la recherche complète et ses filtres, ou d'une note ; **planning automatique**
+  d'un jour ou de la semaine : un plat à midi et un le soir (jamais de dessert ni de boisson),
+  choisis pour partager leurs ingrédients, dans le respect des règles de planning de Mealie ;
 - **listes de courses** : plusieurs listes, articles regroupés par étiquette, envoi des ingrédients
   d'une recette vers une liste (ajustés aux portions choisies), et un **mode courses** aux grandes
   lignes cochées d'un seul appui ;
 - **création et modification de recettes** : import depuis une page web (analysée par Mealie),
   avec la vidéo et les photos d'étapes de Jow et les photos d'étapes de 750g et Marmiton ;
+  **import d'une vidéo YouTube** reconstruite en recette complète (ingrédients, étapes, passage de
+  la vidéo de chaque étape) à partir de sa description, de ses chapitres et de sa transcription ;
+- **IA locale** facultative : un modèle de langage téléchargé à part tourne sur le téléphone, sans
+  service distant, pour l'import vidéo et la reconnaissance des plats
+  ([détails et mesures](docs/local-ai.md)) ;
   rédaction étape par étape avec brouillons conservés sur le téléphone, recadrage de la photo ;
 - **profil** : compteurs de l'instance, photo de profil avec recadrage ;
 - **deux langues** : français et anglais, modifiables dans les réglages ;
@@ -124,7 +131,10 @@ Bon à savoir :
 - Les seules données conservées sur le téléphone sont celles que Mealie ne stocke pas :
   préférences d'affichage, langue, session, liste des recettes consultées récemment et brouillons
   de recettes non terminés.
-- Votre instance Mealie est le seul serveur que l'application contacte.
+- L'application ne contacte que votre instance Mealie, et, seulement quand vous vous en servez :
+  les sites de recettes connus (Jow, 750g, Marmiton) pour leurs médias, YouTube pour l'import et
+  la lecture d'une vidéo, Hugging Face pour télécharger le modèle de l'IA locale. Le modèle tourne
+  sur le téléphone : rien de ce que vous importez ou planifiez ne lui est envoyé ailleurs.
 
 ## Limites connues
 
@@ -146,6 +156,8 @@ Elles viennent de l'API Mealie, pas de l'application :
 | Interface | Jetpack Compose, Material 3, Navigation Compose |
 | Réseau | Retrofit, OkHttp, Kotlin Serialization |
 | Images | Coil |
+| Vidéo | Media3 ExoPlayer (HLS) |
+| IA locale | llama.cpp (NDK), modèles GGUF |
 | Stockage | DataStore |
 | Sécurité | Android Keystore (AES-GCM) |
 | Injection | Conteneur écrit à la main |

@@ -76,11 +76,18 @@ class SearchScreenTest {
     }
 
     @Test
-    fun theEmptySearchInvitesTheUserToTypeOrFilter() {
-        render(SearchUiState())
+    fun theSearchOpensOnTheWholeCollectionNewestFirst() {
+        render(
+            SearchUiState(
+                sort = RecipeSort.Default,
+                results = results(TestData.summary(name = "Tarte")),
+                loading = false,
+                hasQueried = true,
+            ),
+        )
 
-        rule.onNodeWithText(string(R.string.search_start_title)).assertIsDisplayed()
-        rule.onNodeWithText(string(R.string.search_start_message)).assertIsDisplayed()
+        rule.onNodeWithText("Tarte").assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.search_empty_title)).assertDoesNotExist()
     }
 
     @Test
@@ -97,6 +104,7 @@ class SearchScreenTest {
     fun resultsAreListed() {
         render(
             SearchUiState(
+                loading = false,
                 query = "curry",
                 hasQueried = true,
                 results = results(
@@ -114,6 +122,7 @@ class SearchScreenTest {
     fun aRecipeWithoutPictureStillShowsInTheResults() {
         render(
             SearchUiState(
+                loading = false,
                 query = "sans",
                 hasQueried = true,
                 results = results(TestData.summary(name = "Sans photo", imageToken = null)),
@@ -128,6 +137,7 @@ class SearchScreenTest {
     fun aRecipeWithAPictureExposesItForAccessibility() {
         render(
             SearchUiState(
+                loading = false,
                 query = "curry",
                 hasQueried = true,
                 results = results(TestData.summary(name = "Poulet au curry", imageToken = "73")),
@@ -140,7 +150,7 @@ class SearchScreenTest {
 
     @Test
     fun noResultShowsTheEmptyStateRatherThanABlankPage() {
-        render(SearchUiState(query = "zzzz", hasQueried = true, results = PagedItems()))
+        render(SearchUiState(loading = false, query = "zzzz", hasQueried = true, results = PagedItems()))
 
         rule.onNodeWithText(string(R.string.search_empty_title)).assertIsDisplayed()
         rule.onNodeWithText(string(R.string.search_empty_message)).assertIsDisplayed()
@@ -161,6 +171,7 @@ class SearchScreenTest {
         var reset = false
         render(
             SearchUiState(
+                loading = false,
                 filters = RecipeFilters(minRating = 4, favoritesOnly = true),
                 hasQueried = true,
                 results = results(TestData.summary()),
@@ -181,6 +192,7 @@ class SearchScreenTest {
         var opened: String? = null
         render(
             SearchUiState(
+                loading = false,
                 query = "curry",
                 hasQueried = true,
                 results = results(TestData.summary(name = "Poulet au curry", slug = "poulet-au-curry")),
@@ -197,7 +209,7 @@ class SearchScreenTest {
     fun aFailingSearchOffersARetry() {
         var retried = false
         render(
-            SearchUiState(query = "curry", hasQueried = true, error = NetworkError.Server(500)),
+            SearchUiState(loading = false, query = "curry", hasQueried = true, error = NetworkError.Server(500)),
             onRetry = { retried = true },
         )
 
@@ -241,16 +253,16 @@ class SearchScreenTest {
     }
 
     @Test
-    fun choosingAnOrderListsRecipesInsteadOfTheInvitation() {
+    fun anotherOrderListsTheRecipesInThatOrder() {
         render(
             SearchUiState(
                 sort = RecipeSort(SortField.RATING, descending = true),
                 results = results(TestData.summary(name = "Tarte")),
+                loading = false,
                 hasQueried = true,
             ),
         )
 
-        rule.onNodeWithText(string(R.string.search_start_title)).assertDoesNotExist()
         rule.onNodeWithText("Tarte").assertIsDisplayed()
     }
 }

@@ -32,11 +32,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.compose.ContentFrame
 import kotlinx.coroutines.delay
 import org.opensources.umai.R
@@ -49,18 +53,23 @@ import org.opensources.umai.recipe.domain.StepClip
  * has to show the gesture. The audio track is not even decoded.
  *
  * The video is read straight from its publisher, without any Mealie
- * credentials: the player makes its own requests.
+ * credentials: the player makes its own requests, with the headers the clip
+ * asks for.
  */
 @OptIn(UnstableApi::class)
 @Composable
 fun StepVideoPlayer(clip: StepClip, stepNumber: Int, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val player = remember {
-        ExoPlayer.Builder(context).build().apply {
-            trackSelectionParameters = trackSelectionParameters.buildUpon()
-                .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
-                .build()
-        }
+    val player = remember(clip.headers) {
+        val http = DefaultHttpDataSource.Factory().setDefaultRequestProperties(clip.headers)
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(context, http)))
+            .build()
+            .apply {
+                trackSelectionParameters = trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+                    .build()
+            }
     }
     var ratio by remember { mutableFloatStateOf(DEFAULT_RATIO) }
     var failed by remember(clip.videoUrl) { mutableStateOf(false) }
@@ -84,8 +93,12 @@ fun StepVideoPlayer(clip: StepClip, stepNumber: Int, modifier: Modifier = Modifi
         }
     }
 
-    LaunchedEffect(clip.videoUrl) {
-        player.setMediaItem(MediaItem.fromUri(clip.videoUrl))
+    LaunchedEffect(player, clip.videoUrl) {
+        val item = MediaItem.Builder()
+            .setUri(clip.videoUrl)
+            .apply { if (clip.isHls) setMimeType(MimeTypes.APPLICATION_M3U8) }
+            .build()
+        player.setMediaItem(item)
         player.prepare()
     }
 
@@ -98,7 +111,7 @@ fun StepVideoPlayer(clip: StepClip, stepNumber: Int, modifier: Modifier = Modifi
 
     // Each step starts its own chapter, then loops on it. The whole video stays
     // loaded, so moving to another step is a seek rather than a new download.
-    LaunchedEffect(clip) {
+    LaunchedEffect(player, clip) {
         player.seekTo(clip.startMillis)
         while (true) {
             val end = clip.endMillis

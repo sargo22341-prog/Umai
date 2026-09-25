@@ -82,6 +82,13 @@ data class RecipeImportRoute(val url: String? = null)
 data object ProvidersRoute
 
 @Serializable
+data object LocalAiSettingsRoute
+
+/** The course the automatic planning sees in each category and tag. */
+@Serializable
+data object DishCoursesRoute
+
+@Serializable
 data class ProviderRoute(val id: String)
 
 /** [draftId] resumes an unfinished recipe; `null` starts a new one. */

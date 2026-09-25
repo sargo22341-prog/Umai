@@ -205,7 +205,7 @@ private fun RatingBadge(rating: Double, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun imageContentDescription(recipe: RecipeSummary): String =
+internal fun imageContentDescription(recipe: RecipeSummary): String =
     if (recipe.hasImage) {
         stringResource(R.string.cd_recipe_image, recipe.name)
     } else {

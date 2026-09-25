@@ -4,12 +4,14 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -113,9 +115,11 @@ class RecipeCommentsTest {
         var deleted: RecipeComment? = null
         render(base.copy(comments = listOf(mine)), onDeleteComment = { deleted = it })
 
+        // The bin is scrolled into view at the very bottom, where the cooking mode
+        // button floats over it on a tall screen: its click action is run instead of a tap.
         rule.onNodeWithContentDescription(string(R.string.recipe_comment_delete))
             .performScrollTo()
-            .performClick()
+            .performSemanticsAction(SemanticsActions.OnClick)
 
         assertEquals(mine, deleted)
     }

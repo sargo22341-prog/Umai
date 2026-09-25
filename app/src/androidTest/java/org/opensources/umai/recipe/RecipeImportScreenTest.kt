@@ -19,9 +19,11 @@ import org.opensources.umai.R
 import org.opensources.umai.TestData
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.ui.theme.UmaiTheme
+import org.opensources.umai.llm.domain.LlmProgress
 import org.opensources.umai.recipe.ui.ImportPhase
 import org.opensources.umai.recipe.ui.RecipeImportScreen
 import org.opensources.umai.recipe.ui.RecipeImportUiState
+import org.opensources.umai.youtube.domain.YouTubeFailure
 
 /** Handing a web address to Mealie's own scraper. */
 @RunWith(AndroidJUnit4::class)
@@ -150,5 +152,44 @@ class RecipeImportScreenTest {
         render(RecipeImportUiState(url = "https://example.org", error = NetworkError.NotFound))
 
         rule.onNodeWithText(string(R.string.error_not_found_title), substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun aVideoIsAnnouncedAsRebuiltWithoutTheTagSwitches() {
+        render(RecipeImportUiState(url = "https://youtu.be/0nE7dAlDshk", isVideo = true, videoUsesModel = true))
+
+        rule.onNodeWithText(string(R.string.import_video_hint_model)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.import_include_tags)).assertDoesNotExist()
+    }
+
+    @Test
+    fun withoutAModelTheVideoHintPointsToTheLocalAi() {
+        render(RecipeImportUiState(url = "https://youtu.be/0nE7dAlDshk", isVideo = true, videoUsesModel = false))
+
+        rule.onNodeWithText(string(R.string.import_video_hint_rules)).assertIsDisplayed()
+    }
+
+    @Test
+    fun theModelShowsHowFarItIs() {
+        render(
+            RecipeImportUiState(
+                url = "https://youtu.be/0nE7dAlDshk",
+                isVideo = true,
+                videoUsesModel = true,
+                phase = ImportPhase.UNDERSTANDING,
+                modelProgress = LlmProgress(promptRead = 1_000, promptTotal = 4_000, generated = 0),
+            ),
+        )
+
+        rule.onNodeWithText(string(R.string.import_understanding)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.import_model_reading, 25)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.action_cancel)).assertIsDisplayed()
+    }
+
+    @Test
+    fun aVideoYouTubeRefusesIsExplained() {
+        render(RecipeImportUiState(url = "https://youtu.be/0nE7dAlDshk", isVideo = true, videoFailure = YouTubeFailure.BLOCKED))
+
+        rule.onNodeWithText(string(R.string.import_video_blocked)).assertIsDisplayed()
     }
 }

@@ -76,6 +76,10 @@ class RecipeRepository(
                 requireAllTools = filters.requireAllTools.takeIf { filters.toolIds.size > 1 },
                 requireAllFoods = filters.requireAllFoods.takeIf { filters.foodIds.size > 1 },
                 orderBy = sort.orderBy,
+                // A recipe never rated or never cooked has no value to sort on:
+                // it comes after the others whichever the direction, instead
+                // of filling the first pages of a descending order.
+                orderByNullPosition = NULLS_LAST.takeIf { !sort.isRandom },
                 orderDirection = sort.direction,
                 queryFilter = filters.buildQueryFilter(favorites, calories),
                 paginationSeed = paginationSeed.takeIf { sort.isRandom },
@@ -174,6 +178,9 @@ class RecipeRepository(
 
     companion object {
         const val DEFAULT_PAGE_SIZE = 24
+
+        /** An `OrderByNullPosition` value of the OpenAPI schema. */
+        private const val NULLS_LAST = "last"
 
         /** One of the `TimelineEventType` values of the OpenAPI schema. */
         private const val TIMELINE_INFO = "info"

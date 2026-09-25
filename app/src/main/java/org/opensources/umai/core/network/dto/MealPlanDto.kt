@@ -36,3 +36,17 @@ data class UpdateMealPlanEntryDto(
     val groupId: String,
     val userId: String,
 )
+
+/**
+ * Mirrors `PlanRulesOut`: a rule of the household for its meal plan, such as
+ * "on Friday, dinner is fish". [day] and [entryType] are `unset` for a rule
+ * that applies to every day or every meal; [queryFilterString] is a filter
+ * of the `queryFilter` mini-language the recipes must match.
+ */
+@Serializable
+data class PlanRuleDto(
+    val id: String = "",
+    val day: String = "unset",
+    val entryType: String = "unset",
+    val queryFilterString: String = "",
+)
