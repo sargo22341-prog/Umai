@@ -8,6 +8,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.VolumeOff
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +36,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
+import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
@@ -45,9 +52,10 @@ import org.opensources.umai.recipe.domain.StepClip
 
 /**
  * Plays the part of the recipe video that shows one step, over and over, so
- * the gesture can be watched again while cooking. There are no controls and no
- * sound: the phone lies on the worktop, the hands are busy, and the clip only
- * has to show the gesture. The audio track is not even decoded.
+ * the gesture can be watched again while cooking. The phone lies on the
+ * worktop and the hands are busy, so the only control is the sound, off by
+ * default. Once on, the player stays at full volume: the level is the one of
+ * the system media stream, set with the phone's volume keys.
  *
  * The video is read straight from its publisher, without any Mealie
  * credentials: the player makes its own requests.
@@ -56,15 +64,8 @@ import org.opensources.umai.recipe.domain.StepClip
 @Composable
 fun StepVideoPlayer(clip: StepClip, stepNumber: Int, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val player = remember {
-        ExoPlayer.Builder(context)
-            .build()
-            .apply {
-                trackSelectionParameters = trackSelectionParameters.buildUpon()
-                    .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
-                    .build()
-            }
-    }
+    val player = remember { ExoPlayer.Builder(context).build() }
+    var muted by rememberSaveable { mutableStateOf(true) }
     var ratio by remember { mutableFloatStateOf(DEFAULT_RATIO) }
     var failed by remember(clip.videoUrl) { mutableStateOf(false) }
 
@@ -85,6 +86,13 @@ fun StepVideoPlayer(clip: StepClip, stepNumber: Int, modifier: Modifier = Modifi
             player.removeListener(listener)
             player.release()
         }
+    }
+
+    // A muted clip must not interrupt the music the cook is listening to: the
+    // audio focus is only taken once the sound is on.
+    LaunchedEffect(player, muted) {
+        player.volume = if (muted) 0f else 1f
+        player.setAudioAttributes(VIDEO_AUDIO, !muted)
     }
 
     LaunchedEffect(player, clip.videoUrl) {
@@ -144,12 +152,37 @@ fun StepVideoPlayer(clip: StepClip, stepNumber: Int, modifier: Modifier = Modifi
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit,
             )
+            VideoSoundToggle(
+                muted = muted,
+                onToggle = { muted = !muted },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(8.dp),
+            )
         }
+    }
+}
+
+/** Sound switch laid over the bottom-right corner of a step video. */
+@Composable
+fun VideoSoundToggle(muted: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
+    FilledTonalIconButton(onClick = onToggle, modifier = modifier) {
+        Icon(
+            imageVector = if (muted) Icons.AutoMirrored.Outlined.VolumeOff else Icons.AutoMirrored.Outlined.VolumeUp,
+            contentDescription = stringResource(
+                if (muted) R.string.cooking_video_sound_on else R.string.cooking_video_sound_off,
+            ),
+        )
     }
 }
 
 private val StepClip.startMillis: Long get() = (start * 1000).toLong()
 private val StepClip.endMillis: Long? get() = end?.let { (it * 1000).toLong() }
+
+private val VIDEO_AUDIO = AudioAttributes.Builder()
+    .setUsage(C.USAGE_MEDIA)
+    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+    .build()
 
 private const val DEFAULT_RATIO = 1f
 private const val POLL_MS = 200L

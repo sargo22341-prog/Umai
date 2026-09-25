@@ -476,6 +476,8 @@
     <!-- Cooking mode: video and end -->
     <string name="cd_step_video">Video of step %1$d</string>
     <string name="cooking_video_failed">The video of this step cannot be played.</string>
+    <string name="cooking_video_sound_on">Turn the video sound on</string>
+    <string name="cooking_video_sound_off">Turn the video sound off</string>
     <string name="cooking_mark_cooked">Mark as cooked</string>
     <string name="cooking_mark_cooked_summary">Adds it to the recipe timeline on Mealie and updates the date it was last made.</string>
     <string name="cooking_leave">Leave</string>

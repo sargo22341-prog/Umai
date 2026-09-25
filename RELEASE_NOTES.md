@@ -20,3 +20,4 @@ liste des commits. Détails : [docs/release.md](docs/release.md).
 - Import YouTube : la lecture des vidéos passe par NewPipeExtractor, maintenu au fil des changements de YouTube ; seuls les chapitres posés par l'auteur sont repris.
 - Import YouTube : les ingrédients et quantités viennent de la page de recette liée dans la description quand elle existe, puis de la description, sans doublon ni quantité inventée.
 - Licence : umai passe de MIT à GPL-3.0-or-later.
+- Mode cuisine : un bouton en bas à droite de la vidéo active ou coupe son son, coupé par défaut ; le volume suit celui du téléphone.

@@ -482,6 +482,8 @@
     <!-- Mode cuisine : vidéo et fin -->
     <string name="cd_step_video">Vidéo de l\'étape %1$d</string>
     <string name="cooking_video_failed">La vidéo de cette étape ne peut pas être lue.</string>
+    <string name="cooking_video_sound_on">Activer le son de la vidéo</string>
+    <string name="cooking_video_sound_off">Couper le son de la vidéo</string>
     <string name="cooking_mark_cooked">Marquer comme cuisinée</string>
     <string name="cooking_mark_cooked_summary">L\'ajoute à l\'historique de la recette sur Mealie et met à jour sa date de dernière réalisation.</string>
     <string name="cooking_leave">Quitter</string>
