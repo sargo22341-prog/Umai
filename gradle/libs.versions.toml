@@ -14,7 +14,9 @@ retrofit = "3.0.0"
 okhttp = "5.5.0"
 coil = "3.6.3"
 media3 = "1.11.1"
-newpipeExtractor = "v0.24.6"
+# JitPack serves each release as both "v0.26.5" and "0.26.5" (same jar); the
+# plain form is the one dependencyUpdates can compare with later releases.
+newpipeExtractor = "0.26.5"
 junit = "4.13.2"
 androidxTestJunit = "1.3.0"
 espresso = "3.7.0"
