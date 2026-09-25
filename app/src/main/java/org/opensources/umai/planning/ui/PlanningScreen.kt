@@ -79,7 +79,6 @@ fun PlanningScreen(
     val container = LocalAppContainer.current
     val viewModel: PlanningViewModel = viewModel(factory = PlanningViewModel.factory(container))
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val random by viewModel.random.collectAsStateWithLifecycle()
     val weekShopping: WeekShoppingViewModel = viewModel(factory = WeekShoppingViewModel.factory(container))
     val shopping by weekShopping.state.collectAsStateWithLifecycle()
 
@@ -107,7 +106,6 @@ fun PlanningScreen(
 
     PlanningScreen(
         state = state,
-        random = random,
         onRecipeClick = onRecipeClick,
         onPreviousWeek = viewModel::showPreviousWeek,
         onNextWeek = viewModel::showNextWeek,
@@ -117,12 +115,7 @@ fun PlanningScreen(
         addMealActions = remember(viewModel) {
             AddMealActions(
                 onSearchRecipe = onSearchRecipe,
-                onAddRecipe = viewModel::addRecipe,
                 onAddNote = viewModel::addNote,
-                onOpen = viewModel::loadRandomCategories,
-                onClose = viewModel::resetRandomRecipe,
-                onSelectRandomCategory = viewModel::selectRandomCategory,
-                onDrawRandom = viewModel::drawRandomRecipe,
             )
         },
         onDeleteEntry = viewModel::deleteEntry,
@@ -137,7 +130,6 @@ fun PlanningScreen(
 @Composable
 fun PlanningScreen(
     state: PlanningUiState,
-    random: RandomRecipeState,
     onRecipeClick: (String) -> Unit,
     onPreviousWeek: () -> Unit,
     onNextWeek: () -> Unit,
@@ -171,9 +163,7 @@ fun PlanningScreen(
     sheetTarget?.let { date ->
         AddMealSheet(
             date = date,
-            random = random,
             actions = addMealActions,
-            recipeImageUrl = recipeImageUrl,
             onDismiss = { sheetTarget = null },
         )
     }

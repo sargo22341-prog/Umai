@@ -525,15 +525,9 @@
     <string name="recipe_organizers_show_more">Afficher plus (%1$d)</string>
     <string name="recipe_organizers_show_less">Afficher moins</string>
 
-    <!-- Planning: fixed week, recipe picker and random draw -->
+    <!-- Planning: fixed week and recipe picker -->
     <string name="planning_week_of">Semaine du %1$s</string>
     <string name="planning_this_week">Cette semaine</string>
-    <string name="planning_random_title">Recette au hasard</string>
-    <string name="planning_random_category">Catégorie</string>
-    <string name="planning_random_all_categories">Toutes les catégories</string>
-    <string name="planning_random_draw">Tirer</string>
-    <string name="planning_random_again">Une autre</string>
-    <string name="planning_random_no_match">Aucune recette dans cette catégorie.</string>
 
     <!-- Shopping mode -->
     <string name="shopping_mode_title">Mode courses</string>

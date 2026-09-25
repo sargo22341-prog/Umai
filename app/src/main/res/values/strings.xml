@@ -517,15 +517,9 @@
     <string name="recipe_organizers_show_more">Show more (%1$d)</string>
     <string name="recipe_organizers_show_less">Show less</string>
 
-    <!-- Planning: fixed week, recipe picker and random draw -->
+    <!-- Planning: fixed week and recipe picker -->
     <string name="planning_week_of">Week of %1$s</string>
     <string name="planning_this_week">This week</string>
-    <string name="planning_random_title">Random recipe</string>
-    <string name="planning_random_category">Category</string>
-    <string name="planning_random_all_categories">All categories</string>
-    <string name="planning_random_draw">Draw</string>
-    <string name="planning_random_again">Another one</string>
-    <string name="planning_random_no_match">No recipe in this category.</string>
 
     <!-- Shopping mode -->
     <string name="shopping_mode_title">Shopping mode</string>

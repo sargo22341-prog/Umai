@@ -8,3 +8,4 @@ liste des commits. Détails : [docs/release.md](docs/release.md).
 
 <!-- notes -->
 
+- Planning : le tirage d'une recette au hasard (choix de catégorie et bouton « Tirer ») est retiré de l'ajout d'un repas.

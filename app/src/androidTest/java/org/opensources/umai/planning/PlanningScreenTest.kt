@@ -21,13 +21,11 @@ import org.opensources.umai.R
 import org.opensources.umai.TestData
 import org.opensources.umai.core.model.MealPlanEntry
 import org.opensources.umai.core.model.MealType
-import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.ui.theme.UmaiTheme
 import org.opensources.umai.planning.ui.AddMealActions
 import org.opensources.umai.planning.ui.PlanningScreen
 import org.opensources.umai.planning.ui.PlanningUiState
-import org.opensources.umai.planning.ui.RandomRecipeState
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -66,20 +64,16 @@ class PlanningScreenTest {
 
     private fun render(
         state: PlanningUiState,
-        random: RandomRecipeState = RandomRecipeState(),
         onDeleteEntry: (MealPlanEntry) -> Unit = {},
         onBackToToday: () -> Unit = {},
         onRetry: () -> Unit = {},
         onSearchRecipe: (LocalDate, MealType, Float) -> Unit = { _, _, _ -> },
-        onAddRecipe: (LocalDate, MealType, RecipeSummary) -> Unit = { _, _, _ -> },
         onAddNote: (LocalDate, MealType, String) -> Unit = { _, _, _ -> },
-        onDrawRandom: () -> Unit = {},
     ) {
         rule.setContent {
             UmaiTheme {
                 PlanningScreen(
                     state = state,
-                    random = random,
                     onRecipeClick = {},
                     onPreviousWeek = {},
                     onNextWeek = {},
@@ -88,12 +82,7 @@ class PlanningScreenTest {
                     onRefresh = {},
                     addMealActions = AddMealActions(
                         onSearchRecipe = onSearchRecipe,
-                        onAddRecipe = onAddRecipe,
                         onAddNote = onAddNote,
-                        onOpen = {},
-                        onClose = {},
-                        onSelectRandomCategory = {},
-                        onDrawRandom = onDrawRandom,
                     ),
                     onDeleteEntry = onDeleteEntry,
                     recipeImageUrl = { null },
@@ -212,34 +201,6 @@ class PlanningScreenTest {
 
         assertEquals(MealType.LUNCH, searched?.second)
         assertTrue(searched?.first in state().days)
-    }
-
-    @Test
-    fun aRecipeCanBeDrawnAtRandom() {
-        var drawn = false
-        render(state(), onDrawRandom = { drawn = true })
-
-        rule.onAllNodesWithText(string(R.string.planning_add_meal)).onFirst().performClick()
-        rule.onNodeWithText(string(R.string.planning_random_all_categories)).assertExists()
-        rule.onNodeWithText(string(R.string.planning_random_draw)).performClick()
-
-        assertTrue(drawn)
-    }
-
-    @Test
-    fun theDrawnRecipeIsAddedWithOneTap() {
-        var added: RecipeSummary? = null
-        render(
-            state(),
-            random = RandomRecipeState(recipe = TestData.summary(name = "Tarte tatin")),
-            onAddRecipe = { _, _, recipe -> added = recipe },
-        )
-
-        rule.onAllNodesWithText(string(R.string.planning_add_meal)).onFirst().performClick()
-        rule.onNodeWithText(string(R.string.planning_random_again)).assertExists()
-        rule.onNodeWithText("Tarte tatin").performClick()
-
-        assertEquals("Tarte tatin", added?.name)
     }
 
     @Test

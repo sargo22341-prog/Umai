@@ -9,17 +9,12 @@ import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.opensources.umai.core.network.FakeMealieServer
 import org.opensources.umai.core.network.query
-import org.opensources.umai.core.network.queryValues
-import org.opensources.umai.organizer.data.OrganizerRepository
 import org.opensources.umai.planning.data.MealPlanRepository
-import org.opensources.umai.recipe.data.RecipeRepository
 import java.time.DayOfWeek
 import java.time.LocalDate
 
@@ -46,8 +41,6 @@ class PlanningViewModelTest {
 
     private fun viewModel() = PlanningViewModel(
         mealPlanRepository = MealPlanRepository { fake.api() },
-        recipeRepository = RecipeRepository({ fake.api() }),
-        organizerRepository = OrganizerRepository { fake.api() },
         clock = { today },
     )
 
@@ -138,84 +131,6 @@ class PlanningViewModelTest {
         assertNull(state.error)
     }
 
-    @Test
-    fun `a recipe is drawn at random within the chosen category`() = runBlocking {
-        fake.enqueueJson(preferences(firstDayOfWeek = 1))
-        fake.enqueueJson(EMPTY_PLAN)
-        val vm = viewModel()
-        vm.awaitLoaded()
-        fake.takeRequest()
-        fake.takeRequest()
-
-        fake.enqueueJson(CATEGORIES)
-        vm.loadRandomCategories()
-        val categories = withTimeout(TIMEOUT_MS) { vm.random.first { it.categories.isNotEmpty() } }.categories
-        assertEquals(listOf("Dessert", "Plat"), categories.map { it.name })
-        fake.takeRequest()
-
-        vm.selectRandomCategory("c1")
-        fake.enqueueJson(TWO_RECIPES)
-        vm.drawRandomRecipe()
-        val drawn = withTimeout(TIMEOUT_MS) { vm.random.first { !it.drawing && it.recipe != null } }
-
-        assertEquals("r1", drawn.recipe?.id)
-        val request = fake.takeRequest()
-        assertEquals("random", request.query("orderBy"))
-        assertNotNull(request.query("paginationSeed"))
-        assertEquals(listOf("c1"), request.queryValues("categories"))
-    }
-
-    @Test
-    fun `drawing again avoids the recipe just shown`() = runBlocking {
-        fake.enqueueJson(preferences(firstDayOfWeek = 1))
-        fake.enqueueJson(EMPTY_PLAN)
-        val vm = viewModel()
-        vm.awaitLoaded()
-
-        fake.enqueueJson(TWO_RECIPES)
-        vm.drawRandomRecipe()
-        withTimeout(TIMEOUT_MS) { vm.random.first { it.recipe?.id == "r1" } }
-
-        fake.enqueueJson(TWO_RECIPES)
-        vm.drawRandomRecipe()
-        val again = withTimeout(TIMEOUT_MS) { vm.random.first { !it.drawing && it.recipe?.id != "r1" } }
-
-        assertEquals("r2", again.recipe?.id)
-    }
-
-    @Test
-    fun `an empty category says so rather than showing nothing`() = runBlocking {
-        fake.enqueueJson(preferences(firstDayOfWeek = 1))
-        fake.enqueueJson(EMPTY_PLAN)
-        val vm = viewModel()
-        vm.awaitLoaded()
-
-        fake.enqueueJson(EMPTY_RECIPES)
-        vm.drawRandomRecipe()
-        val state = withTimeout(TIMEOUT_MS) { vm.random.first { it.noMatch } }
-
-        assertNull(state.recipe)
-        assertNull(state.error)
-    }
-
-    @Test
-    fun `closing the sheet forgets the drawn recipe but keeps the category`() = runBlocking {
-        fake.enqueueJson(preferences(firstDayOfWeek = 1))
-        fake.enqueueJson(EMPTY_PLAN)
-        val vm = viewModel()
-        vm.awaitLoaded()
-        vm.selectRandomCategory("c1")
-        fake.enqueueJson(TWO_RECIPES)
-        vm.drawRandomRecipe()
-        withTimeout(TIMEOUT_MS) { vm.random.first { it.recipe != null } }
-
-        vm.resetRandomRecipe()
-
-        assertNull(vm.random.value.recipe)
-        assertEquals("c1", vm.random.value.categoryId)
-        assertTrue(!vm.random.value.drawing)
-    }
-
     private companion object {
         const val TIMEOUT_MS = 10_000L
 
@@ -229,18 +144,5 @@ class PlanningViewModelTest {
         const val EMPTY_PLAN =
             """{"page":1,"per_page":200,"total":0,"total_pages":0,"items":[],"next":null,"previous":null}"""
 
-        const val CATEGORIES = """
-            {"page":1,"per_page":100,"total":2,"total_pages":1,
-             "items":[{"id":"c2","name":"Plat","slug":"plat","recipeCount":3},
-                      {"id":"c1","name":"Dessert","slug":"dessert","recipeCount":2}]}
-        """
-
-        const val TWO_RECIPES = """
-            {"page":1,"per_page":2,"total":5,"total_pages":3,
-             "items":[{"id":"r1","name":"Tarte","slug":"tarte","image":null},
-                      {"id":"r2","name":"Crumble","slug":"crumble","image":null}]}
-        """
-
-        const val EMPTY_RECIPES = """{"page":1,"per_page":2,"total":0,"total_pages":0,"items":[]}"""
     }
 }
