@@ -1,5 +1,8 @@
 package org.opensources.umai.recipe.data
 
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -32,6 +35,14 @@ class RecipeEditRepository(
     private val apiProvider: () -> MealieApi?,
     private val media: RecipeMediaRepository = RecipeMediaRepository(apiProvider),
 ) {
+
+    private val _deletedRecipes = MutableSharedFlow<String>(extraBufferCapacity = DELETION_BUFFER)
+
+    /**
+     * The slugs of the recipes deleted from the app, as they are deleted: the
+     * lists already on screen drop them without reading the instance again.
+     */
+    val deletedRecipes: SharedFlow<String> = _deletedRecipes.asSharedFlow()
 
     /**
      * A recipe of the instance imported from the same page as [url], `null`
@@ -212,6 +223,14 @@ class RecipeEditRepository(
         }
     }
 
+    /** Deletes the recipe from the instance, for every user of it. */
+    suspend fun delete(slug: String): ApiResult<Unit> {
+        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
+        return apiCall { api.deleteRecipe(slug) }.also { result ->
+            if (result is ApiResult.Success) _deletedRecipes.emit(slug)
+        }
+    }
+
     private fun ApiResult<String>.validSlug(): ApiResult<String> = when (this) {
         is ApiResult.Failure -> this
         is ApiResult.Success -> value.trim().trim('"')
@@ -272,6 +291,9 @@ private val TEXT_PLAIN = "text/plain".toMediaType()
 
 /** Enough to recognise the recipe among the few that share its address fragment. */
 private const val DUPLICATE_CANDIDATES = 20
+
+/** Lets a deletion be announced without waiting for a list busy with something else. */
+private const val DELETION_BUFFER = 8
 
 /**
  * Copies what the user wrote onto the recipe Mealie just created, leaving every

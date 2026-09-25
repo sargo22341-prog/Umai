@@ -20,8 +20,10 @@ import org.opensources.umai.recipe.domain.DraftStep
 import org.opensources.umai.recipe.domain.IngredientLinker
 import org.opensources.umai.recipe.domain.RecipeDraft
 import org.opensources.umai.youtube.domain.BlueprintOrigin
+import org.opensources.umai.youtube.domain.DescriptionLinks
 import org.opensources.umai.youtube.domain.ModelRecipeBuilder
 import org.opensources.umai.youtube.domain.RecipeBlueprint
+import org.opensources.umai.youtube.domain.RecipePageSource
 import org.opensources.umai.youtube.domain.RuleRecipeBuilder
 import org.opensources.umai.youtube.domain.YouTubeFailure
 import org.opensources.umai.youtube.domain.YouTubeLinks
@@ -64,6 +66,10 @@ sealed interface VideoImportOutcome {
  * Rebuilds a recipe from a YouTube video and writes it on Mealie, where
  * Mealie's own import stops at the title and the description.
  *
+ * When the description links to the written recipe, that page gives the
+ * ingredients and their quantities; the video gives the steps and where they
+ * are shown, and stays the source of the recipe.
+ *
  * The recipe is given to Mealie as a schema.org Recipe, which it cleans and
  * stores as it would a web page, fetching the picture itself. The steps are
  * then written again as rebuilt, with their titles and the ingredients they
@@ -72,6 +78,7 @@ sealed interface VideoImportOutcome {
  */
 class VideoRecipeImporter(
     private val youTube: VideoSource,
+    private val pages: RecipePageSource,
     private val model: LanguageModel,
     private val apiProvider: () -> MealieApi?,
     private val edits: RecipeEditRepository,
@@ -89,18 +96,21 @@ class VideoRecipeImporter(
             is YouTubeResult.Success -> result.value
         }
 
+        // The first linked page that holds a recipe; the others are not read.
+        val page = DescriptionLinks.recipeLinks(video.description).firstNotNullOfOrNull { pages.read(it) }
+
         var modelFailure: LlmFailure? = null
         val blueprint = if (model.isReady() && (video.transcript.isNotEmpty() || video.description.isNotBlank())) {
             onProgress(VideoImportProgress.Understanding(null))
-            when (val built = modelBuilder.build(video, language()) { onProgress(VideoImportProgress.Understanding(it)) }) {
+            when (val built = modelBuilder.build(video, language(), page) { onProgress(VideoImportProgress.Understanding(it)) }) {
                 is ModelRecipeBuilder.Outcome.Built -> built.blueprint
                 is ModelRecipeBuilder.Outcome.Failed -> {
                     modelFailure = built.reason
-                    RuleRecipeBuilder.build(video)
+                    RuleRecipeBuilder.build(video, page)
                 }
             }
         } else {
-            RuleRecipeBuilder.build(video)
+            RuleRecipeBuilder.build(video, page)
         }
         if (!blueprint.isUsable) return VideoImportOutcome.NothingToRebuild
 

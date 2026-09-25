@@ -380,6 +380,12 @@ private fun MainNavigation(
                                 notice = AppNotice.RECIPE_SAVED
                             }
                         },
+                        onDeleted = {
+                            if (navController.popIfCurrent(entry)) {
+                                navController.leaveDeletedRecipe(route.slug)
+                                notice = AppNotice.RECIPE_DELETED
+                            }
+                        },
                     )
                 }
 
@@ -509,6 +515,15 @@ private fun NavHostController.showSavedRecipe(editedSlug: String, savedSlug: Str
             popUpTo<RecipeRoute> { inclusive = true }
         }
     }
+}
+
+/**
+ * Once the editor closed on a deleted recipe, its page, under it, goes too:
+ * it would show a recipe that no longer exists.
+ */
+private fun NavHostController.leaveDeletedRecipe(slug: String) {
+    val below = currentBackStackEntry ?: return
+    if (below.destination.hasRoute(RecipeRoute::class) && below.toRoute<RecipeRoute>().slug == slug) popBackStack()
 }
 
 /**

@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -45,6 +46,8 @@ class HomeViewModel(
     private val recentSlugs: Flow<List<String>>,
     layout: Flow<RecipeLayout>,
     private val newSeed: () -> String = { Random.nextLong(1, Long.MAX_VALUE).toString() },
+    /** Slugs of recipes deleted from the app, dropped from every list on screen. */
+    deletedRecipes: Flow<String> = emptyFlow(),
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeUiState())
@@ -57,6 +60,18 @@ class HomeViewModel(
         refresh(initial = true)
         viewModelScope.launch {
             layout.collect { value -> _state.update { it.copy(layout = value) } }
+        }
+        viewModelScope.launch {
+            deletedRecipes.collect { slug ->
+                val deleted = { recipe: RecipeSummary -> recipe.slug == slug }
+                _state.update {
+                    it.copy(
+                        discovery = it.discovery.filterNot(deleted),
+                        latest = it.latest.without(deleted),
+                        recentlyViewed = it.recentlyViewed.filterNot(deleted),
+                    )
+                }
+            }
         }
     }
 
@@ -162,6 +177,7 @@ class HomeViewModel(
                     recipeRepository = container.recipeRepository,
                     recentSlugs = container.recentRecipesStore.slugs,
                     layout = container.preferencesRepository.preferences.map { it.recipeLayout },
+                    deletedRecipes = container.recipeEditRepository.deletedRecipes,
                 )
             }
         }

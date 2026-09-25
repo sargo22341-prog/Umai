@@ -37,10 +37,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.compose.ContentFrame
 import kotlinx.coroutines.delay
 import org.opensources.umai.R
@@ -53,17 +50,14 @@ import org.opensources.umai.recipe.domain.StepClip
  * has to show the gesture. The audio track is not even decoded.
  *
  * The video is read straight from its publisher, without any Mealie
- * credentials: the player makes its own requests, with the headers the clip
- * asks for.
+ * credentials: the player makes its own requests.
  */
 @OptIn(UnstableApi::class)
 @Composable
 fun StepVideoPlayer(clip: StepClip, stepNumber: Int, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val player = remember(clip.headers) {
-        val http = DefaultHttpDataSource.Factory().setDefaultRequestProperties(clip.headers)
+    val player = remember {
         ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(context, http)))
             .build()
             .apply {
                 trackSelectionParameters = trackSelectionParameters.buildUpon()

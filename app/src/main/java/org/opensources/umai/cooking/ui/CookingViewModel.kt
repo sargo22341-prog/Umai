@@ -89,7 +89,7 @@ data class CookingUiState(
         get() {
             val chapter = chapter ?: return null
             val stream = stream ?: return null
-            return StepClip(stream.url, chapter.start, chapter.end, stream.isHls, stream.headers)
+            return StepClip(stream.url, chapter.start, chapter.end, stream.isHls)
         }
 
     /** Mirrors the scaling applied on the recipe page. */

@@ -37,12 +37,16 @@ Avant de coder : lire ce fichier, parcourir le dépôt, et consulter `.context/`
 | Réseau | Retrofit 3 + OkHttp 5 + kotlinx.serialization |
 | Images | Coil 3 (`coil-network-okhttp`) |
 | Vidéo | Media3 ExoPlayer (+ HLS) |
+| YouTube | NewPipeExtractor (JitPack), sur le client OkHttp « sites externes » |
 | IA locale | llama.cpp (C++, NDK r30, `app/src/main/cpp`), modèles GGUF téléchargés à part |
 | Stockage | DataStore Preferences + Android Keystore |
 | Injection | `AppContainer` écrit à la main (§4) |
 
 Règles de dépendances :
 
+* **Licence : GPL-3.0-or-later** (imposée par NewPipeExtractor). Toute dépendance ajoutée doit être
+  compatible avec la GPLv3 (Apache 2.0, MIT, BSD, MPL 2.0 conviennent ; une licence propriétaire
+  ou « non commerciale » non).
 * **Aucun Google Play Services**, aucun Firebase, aucune dépendance non open source.
   L'application doit fonctionner sur GrapheneOS, sans GMS. Si une bibliothèque tire
   GMS, elle est écartée — pas de contournement.
@@ -61,6 +65,12 @@ Pièges du build, déjà rencontrés — ne pas les réintroduire :
 * llama.cpp est téléchargé à la compilation (release épinglée + SHA-256 dans
   `app/src/main/cpp/CMakeLists.txt`) et n'est **jamais** copié dans le dépôt. Seuls ses dossiers
   utiles sont extraits : `tools/ui` dépasse la limite de chemins de Windows.
+* NewPipeExtractor n'est publié que sur JitPack : `settings.gradle.kts` limite ce dépôt au groupe
+  `com.github.TeamNewPipe` (`exclusiveContent`). Ne pas l'ouvrir à d'autres groupes.
+* NewPipeExtractor : imposer la langue sur l'extracteur (`forceLocalization`), sa préférence globale
+  ne suffit pas ; ses règles R8 (Rhino, protobuf-lite, `timeago.patterns`) sont dans
+  `proguard-rules.pro`. Il n'expose que les chapitres posés par l'auteur, pas ceux que YouTube génère.
+  Quand YouTube casse l'import, monter sa version plutôt que contourner. Détails : `docs/local-ai.md`.
 * `jniLibs.useLegacyPackaging = true` est nécessaire : llama.cpp choisit sa variante CPU en
   listant le dossier des bibliothèques natives, vide si elles restent dans l'APK.
 * Le premier build natif prend une dizaine de minutes (7 variantes CPU) ; il est ensuite en cache.

@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -67,6 +68,8 @@ class SearchViewModel(
     private val organizerRepository: OrganizerRepository,
     layout: Flow<RecipeLayout>,
     initialFilters: RecipeFilters = RecipeFilters.None,
+    /** Slugs of recipes deleted from the app, dropped from the results on screen. */
+    deletedRecipes: Flow<String> = emptyFlow(),
 ) : ViewModel() {
 
     private val queryFlow = MutableStateFlow("")
@@ -100,6 +103,9 @@ class SearchViewModel(
         observeQuery()
         viewModelScope.launch {
             layout.collect { value -> _state.update { it.copy(layout = value) } }
+        }
+        viewModelScope.launch {
+            deletedRecipes.collect { slug -> _state.update { it.copy(results = it.results.without { recipe -> recipe.slug == slug }) } }
         }
     }
 
@@ -243,6 +249,7 @@ class SearchViewModel(
                     organizerRepository = container.organizerRepository,
                     layout = container.preferencesRepository.preferences.map { it.recipeLayout },
                     initialFilters = initialFilters,
+                    deletedRecipes = container.recipeEditRepository.deletedRecipes,
                 )
             }
         }

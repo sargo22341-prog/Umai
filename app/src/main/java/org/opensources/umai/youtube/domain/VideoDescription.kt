@@ -125,7 +125,7 @@ object VideoDescription {
     private fun isSubHeading(line: String): Boolean =
         line.endsWith(":") && line.length <= MAX_SUBHEADING_LENGTH && !startsWithQuantity(line)
 
-    private fun isIngredientHeading(line: String): Boolean {
+    internal fun isIngredientHeading(line: String): Boolean {
         val text = fold(cleanLine(line))
         return text.length <= MAX_HEADING_LENGTH && ingredientHeadings.any { it.containsMatchIn(text) }
     }

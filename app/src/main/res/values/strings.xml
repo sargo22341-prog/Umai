@@ -408,8 +408,15 @@
     <string name="edit_discard_message">What you changed has not been saved to Mealie.</string>
     <string name="edit_discard_confirm">Discard</string>
     <string name="edit_keep_editing">Keep editing</string>
+    <string name="edit_more_actions">More actions</string>
+    <string name="edit_delete">Delete the recipe</string>
+    <string name="edit_delete_title">Delete “%1$s”?</string>
+    <string name="edit_delete_message">The recipe will be deleted from Mealie, for every user of the instance. This cannot be undone.</string>
+    <string name="edit_delete_confirm">Delete</string>
+    <string name="edit_delete_failed">The recipe could not be deleted.</string>
     <string name="notice_draft_saved">Draft saved</string>
     <string name="notice_recipe_saved">Recipe saved</string>
+    <string name="notice_recipe_deleted">Recipe deleted</string>
     <string name="notice_recipe_created_without_image">Recipe created without its photo: add it from the editor</string>
     <plurals name="filter_rating_stars">
         <item quantity="one">%1$d star</item>

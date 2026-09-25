@@ -1,8 +1,13 @@
 package org.opensources.umai.recipe.data
 
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -261,7 +266,36 @@ class RecipeEditRepositoryTest {
         assertEquals(0, fake.server.requestCount)
     }
 
+    @Test
+    fun `deleting a recipe calls DELETE on its slug and announces it`() = runTest {
+        fake.enqueueJson(CREATED_RECIPE)
+        val announced = async(start = CoroutineStart.UNDISPATCHED) { repository.deletedRecipes.first() }
+
+        val result = repository.delete("gratin-de-courgettes")
+
+        assertEquals(ApiResult.Success(Unit), result)
+        val request = fake.takeRequest()
+        assertEquals("DELETE", request.method)
+        assertEquals("/api/recipes/gratin-de-courgettes", request.url.encodedPath)
+        assertEquals("gratin-de-courgettes", announced.await())
+    }
+
+    @Test
+    fun `a refused deletion is reported and announces nothing`() = runTest {
+        fake.enqueueError(403)
+        val announced = async(start = CoroutineStart.UNDISPATCHED) {
+            withTimeoutOrNull(NO_ANNOUNCE_MS) { repository.deletedRecipes.first() }
+        }
+
+        val result = repository.delete("gratin-de-courgettes")
+
+        assertEquals(NetworkError.Unauthorized, (result as ApiResult.Failure).error)
+        assertNull(announced.await())
+    }
+
     private companion object {
+        const val NO_ANNOUNCE_MS = 200L
+
         val IMAGE = EncodedImage("jpeg".toByteArray(), mediaType = "image/jpeg", extension = "jpg")
 
         val EXISTING = """

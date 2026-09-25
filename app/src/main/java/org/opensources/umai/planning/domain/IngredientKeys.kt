@@ -52,7 +52,7 @@ object IngredientKeys {
 
     private fun foodIn(text: String): FoodName? {
         // The words as written, each with its folded form the decisions are made on.
-        val words = text.substringBefore(',').replace(parentheses, " ").replace(fractions, " ")
+        val words = text.substringBefore(',').replace(parentheses, " ").replace(fractions, " ").replace(spoons, " ")
             .lowercase()
             .split(wordSeparators)
             .filter { it.isNotEmpty() }
@@ -96,6 +96,9 @@ object IngredientKeys {
     private val parentheses = Regex("""\([^)]*\)""")
     private val wordSeparators = Regex("""[^\p{L}0-9]+""")
     private val fractions = Regex("""[½¼¾⅓⅔⅛]""")
+
+    /** "c-à-s", "c. à c.": spoons written short, whose letters would otherwise be read as a food. */
+    private val spoons = Regex("""\bc\.?\s*-?\s*[àa]\s*-?\s*[sc]\b\.?""", RegexOption.IGNORE_CASE)
 
     private val optionalMarks = listOf(
         Regex("""\bfacultati"""),

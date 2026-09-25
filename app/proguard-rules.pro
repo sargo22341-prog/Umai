@@ -27,3 +27,16 @@
 -keepclasseswithmembernames class org.opensources.umai.llm.data.LlamaNative {
     native <methods>;
 }
+
+# NewPipeExtractor, as NewPipe itself ships it: the time-ago patterns are loaded
+# by name per language, YouTube's signature code runs in Rhino, which reaches
+# its own classes by reflection, and protobuf-lite reads its message fields
+# reflectively.
+-keep class org.schabi.newpipe.extractor.timeago.patterns.** { *; }
+-keep class org.mozilla.javascript.** { *; }
+-keep class org.mozilla.classfile.ClassFileWriter
+-keepclassmembers class * extends com.google.protobuf.GeneratedMessageLite { <fields>; }
+-dontwarn org.mozilla.javascript.JavaToJSONConverters
+-dontwarn org.mozilla.javascript.tools.**
+-dontwarn javax.script.**
+-dontwarn jdk.dynalink.**

@@ -63,18 +63,14 @@ data class VideoManifest(
 
 /**
  * The part of a video to play for one step. [isHls] tells the player the
- * address is an HLS playlist, and [headers] go with every request for it.
+ * address is an HLS playlist.
  */
 data class StepClip(
     val videoUrl: String,
     val start: Double,
     val end: Double?,
     val isHls: Boolean = false,
-    val headers: Map<String, String> = emptyMap(),
 )
 
-/**
- * Where a video is read from: an address the player reads, whether it is an
- * HLS playlist, and the headers to send with each request for it.
- */
-data class VideoStream(val url: String, val isHls: Boolean, val headers: Map<String, String> = emptyMap())
+/** Where a video is read from: an address the player reads, and whether it is an HLS playlist. */
+data class VideoStream(val url: String, val isHls: Boolean)

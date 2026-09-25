@@ -16,3 +16,7 @@ liste des commits. Détails : [docs/release.md](docs/release.md).
 - IA locale : un modèle de langage téléchargé à part (Qwen3.5 4B recommandé) tourne sur le téléphone, sans service distant, pour l'import vidéo et la reconnaissance des plats.
 - Recherche : la page s'ouvre directement sur la liste des recettes, et le tri « date d'ajout » décroissant n'affiche plus une page vide ; les recettes sans note ni date de réalisation passent en fin de tri.
 - Import : une vidéo YouTube déjà importée est reconnue comme doublon, quelle que soit la forme de son adresse.
+- Modification d'une recette : un menu ⋮ permet de la supprimer de Mealie, après confirmation ; elle quitte aussi l'historique « vu récemment » et les listes affichées.
+- Import YouTube : la lecture des vidéos passe par NewPipeExtractor, maintenu au fil des changements de YouTube ; seuls les chapitres posés par l'auteur sont repris.
+- Import YouTube : les ingrédients et quantités viennent de la page de recette liée dans la description quand elle existe, puis de la description, sans doublon ni quantité inventée.
+- Licence : umai passe de MIT à GPL-3.0-or-later.

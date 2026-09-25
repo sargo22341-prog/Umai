@@ -104,6 +104,8 @@ class IngredientKeysTest {
         assertEquals("pate pizza", IngredientKeys.nameIn("1 pâte à pizza"))
         assertEquals("pate brisee", IngredientKeys.nameIn("1 pâte brisée"))
         assertEquals("sugar", IngredientKeys.nameIn("2 tbsp sugar"))
+        assertEquals("parmesan", IngredientKeys.nameIn("1 c-à-s de parmesan râpé"))
+        assertEquals("sauce worcestershire", IngredientKeys.nameIn("1 c. à c. de sauce Worcestershire"))
     }
 
     @Test

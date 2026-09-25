@@ -47,6 +47,7 @@ import org.opensources.umai.recipe.data.RecipeMediaRepository
 import org.opensources.umai.recipe.data.RecipeRepository
 import org.opensources.umai.recipe.data.VideoStreams
 import org.opensources.umai.shopping.data.ShoppingRepository
+import org.opensources.umai.youtube.data.MealieRecipePages
 import org.opensources.umai.youtube.data.VideoRecipeImporter
 import org.opensources.umai.youtube.data.YouTubeClient
 import java.util.concurrent.TimeUnit
@@ -162,6 +163,7 @@ class AppContainer(context: Context) {
 
     val videoRecipeImporter = VideoRecipeImporter(
         youTube = youTubeClient,
+        pages = MealieRecipePages(apiProvider, externalHttpClient),
         model = localLanguageModel,
         apiProvider = apiProvider,
         edits = recipeEditRepository,

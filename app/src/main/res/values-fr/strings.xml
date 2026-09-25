@@ -409,8 +409,15 @@
     <string name="edit_discard_message">Vos modifications n\'ont pas été enregistrées sur Mealie.</string>
     <string name="edit_discard_confirm">Abandonner</string>
     <string name="edit_keep_editing">Continuer</string>
+    <string name="edit_more_actions">Plus d\'actions</string>
+    <string name="edit_delete">Supprimer la recette</string>
+    <string name="edit_delete_title">Supprimer « %1$s » ?</string>
+    <string name="edit_delete_message">La recette sera supprimée de Mealie, pour tous les utilisateurs de l\'instance. Cette action est définitive.</string>
+    <string name="edit_delete_confirm">Supprimer</string>
+    <string name="edit_delete_failed">La recette n\'a pas pu être supprimée.</string>
     <string name="notice_draft_saved">Brouillon enregistré</string>
     <string name="notice_recipe_saved">Recette enregistrée</string>
+    <string name="notice_recipe_deleted">Recette supprimée</string>
     <string name="notice_recipe_created_without_image">Recette créée sans sa photo : ajoutez-la depuis l\'édition</string>
     <plurals name="filter_rating_stars">
         <item quantity="one">%1$d étoile</item>

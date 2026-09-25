@@ -15,12 +15,14 @@ import org.opensources.umai.llm.domain.LlmRequest
 /**
  * Rebuilds a recipe from a video with the language model: it reads the title,
  * the description, the chapters and the timed transcript, and writes the
- * ingredients with their quantities, the steps as instructions, and where each
- * step starts in the video.
+ * steps as instructions, where each step starts in the video, and the
+ * ingredients when neither a recipe page nor the description lists them.
  *
  * The answer is constrained to a JSON schema, then checked: starts outside
- * the video or out of order are dropped. What the model leaves empty is taken
- * from [RuleRecipeBuilder]. Which ingredients a step uses is left to
+ * the video or out of order are dropped, and the ingredients are merged with
+ * the lists the author published by [RecipeIngredients], which keeps only the
+ * foods and quantities the video really gives. What the model leaves empty is
+ * taken from [RuleRecipeBuilder]. Which ingredients a step uses is left to
  * [org.opensources.umai.recipe.domain.IngredientLinker]: on a phone-sized
  * model, positions in a list come out wrong far more often than names match.
  */
@@ -32,19 +34,27 @@ class ModelRecipeBuilder(private val model: LanguageModel) {
         data class Failed(val reason: LlmFailure) : Outcome
     }
 
-    /** [language] is the one the recipe is written in: "fr" or "en". */
-    suspend fun build(video: YouTubeVideo, language: String, onProgress: (LlmProgress) -> Unit): Outcome {
+    /**
+     * [language] is the one the recipe is written in: "fr" or "en". [page] is
+     * the recipe the description links to, when one was found.
+     */
+    suspend fun build(
+        video: YouTubeVideo,
+        language: String,
+        page: RecipePage? = null,
+        onProgress: (LlmProgress) -> Unit,
+    ): Outcome {
         var transcriptBudget = transcriptChars(model.contextSize)
         repeat(ATTEMPTS) {
             val request = LlmRequest(
                 system = systemPrompt(language),
-                user = userPrompt(video, transcriptBudget),
+                user = userPrompt(video, transcriptBudget, page),
                 jsonSchema = SCHEMA,
                 maxTokens = MAX_ANSWER_TOKENS,
             )
             when (val outcome = model.generate(request, onProgress)) {
                 is LlmOutcome.Success -> {
-                    val blueprint = parse(outcome.text, video)
+                    val blueprint = parse(outcome.text, video, page)
                         ?: return Outcome.Failed(LlmFailure.GENERATION_FAILED)
                     return Outcome.Built(blueprint)
                 }
@@ -58,11 +68,18 @@ class ModelRecipeBuilder(private val model: LanguageModel) {
         return Outcome.Failed(LlmFailure.TOO_LONG)
     }
 
-    internal fun userPrompt(video: YouTubeVideo, transcriptChars: Int): String = buildString {
+    internal fun userPrompt(video: YouTubeVideo, transcriptChars: Int, page: RecipePage? = null): String = buildString {
         appendLine("Title: ${video.title}")
         appendLine("Channel: ${video.author}")
         appendLine("Duration: ${video.durationSeconds}s")
         appendLine()
+        val known = RecipeIngredients.known(video, page)
+        if (known.isNotEmpty()) {
+            appendLine(if (page != null) "Ingredients (from the recipe page, complete):" else "Ingredients (listed by the author):")
+            known.forEach { appendLine("- $it") }
+            appendLine("These ingredients are already known: answer with an empty \"ingredients\" array, and name them in the steps as they are named here.")
+            appendLine()
+        }
         appendLine("Description:")
         appendLine(video.description.take(MAX_DESCRIPTION_CHARS).ifBlank { "(none)" })
         appendLine()
@@ -77,14 +94,15 @@ class ModelRecipeBuilder(private val model: LanguageModel) {
         appendLine(Transcript.timedBlocks(video.transcript, maxChars = transcriptChars).ifBlank { "(none)" })
     }
 
-    internal fun parse(text: String, video: YouTubeVideo): RecipeBlueprint? {
+    internal fun parse(text: String, video: YouTubeVideo, page: RecipePage? = null): RecipeBlueprint? {
         val root = runCatching { json.parseToJsonElement(text) }.getOrNull() as? JsonObject ?: return null
-        val fallback by lazy { RuleRecipeBuilder.build(video) }
+        val fallback by lazy { RuleRecipeBuilder.build(video, page) }
 
-        val ingredients = root.array("ingredients").mapNotNull { it.string() }
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .ifEmpty { fallback.ingredients }
+        val ingredients = RecipeIngredients.of(
+            video = video,
+            page = page,
+            modelLines = root.array("ingredients").mapNotNull { it.string() },
+        )
         val steps = root.array("steps").mapNotNull { element ->
             val step = element as? JsonObject ?: return@mapNotNull null
             val body = step.text("text") ?: return@mapNotNull null
@@ -99,7 +117,8 @@ class ModelRecipeBuilder(private val model: LanguageModel) {
         return RecipeBlueprint(
             name = root.text("name") ?: fallback.name,
             summary = root.text("summary") ?: fallback.summary,
-            servings = root.int("servings")?.takeIf { it > 0 } ?: fallback.servings,
+            // Said by the author, else counted by the model, which may guess.
+            servings = RuleRecipeBuilder.servings(video, page) ?: root.int("servings")?.takeIf { it > 0 },
             prepMinutes = root.int("prepMinutes")?.takeIf { it > 0 },
             cookMinutes = root.int("cookMinutes")?.takeIf { it > 0 },
             ingredients = ingredients,
@@ -152,17 +171,17 @@ class ModelRecipeBuilder(private val model: LanguageModel) {
         fun systemPrompt(language: String): String {
             val writeIn = if (language == "fr") "French" else "English"
             return """
-                You turn cooking videos into written recipes. You receive the title, the description the author wrote, the chapters and the transcript of one video, with times in seconds.
+                You turn cooking videos into written recipes. You receive the title, the description the author wrote, the chapters and the transcript of one video, with times in seconds, and the ingredients when the author published them.
                 Rebuild the complete recipe as a cookbook would print it:
                 - name: the dish, short, without the channel name or hashtags.
                 - summary: one or two sentences about the dish.
                 - servings, prepMinutes, cookMinutes: as said or written; 0 when unknown.
-                - ingredients: every ingredient with its quantity and unit, one per entry, such as "200 g de farine". Start from the list in the description when there is one and complete it with what the transcript mentions. No headings, no optional garnish unless it is used.
+                - ingredients: when no ingredient list is given, every ingredient the video uses, each one once, such as "200 g de farine". Write a quantity only when it is said in the transcript or written in the description, exactly as given; never estimate one: an ingredient whose quantity is not given is written without it, such as "sel". No headings.
                 - steps: the actions in the order they are done. Each step is one to three short sentences in the imperative, with the useful details said in the video: temperatures, times, sizes, textures. Leave out greetings, sponsors, tasting and goodbyes.
                 - title: two to five words naming the step.
                 - start: the second of the video where the step begins, taken from the chapters and the transcript times.
                 - In the steps, name the ingredients used as they are named in the list.
-                Never invent an ingredient or a step the video does not show. Write every text in $writeIn, translating when the video is in another language.
+                Never invent an ingredient, a quantity or a step the video does not give. Write every text in $writeIn, translating when the video is in another language.
             """.trimIndent()
         }
 

@@ -14,7 +14,7 @@ import org.opensources.umai.core.image.CropRegion
 import org.opensources.umai.core.model.Organizer
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
-import org.opensources.umai.home.data.RecentRecipesStore
+import org.opensources.umai.home.data.RecentRecipes
 import org.opensources.umai.organizer.data.OrganizerRepository
 import org.opensources.umai.recipe.data.CalorieTagRepository
 import org.opensources.umai.recipe.data.RecipeEditRepository
@@ -47,12 +47,25 @@ data class RecipeEditUiState(
     val committedSlug: String? = null,
     /** Set once Mealie holds every change; the screen then closes. */
     val savedSlug: String? = null,
+    val deleting: Boolean = false,
+    /** A failure to delete: the recipe and the form stay as they were. */
+    val deleteError: NetworkError? = null,
+    /** Set once Mealie deleted the recipe; the screen then closes. */
+    val deleted: Boolean = false,
 ) {
     val hasChanges: Boolean
         get() = recipe != null && (draft != recipe.draft || newImagePath != null)
 
     val canSave: Boolean
-        get() = hasChanges && draft.canBeCreated && !saving && !processingImage && steps.processingPhoto == null
+        get() = hasChanges && draft.canBeCreated && !saving && !deleting && !processingImage && steps.processingPhoto == null
+
+    /** Deleting waits for a save under way, whose result would be lost. */
+    val canDelete: Boolean
+        get() = recipe != null && !saving && !deleting && !deleted
+
+    /** The name the recipe has on Mealie, which the confirmation names. */
+    val savedName: String
+        get() = recipe?.draft?.name.orEmpty()
 }
 
 /**
@@ -65,7 +78,7 @@ class RecipeEditViewModel(
     private val editRepository: RecipeEditRepository,
     private val organizerRepository: OrganizerRepository,
     private val imageFiles: RecipeImageFiles,
-    private val recentRecipesStore: RecentRecipesStore,
+    private val recentRecipes: RecentRecipes,
     private val calorieTags: CalorieTagRepository? = null,
 ) : ViewModel(), RecipeDraftEditing {
 
@@ -164,7 +177,7 @@ class RecipeEditViewModel(
                 is ApiResult.Success -> result.value
             }
             if (newSlug != slug) {
-                recentRecipesStore.rename(slug, newSlug)
+                recentRecipes.rename(slug, newSlug)
                 slug = newSlug
             }
 
@@ -216,6 +229,23 @@ class RecipeEditViewModel(
 
     fun dismissSaveError() = _state.update { it.copy(saveError = null) }
 
+    /** Deletes the recipe from Mealie; what was being edited goes with it. */
+    fun delete() {
+        if (!_state.value.canDelete) return
+        _state.update { it.copy(deleting = true, deleteError = null) }
+        viewModelScope.launch {
+            when (val result = editRepository.delete(slug)) {
+                is ApiResult.Failure -> _state.update { it.copy(deleting = false, deleteError = result.error) }
+                is ApiResult.Success -> {
+                    recentRecipes.forget(slug)
+                    _state.update { it.copy(deleting = false, deleted = true) }
+                }
+            }
+        }
+    }
+
+    fun dismissDeleteError() = _state.update { it.copy(deleteError = null) }
+
     /** A picture framed here but never saved is not kept on the device. */
     override fun onCleared() {
         _state.value.newImagePath?.let(imageFiles::delete)
@@ -246,7 +276,7 @@ class RecipeEditViewModel(
                     editRepository = container.recipeEditRepository,
                     organizerRepository = container.organizerRepository,
                     imageFiles = container.recipeImageFiles,
-                    recentRecipesStore = container.recentRecipesStore,
+                    recentRecipes = container.recentRecipesStore,
                     calorieTags = container.calorieTagRepository,
                 )
             }

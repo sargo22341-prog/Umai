@@ -3,6 +3,7 @@ package org.opensources.umai.youtube.data
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -15,6 +16,7 @@ import org.opensources.umai.recipe.data.RecipeEditRepository
 import org.opensources.umai.recipe.data.RecipeMediaRepository
 import org.opensources.umai.youtube.domain.BlueprintOrigin
 import org.opensources.umai.youtube.domain.ChapterMark
+import org.opensources.umai.youtube.domain.RecipePage
 import org.opensources.umai.youtube.domain.ScriptedModel
 import org.opensources.umai.youtube.domain.TranscriptCue
 import org.opensources.umai.youtube.domain.VideoSource
@@ -39,8 +41,13 @@ class VideoRecipeImporterTest {
         override suspend fun video(id: String) = result
     }
 
+    /** The pages the importer asked for, and what they hold. */
+    private val pagesAsked = mutableListOf<String>()
+    private var pageContent: Map<String, RecipePage> = emptyMap()
+
     private fun importer(video: YouTubeResult<YouTubeVideo>, model: ScriptedModel) = VideoRecipeImporter(
         youTube = source(video),
+        pages = { url -> pagesAsked += url; pageContent[url] },
         model = model,
         apiProvider = { fake.api() },
         edits = RecipeEditRepository({ fake.api() }),
@@ -133,6 +140,76 @@ class VideoRecipeImporterTest {
         val result = (outcome as VideoImportOutcome.Imported).result
         assertEquals(BlueprintOrigin.RULES, result.origin)
         assertEquals(LlmFailure.LOAD_FAILED, result.modelFailure)
+    }
+
+    /** Philippe Etchebest's Caesar salad: no chapters, no list in the description, a link to the quantities. */
+    private val caesar = video(
+        description = "⚖️ Quantités de la recette : https://tinyurl.com/3xddjkdm\n🔪 Le matériel pour cette recette : https://tinyurl.com/vvrkytec",
+        transcript = listOf(TranscriptCue(20.0, 25.0, "on prépare la sauce avec l'ail, les anchois et l'huile d'olive")),
+    )
+
+    /** What the model wrote for it before the fix: amounts nobody said, and lines repeated. */
+    private val caesarAnswer = """
+        {"name":"Salade César","summary":"","servings":4,"prepMinutes":20,"cookMinutes":0,
+         "ingredients":["100 g d'ail","100 g d'huile d'olive","100 g d'ail","100 g de croûtons"],
+         "steps":[{"title":"La sauce","text":"Mélanger l'ail, les anchois et l'huile d'olive.","start":20},
+                  {"title":"Dressage","text":"Servir.","start":60}]}
+    """.trimIndent()
+
+    private fun enqueueCreation() {
+        fake.enqueueJson(""""lasagnes"""")
+        fake.enqueueJson(CREATED)
+        fake.enqueueJson(CREATED)
+        fake.enqueueJson(CREATED)
+        fake.enqueueJson("""{"name":"lasagnes-chapters","icon":"file-json","fileName":"lasagnes-chapters.json"}""")
+    }
+
+    @Test
+    fun `the recipe page linked from the description gives the ingredients and servings`() = runTest {
+        pageContent = mapOf(
+            "https://tinyurl.com/3xddjkdm" to RecipePage(
+                url = "https://philippe-etchebest.com/salade-cesar/",
+                ingredients = listOf("1 gousse d’ail", "6 filets d’anchois", "1 gousse d’ail", "200ml d’huile d’olive"),
+                servings = 6,
+            ),
+        )
+        enqueueCreation()
+        val model = ScriptedModel(listOf(LlmOutcome.Success(caesarAnswer)))
+
+        val outcome = importer(YouTubeResult.Success(caesar), model).import("https://youtu.be/ou8kyXnrvyQ") {}
+
+        assertTrue(outcome is VideoImportOutcome.Imported)
+        // The equipment link is not followed.
+        assertEquals(listOf("https://tinyurl.com/3xddjkdm"), pagesAsked)
+        assertTrue(model.requests.single().user.contains("Ingredients (from the recipe page, complete):\n- 1 gousse d’ail"))
+        val body = fake.takeRequest().body?.utf8().orEmpty()
+        assertTrue(body.contains("""\"recipeIngredient\":[\"2 gousses d’ail\",\"6 filets d’anchois\",\"200ml d’huile d’olive\"]"""))
+        assertTrue(body.contains("""\"recipeYield\":\"6\""""))
+        assertFalse(body.contains("croûtons"))
+        // The video stays the source of the recipe.
+        assertTrue(body.contains(""""url":"https://www.youtube.com/watch?v=0nE7dAlDshk""""))
+    }
+
+    @Test
+    fun `without a recipe on the linked page the model's ingredients are checked against the video`() = runTest {
+        enqueueCreation()
+        val model = ScriptedModel(listOf(LlmOutcome.Success(caesarAnswer)))
+
+        importer(YouTubeResult.Success(caesar), model).import("https://youtu.be/ou8kyXnrvyQ") {}
+
+        assertEquals(listOf("https://tinyurl.com/3xddjkdm"), pagesAsked)
+        val body = fake.takeRequest().body?.utf8().orEmpty()
+        assertTrue(body.contains("""\"recipeIngredient\":[\"Ail\",\"Huile d'olive\"]"""))
+    }
+
+    @Test
+    fun `the rules use the recipe page too`() = runTest {
+        pageContent = mapOf("https://tinyurl.com/3xddjkdm" to RecipePage("https://p", listOf("2 œufs", "Sel"), servings = null))
+        enqueueCreation()
+
+        importer(YouTubeResult.Success(caesar), ScriptedModel(emptyList(), ready = false)).import("https://youtu.be/ou8kyXnrvyQ") {}
+
+        assertTrue(fake.takeRequest().body?.utf8().orEmpty().contains("""\"recipeIngredient\":[\"2 œufs\",\"Sel\"]"""))
     }
 
     @Test

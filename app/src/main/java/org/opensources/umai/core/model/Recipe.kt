@@ -193,4 +193,10 @@ data class PagedItems<T>(
         totalPages = next.totalPages,
         total = next.total,
     )
+
+    /** The items without those [removed] matches, which no longer count in the total. */
+    fun without(removed: (T) -> Boolean): PagedItems<T> {
+        val kept = items.filterNot(removed)
+        return copy(items = kept, total = (total - (items.size - kept.size)).coerceAtLeast(0))
+    }
 }

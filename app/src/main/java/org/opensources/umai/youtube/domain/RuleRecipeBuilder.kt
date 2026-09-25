@@ -4,7 +4,8 @@ package org.opensources.umai.youtube.domain
  * Rebuilds a recipe from a video with plain rules, when no language model is
  * available or it failed:
  *
- * - the ingredients are the list written in the description;
+ * - the ingredients are those of the recipe page the description links to,
+ *   else the list written in the description;
  * - the steps are the ones written in the description, placed in the video
  *   by the chapters when there is one per step, or else by the words they
  *   share with the transcript;
@@ -17,9 +18,8 @@ package org.opensources.umai.youtube.domain
  */
 object RuleRecipeBuilder {
 
-    fun build(video: YouTubeVideo): RecipeBlueprint {
+    fun build(video: YouTubeVideo, page: RecipePage? = null): RecipeBlueprint {
         val description = video.description
-        val ingredients = VideoDescription.ingredients(description).filterNot { it.endsWith(":") }
         val chapters = video.chapters
         val ingredientsChapter = chapters.firstOrNull { isIngredientsChapter(it.title) }
         val cookingChapters = chapters.withIndex().filter { (_, chapter) ->
@@ -51,16 +51,20 @@ object RuleRecipeBuilder {
         return RecipeBlueprint(
             name = cleanTitle(video.title),
             summary = summary(description),
-            servings = VideoDescription.servings(description) ?: VideoDescription.servings(video.title),
+            servings = servings(video, page),
             prepMinutes = null,
             cookMinutes = null,
-            ingredients = ingredients,
+            ingredients = RecipeIngredients.of(video, page, modelLines = null),
             steps = steps.withOrderedStarts(video.durationSeconds),
             ingredientsStart = ingredientsChapter?.start,
             origin = BlueprintOrigin.RULES,
             video = video,
         )
     }
+
+    /** As the recipe page says, else as the description or the title does. */
+    fun servings(video: YouTubeVideo, page: RecipePage?): Int? =
+        page?.servings ?: VideoDescription.servings(video.description) ?: VideoDescription.servings(video.title)
 
     /** "Lasagnes express | Recette facile #Shorts" becomes "Lasagnes express". */
     fun cleanTitle(title: String): String {

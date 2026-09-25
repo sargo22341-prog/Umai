@@ -142,6 +142,9 @@ dependencies {
     implementation(libs.media3.exoplayer.hls)
     implementation(libs.media3.ui.compose)
 
+    // Reads YouTube videos: details, chapters, captions and streams (GPLv3).
+    implementation(libs.newpipe.extractor)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)

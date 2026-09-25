@@ -14,12 +14,21 @@ import java.io.IOException
 
 private val Context.recentDataStore: DataStore<Preferences> by preferencesDataStore(name = "umai_recent")
 
+/** The history of opened recipes, as the screens that rename or delete a recipe keep it right. */
+interface RecentRecipes {
+    /** Mealie derives the slug from the name: a renamed recipe keeps its place. */
+    suspend fun rename(oldSlug: String, newSlug: String)
+
+    /** A deleted recipe leaves the history: its slug would lead nowhere. */
+    suspend fun forget(slug: String)
+}
+
 /**
  * Mealie has no "recently viewed" endpoint, so the history of opened recipes is
  * kept on the device. Only slugs are stored; the recipes themselves are still
  * read from the instance.
  */
-class RecentRecipesStore(context: Context) {
+class RecentRecipesStore(context: Context) : RecentRecipes {
 
     private val dataStore = context.applicationContext.recentDataStore
 
@@ -38,12 +47,18 @@ class RecentRecipesStore(context: Context) {
         }
     }
 
-    /** Mealie derives the slug from the name: a renamed recipe keeps its place. */
-    suspend fun rename(oldSlug: String, newSlug: String) {
+    override suspend fun rename(oldSlug: String, newSlug: String) {
         if (oldSlug == newSlug || newSlug.isBlank()) return
         dataStore.edit { prefs ->
             val current = prefs[KeySlugs]?.split(SEPARATOR)?.filter { it.isNotBlank() }.orEmpty()
             prefs[KeySlugs] = current.map { if (it == oldSlug) newSlug else it }.distinct().joinToString(SEPARATOR)
+        }
+    }
+
+    override suspend fun forget(slug: String) {
+        dataStore.edit { prefs ->
+            val current = prefs[KeySlugs]?.split(SEPARATOR)?.filter { it.isNotBlank() }.orEmpty()
+            prefs[KeySlugs] = current.filterNot { it == slug }.joinToString(SEPARATOR)
         }
     }
 

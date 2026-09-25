@@ -62,7 +62,8 @@ Fonctionnalités principales :
 - **création et modification de recettes** : import depuis une page web (analysée par Mealie),
   avec la vidéo et les photos d'étapes de Jow et les photos d'étapes de 750g et Marmiton ;
   **import d'une vidéo YouTube** reconstruite en recette complète (ingrédients, étapes, passage de
-  la vidéo de chaque étape) à partir de sa description, de ses chapitres et de sa transcription ;
+  la vidéo de chaque étape) à partir de sa description, de ses chapitres et de sa transcription,
+  avec les quantités de la page de recette vers laquelle pointe sa description ;
 - **IA locale** facultative : un modèle de langage téléchargé à part tourne sur le téléphone, sans
   service distant, pour l'import vidéo et la reconnaissance des plats
   ([détails et mesures](docs/local-ai.md)) ;
@@ -133,7 +134,7 @@ Bon à savoir :
   de recettes non terminés.
 - L'application ne contacte que votre instance Mealie, et, seulement quand vous vous en servez :
   les sites de recettes connus (Jow, 750g, Marmiton) pour leurs médias, YouTube pour l'import et
-  la lecture d'une vidéo, Hugging Face pour télécharger le modèle de l'IA locale. Le modèle tourne
+  la lecture d'une vidéo (et la page de recette vers laquelle pointe sa description), Hugging Face pour télécharger le modèle de l'IA locale. Le modèle tourne
   sur le téléphone : rien de ce que vous importez ou planifiez ne lui est envoyé ailleurs.
 
 ## Limites connues
@@ -172,9 +173,14 @@ Mealie utilisée par l'application est sa description OpenAPI.
 
 Copyright © 2026 sargo.
 
-umai est un logiciel open source distribué sous **licence MIT** : vous pouvez l'utiliser, le
-copier, le modifier et le redistribuer librement, à condition de conserver la mention de copyright
-et le texte de la licence. Texte complet : [`LICENSE`](LICENSE).
+umai est un logiciel libre distribué sous **licence publique générale GNU, version 3 ou (à votre
+choix) toute version ultérieure** (GPL-3.0-or-later) : vous pouvez l'utiliser, l'étudier, le
+modifier et le redistribuer, à condition que ce que vous distribuez reste sous la même licence,
+avec son code source. Il est fourni sans aucune garantie. Texte complet : [`LICENSE`](LICENSE).
+
+L'application lit YouTube avec [NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor),
+lui-même sous GPL-3.0-or-later ; toutes les autres dépendances sont sous une licence compatible
+avec la GPLv3 (Apache 2.0, MIT, BSD, MPL 2.0).
 
 umai est un projet indépendant, sans lien avec Mealie. Les recettes visibles sur les captures
 appartiennent à leurs auteurs respectifs.

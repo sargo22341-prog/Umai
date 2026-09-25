@@ -74,6 +74,7 @@ class RecipeImportViewModelTest {
             youTube = object : VideoSource {
                 override suspend fun video(id: String) = video
             },
+            pages = { null },
             model = ScriptedModel(emptyList(), ready = modelReady),
             apiProvider = { fake.api() },
             edits = RecipeEditRepository(apiProvider = { fake.api() }),

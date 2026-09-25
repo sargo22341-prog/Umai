@@ -2,6 +2,7 @@ package org.opensources.umai.search.ui
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
@@ -43,11 +44,14 @@ class SearchViewModelTest {
         fake.shutdown()
     }
 
+    private val deletions = MutableSharedFlow<String>(extraBufferCapacity = 1)
+
     private fun viewModel(initialFilters: RecipeFilters = RecipeFilters.None) = SearchViewModel(
         recipeRepository = RecipeRepository({ fake.api() }),
         organizerRepository = OrganizerRepository { fake.api() },
         layout = flowOf(RecipeLayout.GRID),
         initialFilters = initialFilters,
+        deletedRecipes = deletions,
     )
 
     private suspend fun SearchViewModel.awaitResults(): SearchUiState =
@@ -67,6 +71,20 @@ class SearchViewModelTest {
         assertEquals("createdAt", request.query("orderBy"))
         assertEquals("desc", request.query("orderDirection"))
         assertEquals("last", request.query("orderByNullPosition"))
+    }
+
+    @Test
+    fun `a recipe deleted from the app leaves the results on screen`() = runBlocking {
+        fake.enqueueJson(PAGE)
+        val vm = viewModel()
+        vm.awaitResults()
+
+        deletions.emit("poulet-au-curry")
+
+        val results = vm.state.value.results
+        assertEquals(listOf("curry-de-legumes"), results.items.map { it.slug })
+        assertEquals(1, results.total)
+        assertEquals(1, fake.server.requestCount)
     }
 
     @Test

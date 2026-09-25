@@ -9,7 +9,7 @@ classique.
 
 | Fonction | Avec le modèle | Sans le modèle |
 |---|---|---|
-| Import d'une vidéo YouTube | Lit titre, description, chapitres et transcription horodatée ; écrit les ingrédients avec leurs quantités, des étapes rédigées et titrées, le début de chaque étape dans la vidéo. | Ingrédients et étapes lus dans la description, étapes = chapitres (texte tiré de la transcription), placées par les chapitres ou par alignement mots-transcription. |
+| Import d'une vidéo YouTube | Lit titre, description, chapitres et transcription horodatée ; écrit des étapes rédigées et titrées, le début de chaque étape dans la vidéo, et les ingrédients quand ni la page de recette ni la description ne les donnent. | Ingrédients de la page de recette ou de la description, étapes lues dans la description, sinon étapes = chapitres (texte tiré de la transcription), placées par les chapitres ou par alignement mots-transcription. |
 | Planning automatique | Classe les recettes que rien ne situe (ni catégorie, ni tag, ni nom, ni historique). | Ces recettes sont jugées sur leurs ingrédients (sucré seul = dessert). |
 
 Restent volontairement **algorithmiques**, parce qu'un algorithme y est plus fiable qu'un modèle
@@ -21,7 +21,9 @@ de 4 milliards de paramètres :
 - le choix des plats du planning et le regroupement des ingrédients (`MealPlanner`) : c'est un
   problème d'optimisation, pas de langage ;
 - le placement des étapes quand le modèle n'en donne pas (`Transcript.alignSteps`, programmation
-  dynamique sur les mots partagés).
+  dynamique sur les mots partagés) ;
+- la liste finale des ingrédients (`IngredientMerge`, `IngredientEvidence`) : une ligne par aliment,
+  et une quantité seulement si une source l'écrit ou la dit (voir *Ingrédients* plus bas).
 
 La réponse du modèle est **contrainte par un schéma JSON** : llama.cpp convertit le schéma en
 grammaire GBNF et n'autorise que les jetons qui la respectent. La réponse est donc toujours du JSON
@@ -96,19 +98,56 @@ modèles sont sous licence Apache 2.0.
 
 ## YouTube
 
-L'extraction suit la méthode de **yt-dlp** (domaine public), portée en Kotlin
-(`youtube/data/YouTubeClient.kt`), sans dépendance :
+L'extraction passe par **NewPipeExtractor** (GPL-3.0-or-later, version dans
+`gradle/libs.versions.toml`, publiée sur JitPack), branché sur le client OkHttp « sites externes »
+de l'application (`youtube/data/OkHttpDownloader.kt`) : pas de second client HTTP, jamais
+d'identifiants Mealie vers YouTube.
 
-- page de lecture : chapitres (`ytInitialData`) et identifiant de session (`VISITOR_DATA`) ;
-- API player de YouTube, en client `ANDROID_VR` : description, durée, pistes de sous-titres
-  téléchargeables sans jeton (format `json3`) ;
-- au moment de cuisiner, client `VISIONOS` : flux HLS lu par ExoPlayer, sans en-tête particulier
-  (repli sur le MP4 360p du client `ANDROID_VR`). Les adresses de flux expirent : elles sont
-  demandées à chaque ouverture du mode cuisine.
+- `YouTubeClient.video` : titre, description (HTML converti en texte, liens en entier), durée,
+  miniature la plus grande, **chapitres de l'auteur** (segments), sous-titres horodatés (TTML) ;
+- sous-titres : piste écrite par une personne dans la langue parlée, sinon piste automatique. La
+  langue parlée est celle de la piste audio d'origine : sur une vidéo doublée automatiquement,
+  YouTube propose aussi une piste automatique dans la langue du doublage ;
+- `YouTubeClient.stream` (mode cuisine) : flux HLS si YouTube le propose, sinon le meilleur MP4
+  progressif image + son ; ExoPlayer les lit sans en-tête particulier. Les adresses expirent :
+  elles sont demandées à chaque ouverture du mode cuisine ;
+- la langue de l'application est imposée à l'extracteur (`forceLocalization`) : la préférence
+  globale de NewPipe n'atteint pas toutes ses requêtes, et YouTube renvoyait alors la description
+  traduite dans une autre langue.
 
-Écartés : NewPipeExtractor et youtubedl-android (GPLv3, incompatible avec la licence MIT de
-l'application sans la relicencier ; le second embarque en plus Python, environ 25 Mo).
+Limites constatées :
 
-**Fragilité assumée** : YouTube change régulièrement ce qu'il accorde à chaque client. Quand
-l'import échoue avec « YouTube a répondu d'une façon que l'application ne sait pas lire », il faut
-mettre à jour les noms et versions de clients d'après `yt_dlp/extractor/youtube/_base.py`.
+- NewPipeExtractor n'expose que les chapitres **posés par l'auteur**, pas les chapitres générés
+  automatiquement par YouTube (`engagement-panel-macro-markers-auto-chapters`) : sans chapitres
+  d'auteur, les étapes sont placées par le modèle ou par alignement sur la transcription ;
+- quand YouTube casse l'extraction (« YouTube a répondu d'une façon que l'application ne sait pas
+  lire »), la correction est une montée de version de NewPipeExtractor, publiée en général en
+  quelques jours.
+
+### Ingrédients
+
+Ordre de priorité des sources, du plus sûr au moins sûr :
+
+1. **la page de recette** vers laquelle pointe la description. Les liens sont repérés par le texte
+   qui les entoure, en français et en anglais (« Quantités de la recette : », « Full recipe: »,
+   « la recette illustrée … en suivant ce lien »), sans liste de domaines (`DescriptionLinks`) ;
+   « matériel », « livre », « boutique » ou un lien YouTube écartent une ligne. Le lien est
+   ouvert pour suivre les redirections des raccourcisseurs, puis la page est lue par Mealie
+   (`POST /api/recipes/test-scrape-url`, qui renvoie le schema.org `Recipe` trouvé sans rien
+   créer ; `create/url` aurait créé une recette à supprimer). Si ce `Recipe` n'a pas
+   d'ingrédients — cas de philippe-etchebest.com — la liste placée sous le titre « Ingrédients »
+   de la page est lue (`RecipePageParsing.fromHtml`). La liste de la page est complète : les
+   autres sources ne lui ajoutent pas d'aliment ;
+2. **la liste écrite dans la description** ;
+3. **ce que le modèle a lu dans la vidéo**, vérifié (`IngredientEvidence`) : un aliment jamais nommé
+   dans le titre, la description, la page ou la transcription est écarté ; une quantité n'est
+   gardée que si le même nombre (et la même unité, « g » valant « grammes ») est dit ou écrit à
+   quelques mots de l'aliment, et si elle est plausible. Sinon la ligne reste, sans quantité.
+
+Puis la fusion déterministe (`IngredientMerge`, clés de `IngredientKeys`) : une ligne par aliment ;
+la quantité de la source la plus sûre l'emporte ; une ligne sans quantité ne reçoit que celle
+qu'une autre source écrit. Un aliment écrit deux fois par un auteur (l'ail de la salade et celui de
+la sauce) additionne ses quantités de même unité ; répété par le modèle, il n'est gardé qu'une fois.
+Quand la page ou la description donne la liste, le modèle est prié de ne pas la réécrire (réponse
+plus courte, donc import plus rapide) et d'en reprendre les noms dans les étapes. La vidéo reste la
+source des étapes, de leurs passages, et l'URL d'origine de la recette.

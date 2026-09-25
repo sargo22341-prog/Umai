@@ -80,6 +80,13 @@ object YouTubeLinks {
 
     fun isVideo(url: String): Boolean = videoId(url) != null
 
+    /** Any address on YouTube: a video, a channel, a playlist. */
+    fun isYouTube(url: String): Boolean {
+        val withScheme = if (url.contains("://")) url else "https://$url"
+        val host = runCatching { java.net.URI(withScheme).host }.getOrNull()?.lowercase()?.removePrefix("www.") ?: return false
+        return host == "youtu.be" || host in hosts || host.endsWith(".youtube.com")
+    }
+
     fun watchUrl(id: String): String = "https://www.youtube.com/watch?v=$id"
 
     private fun query(raw: String?, name: String): String? = raw?.split('&')
