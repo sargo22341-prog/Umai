@@ -8,6 +8,3 @@ liste des commits. Détails : [docs/release.md](docs/release.md).
 
 <!-- notes -->
 
-- IA locale : un modèle de langage téléchargé à part (Gemma 4 E2B recommandé) tourne sur le téléphone, sans service distant, pour l'import vidéo et la reconnaissance des plats.
-
-- IA locale : le modèle tourne avec LiteRT-LM sur le TPU des Pixel à puce Tensor G5 ou G6 (y compris sous GrapheneOS, sans services Google), sinon sur le GPU, et sur le processeur en dernier recours ; l'écran indique où il tourne réellement. Les anciens modèles GGUF sont supprimés.
