@@ -2,8 +2,8 @@ package org.opensources.umai.llm.data
 
 import android.app.DownloadManager
 import android.content.Context
-import androidx.core.net.toUri
 import android.os.StatFs
+import androidx.core.net.toUri
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -18,6 +18,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.opensources.umai.R
 import org.opensources.umai.llm.domain.LocalModel
+import org.opensources.umai.llm.domain.ModelFile
+import org.opensources.umai.llm.domain.TensorChip
 import java.io.File
 import java.io.FileInputStream
 import java.security.MessageDigest
@@ -45,14 +47,16 @@ sealed interface InstallState {
 /**
  * Downloads model files with the system's download manager, which resumes a
  * download of several gigabytes across network changes and the app being
- * closed, then checks the file before it is used.
+ * closed, then checks the files before they are used. A phone with a Tensor
+ * TPU gets the TPU build of the model next to the file every phone runs.
  *
- * Only one model is kept: once a new one is checked, the previous file is
- * deleted, since each takes gigabytes.
+ * Only one model is kept: once a new one is checked, the files of the previous
+ * one are deleted, since each takes gigabytes.
  */
 class ModelInstaller(
     context: Context,
     private val store: LocalAiSettingsStore,
+    private val chip: TensorChip?,
     private val scope: CoroutineScope,
 ) {
 
@@ -67,56 +71,71 @@ class ModelInstaller(
     /** The models live in the app's own external files: removed with the app, no permission needed. */
     private val modelsDir: File? get() = context.getExternalFilesDir(MODELS_DIR)
 
-    fun fileOf(model: LocalModel): File? = modelsDir?.resolve(model.fileName)
+    private fun fileOf(file: ModelFile): File? = modelsDir?.resolve(file.fileName)
+
+    /** The installed model and the paths of its files, when the local AI is on. */
+    suspend fun installedModel(): InstalledModel? {
+        val settings = store.current()
+        if (!settings.enabled) return null
+        val model = settings.installed ?: return null
+        val paths = model.filesFor(chip).mapNotNull { file ->
+            fileOf(file)?.takeIf { it.isFile }?.let { file to it.path }
+        }.toMap()
+        return InstalledModel(model, paths)
+    }
 
     /** Follows a download started earlier, possibly before the app was last closed. */
     fun resume() {
         if (watchJob?.isActive == true) return
-        watchJob = scope.launch { watch() }
+        watchJob = scope.launch {
+            deleteGgufModels()
+            watch()
+        }
     }
 
     /** Starts downloading [model]; the state tells when it is installed or why it failed. */
     suspend fun install(model: LocalModel) = mutex.withLock {
-        store.current().pending?.let { downloads.remove(it.downloadId) }
+        store.current().pending?.let { removeDownloads(it) }
         val dir = modelsDir
         if (dir == null) {
             _state.value = InstallState.Failed(model, InstallFailure.NO_STORAGE)
             return@withLock
         }
         dir.mkdirs()
-        if (model.sizeBytes > 0 && StatFs(dir.path).availableBytes < model.sizeBytes + SPACE_MARGIN) {
+        val files = model.filesFor(chip)
+        val size = files.sumOf { it.sizeBytes }
+        if (size > 0 && StatFs(dir.path).availableBytes < size + SPACE_MARGIN) {
             _state.value = InstallState.Failed(model, InstallFailure.NOT_ENOUGH_SPACE)
             return@withLock
         }
-        partFile(dir, model).delete()
-        val request = DownloadManager.Request(model.url.toUri())
-            .setTitle(model.name)
-            .setDescription(context.getString(R.string.local_ai_download_description))
-            .setDestinationUri(partFile(dir, model).toUri())
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
-            // Several gigabytes: never over mobile data.
-            .setAllowedOverMetered(false)
-            .setAllowedOverRoaming(false)
-        val id = downloads.enqueue(request)
-        store.setPending(PendingModel(id, model))
-        _state.value = InstallState.Downloading(model, 0L, model.sizeBytes, waiting = false)
+        val ids = files.map { file ->
+            partFile(dir, file).delete()
+            val request = DownloadManager.Request(file.url.toUri())
+                .setTitle(model.name)
+                .setDescription(context.getString(R.string.local_ai_download_description))
+                .setDestinationUri(partFile(dir, file).toUri())
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+                // Gigabytes: never over mobile data.
+                .setAllowedOverMetered(false)
+                .setAllowedOverRoaming(false)
+            downloads.enqueue(request)
+        }
+        store.setPending(PendingModel(ids, model))
+        _state.value = InstallState.Downloading(model, 0L, size, waiting = false)
         watchJob?.cancel()
         watchJob = scope.launch { watch() }
     }
 
     suspend fun cancel() = mutex.withLock {
         watchJob?.cancel()
-        store.current().pending?.let { pending ->
-            downloads.remove(pending.downloadId)
-            modelsDir?.let { partFile(it, pending.model).delete() }
-        }
+        store.current().pending?.let { removeDownloads(it) }
         store.setPending(null)
         _state.value = InstallState.Idle
     }
 
-    /** Deletes the installed model file. */
+    /** Deletes the files of the installed model. */
     suspend fun uninstall() = mutex.withLock {
-        store.current().installed?.let { model -> fileOf(model)?.delete() }
+        store.current().installed?.let { model -> model.files.forEach { fileOf(it)?.delete() } }
         store.setInstalled(null)
     }
 
@@ -130,22 +149,25 @@ class ModelInstaller(
                 if (_state.value !is InstallState.Failed) _state.value = InstallState.Idle
                 return
             }
-            val progress = query(pending.downloadId)
-            when (progress?.status) {
-                null, DownloadManager.STATUS_FAILED -> {
+            val progress = pending.downloadIds.map(::query)
+            when {
+                progress.any { it == null || it.status == DownloadManager.STATUS_FAILED } -> {
                     finishWith(pending, InstallFailure.DOWNLOAD_FAILED)
                     return
                 }
-                DownloadManager.STATUS_SUCCESSFUL -> {
+                progress.all { it?.status == DownloadManager.STATUS_SUCCESSFUL } -> {
                     complete(pending)
                     return
                 }
-                else -> _state.value = InstallState.Downloading(
-                    model = pending.model,
-                    downloaded = progress.downloaded,
-                    total = progress.total.takeIf { it > 0 } ?: pending.model.sizeBytes,
-                    waiting = progress.status == DownloadManager.STATUS_PAUSED,
-                )
+                else -> {
+                    val files = pending.model.filesFor(chip)
+                    _state.value = InstallState.Downloading(
+                        model = pending.model,
+                        downloaded = progress.sumOf { it?.downloaded ?: 0L },
+                        total = progress.zip(files) { p, file -> p?.total?.takeIf { it > 0 } ?: file.sizeBytes }.sum(),
+                        waiting = progress.any { it?.status == DownloadManager.STATUS_PAUSED },
+                    )
+                }
             }
             delay(POLL_MS)
         }
@@ -153,17 +175,16 @@ class ModelInstaller(
 
     private suspend fun complete(pending: PendingModel) {
         val dir = modelsDir ?: return finishWith(pending, InstallFailure.NO_STORAGE)
-        val part = partFile(dir, pending.model)
-        val failure = withContext(Dispatchers.IO) { check(part, pending.model) }
-        if (failure != null) {
-            part.delete()
-            return finishWith(pending, failure)
-        }
+        val files = pending.model.filesFor(chip)
+        val failure = withContext(Dispatchers.IO) { check(dir, files, pending.model) }
+        if (failure != null) return finishWith(pending, failure)
         mutex.withLock {
             val previous = store.current().installed
-            val target = dir.resolve(pending.model.fileName)
-            if (!part.renameTo(target)) return@withLock finishWith(pending, InstallFailure.NO_STORAGE)
-            if (previous != null && previous.fileName != pending.model.fileName) fileOf(previous)?.delete()
+            if (files.any { !partFile(dir, it).renameTo(dir.resolve(it.fileName)) }) {
+                return@withLock finishWith(pending, InstallFailure.NO_STORAGE)
+            }
+            val kept = files.map { it.fileName }.toSet()
+            previous?.files?.filter { it.fileName !in kept }?.forEach { fileOf(it)?.delete() }
             store.setInstalled(pending.model)
             store.setPending(null)
             _state.value = InstallState.Idle
@@ -171,33 +192,52 @@ class ModelInstaller(
     }
 
     private suspend fun finishWith(pending: PendingModel, failure: InstallFailure) {
-        downloads.remove(pending.downloadId)
+        removeDownloads(pending)
         store.setPending(null)
         _state.value = InstallState.Failed(pending.model, failure)
     }
 
-    /** A catalog model must match its hash; any model must at least be a GGUF file. */
-    private fun check(file: File, model: LocalModel): InstallFailure? {
-        if (!file.isFile) return InstallFailure.DOWNLOAD_FAILED
-        val magic = ByteArray(4)
-        val read = FileInputStream(file).use { it.read(magic) }
-        if (read != 4 || String(magic, Charsets.US_ASCII) != GGUF_MAGIC) return InstallFailure.NOT_A_MODEL
-        val expected = model.sha256 ?: return null
-        val digest = MessageDigest.getInstance("SHA-256")
-        val total = file.length().coerceAtLeast(1L)
+    private fun removeDownloads(pending: PendingModel) {
+        pending.downloadIds.forEach { downloads.remove(it) }
+        modelsDir?.let { dir -> pending.model.files.forEach { partFile(dir, it).delete() } }
+    }
+
+    /** Every file must be a LiteRT-LM model, and a catalog file must match its hash. */
+    private fun check(dir: File, files: List<ModelFile>, model: LocalModel): InstallFailure? {
+        val total = files.sumOf { partFile(dir, it).length() }.coerceAtLeast(1L)
         var done = 0L
-        FileInputStream(file).use { input ->
-            val buffer = ByteArray(BUFFER)
-            while (true) {
-                val count = input.read(buffer)
-                if (count < 0) break
-                digest.update(buffer, 0, count)
-                done += count
-                _state.value = InstallState.Verifying(model, done.toFloat() / total)
+        val digest = MessageDigest.getInstance("SHA-256")
+        for (file in files) {
+            val part = partFile(dir, file)
+            if (!part.isFile) return InstallFailure.DOWNLOAD_FAILED
+            val magic = ByteArray(LITERTLM_MAGIC.length)
+            val read = FileInputStream(part).use { it.read(magic) }
+            if (read != magic.size || String(magic, Charsets.US_ASCII) != LITERTLM_MAGIC) return InstallFailure.NOT_A_MODEL
+            val expected = file.sha256
+            if (expected == null) {
+                done += part.length()
+                continue
             }
+            digest.reset()
+            FileInputStream(part).use { input ->
+                val buffer = ByteArray(BUFFER)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    digest.update(buffer, 0, count)
+                    done += count
+                    _state.value = InstallState.Verifying(model, done.toFloat() / total)
+                }
+            }
+            val actual = digest.digest().joinToString("") { "%02x".format(it) }
+            if (!actual.equals(expected, ignoreCase = true)) return InstallFailure.CORRUPTED
         }
-        val actual = digest.digest().joinToString("") { "%02x".format(it) }
-        return if (actual.equals(expected, ignoreCase = true)) null else InstallFailure.CORRUPTED
+        return null
+    }
+
+    /** The GGUF files of the llama.cpp runtime umai used before LiteRT-LM, unreadable now. */
+    private fun deleteGgufModels() {
+        modelsDir?.listFiles { file -> file.name.endsWith(".gguf", ignoreCase = true) }?.forEach { it.delete() }
     }
 
     private data class Progress(val status: Int, val downloaded: Long, val total: Long)
@@ -212,11 +252,11 @@ class ModelInstaller(
             )
         }
 
-    private fun partFile(dir: File, model: LocalModel) = dir.resolve("${model.fileName}.part")
+    private fun partFile(dir: File, file: ModelFile) = dir.resolve("${file.fileName}.part")
 
     private companion object {
         const val MODELS_DIR = "models"
-        const val GGUF_MAGIC = "GGUF"
+        const val LITERTLM_MAGIC = "LITERTLM"
         const val POLL_MS = 1_000L
         const val BUFFER = 1 shl 20
         const val SPACE_MARGIN = 512L * 1024 * 1024

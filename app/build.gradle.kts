@@ -1,4 +1,7 @@
+import java.net.URI
+import java.security.MessageDigest
 import java.util.Properties
+import java.util.zip.ZipInputStream
 
 plugins {
     alias(libs.plugins.android.application)
@@ -14,7 +17,7 @@ val appVersion = Properties().apply {
 android {
     namespace = "org.opensources.umai"
     compileSdk = 37
-    // The first NDK whose platform headers reach API 37, the app's minimum.
+    // Strips the native libraries of LiteRT-LM packaged in the APK.
     ndkVersion = "30.0.16248370"
 
     defaultConfig {
@@ -26,26 +29,11 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // The on-device language model (llama.cpp) is built for 64-bit ARM only:
-        // every phone that runs Android 17 has it, and a model this size would
-        // not run usefully on anything else.
+        // The on-device language model (LiteRT-LM) is packaged for 64-bit ARM
+        // only: every phone that runs Android 17 has it, and a model this size
+        // would not run usefully on anything else.
         ndk {
             abiFilters += "arm64-v8a"
-        }
-        externalNativeBuild {
-            cmake {
-                arguments += listOf(
-                    "-DCMAKE_BUILD_TYPE=Release",
-                    // Shared by every variant, so llama.cpp is downloaded once.
-                    "-DUMAI_LLAMA_CACHE=${layout.buildDirectory.dir("llama.cpp").get().asFile.invariantSeparatorsPath}",
-                )
-            }
-        }
-    }
-
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
         }
     }
 
@@ -86,9 +74,9 @@ android {
 
     packaging {
         resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}")
-        // llama.cpp picks its CPU backend by scanning the native library
-        // directory for the variant that suits the processor; left inside the
-        // APK, the libraries are not in that directory and none is found.
+        // LiteRT-LM loads the Tensor TPU dispatch library from the native
+        // library directory, by path; left inside the APK, the library is not
+        // in that directory and the TPU is never reached.
         jniLibs.useLegacyPackaging = true
     }
 
@@ -100,7 +88,7 @@ android {
         // shipped; on Windows it flags the SDK path whichever way it is written.
         disable += "PropertyEscape"
         // The app is built for arm64-v8a only, on purpose: the on-device language
-        // model it bundles llama.cpp for would not run usefully on x86_64 hardware.
+        // model it bundles LiteRT-LM for would not run usefully on x86_64 hardware.
         disable += "ChromeOsAbiSupport"
         checkDependencies = true
     }
@@ -145,6 +133,9 @@ dependencies {
     // Reads YouTube videos: details, chapters, captions and streams (GPLv3).
     implementation(libs.newpipe.extractor)
 
+    // Runs the on-device language model on the TPU, the GPU or the CPU (Apache 2.0).
+    implementation(libs.litertlm.android)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)
@@ -160,4 +151,54 @@ dependencies {
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
     androidTestImplementation(libs.kotlinx.coroutines.test)
+}
+
+/**
+ * Fetches the Google Tensor dispatch library of LiteRT, through which LiteRT-LM
+ * runs a model on the TPU of a Tensor G5 or G6: it hands the compiled model to
+ * the phone's own TPU driver (`libedgetpu_litert.so`, in the vendor partition).
+ * Google publishes it prebuilt with each LiteRT release (Apache 2.0, built from
+ * `litert/vendors/google_tensor/dispatch`); it is downloaded at a pinned
+ * release, checked against its hash and never committed.
+ */
+abstract class FetchTensorDispatch : DefaultTask() {
+
+    @get:Input
+    abstract val url: Property<String>
+
+    @get:Input
+    abstract val sha256: Property<String>
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun fetch() {
+        val archive = URI(url.get()).toURL().openStream().use { it.readBytes() }
+        val digest = MessageDigest.getInstance("SHA-256").digest(archive)
+            .joinToString("") { "%02x".format(it) }
+        check(digest.equals(sha256.get(), ignoreCase = true)) { "Unexpected hash for ${url.get()}: $digest" }
+        val target = outputDir.get().dir("arm64-v8a").asFile.apply { mkdirs() }.resolve(LIBRARY)
+        ZipInputStream(archive.inputStream()).use { zip ->
+            generateSequence { zip.nextEntry }.first { it.name == "$ENTRY_DIR/$LIBRARY" }
+            target.outputStream().use { zip.copyTo(it) }
+        }
+    }
+
+    private companion object {
+        const val ENTRY_DIR = "google_tensor_runtime/src/main/jni/arm64-v8a"
+        const val LIBRARY = "libLiteRtDispatch_GoogleTensor.so"
+    }
+}
+
+val fetchTensorDispatch = tasks.register<FetchTensorDispatch>("fetchTensorDispatch") {
+    url.set("https://github.com/google-ai-edge/LiteRT/releases/download/v2.1.6/litert_npu_runtime_libraries.zip")
+    sha256.set("98aabbdce8607f6dc6ab7cb92217326eef24a8c97b973b69e62bd0ce14b7495b")
+    outputDir.set(layout.buildDirectory.dir("tensor-dispatch"))
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.jniLibs?.addGeneratedSourceDirectory(fetchTensorDispatch, FetchTensorDispatch::outputDir)
+    }
 }

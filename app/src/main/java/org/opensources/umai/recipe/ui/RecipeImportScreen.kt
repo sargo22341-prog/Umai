@@ -251,19 +251,11 @@ fun RecipeImportScreen(
 @Composable
 private fun ModelProgress(progress: LlmProgress?) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        when {
-            progress == null -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            progress.readingPrompt -> LinearProgressIndicator(
-                progress = { progress.promptFraction },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            else -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        }
+        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         Text(
             text = when {
                 progress == null -> stringResource(R.string.import_model_loading)
-                progress.readingPrompt ->
-                    stringResource(R.string.import_model_reading, (progress.promptFraction * 100).toInt())
+                progress.readingPrompt -> stringResource(R.string.import_model_reading)
                 else -> pluralStringResource(R.plurals.import_model_writing, progress.generated, progress.generated)
             },
             style = MaterialTheme.typography.bodySmall,

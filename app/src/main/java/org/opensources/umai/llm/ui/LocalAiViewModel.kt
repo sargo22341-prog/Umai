@@ -12,15 +12,20 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.opensources.umai.core.di.AppContainer
+import org.opensources.umai.llm.data.ActiveBackend
 import org.opensources.umai.llm.data.InstallState
 import org.opensources.umai.llm.data.LlmBenchmark
 import org.opensources.umai.llm.data.LocalAiSettings
+import org.opensources.umai.llm.domain.DeviceProfile
 import org.opensources.umai.llm.domain.LocalModel
 import org.opensources.umai.llm.domain.LocalModelCatalog
 
 data class LocalAiUiState(
-    /** Whether llama.cpp runs on this phone at all. */
+    /** Whether LiteRT-LM runs on this phone at all. */
     val supported: Boolean = true,
+    val device: DeviceProfile = DeviceProfile(socName = "", tensorChip = null, tpuReachable = false),
+    /** Where the model is loaded now, as proven when it was loaded. */
+    val active: ActiveBackend? = null,
     val settings: LocalAiSettings = LocalAiSettings(),
     val install: InstallState = InstallState.Idle,
     val models: List<LocalModel> = LocalModelCatalog.models,
@@ -36,6 +41,20 @@ data class LocalAiUiState(
     val installed: LocalModel? get() = settings.installed
     val busy: Boolean get() = install is InstallState.Downloading || install is InstallState.Verifying
     val ready: Boolean get() = supported && settings.enabled && installed != null
+
+    /** What this phone downloads for [model]: its TPU build too, on a Tensor chip that has one. */
+    fun downloadSize(model: LocalModel): Long = model.sizeFor(device.tensorChip)
+
+    fun hasTpuBuild(model: LocalModel): Boolean = device.tpuReachable && model.runsOnTpu(device.tensorChip)
+
+    /** Only one file of a model is loaded at a time: the largest must fit next to the other apps. */
+    fun isTight(model: LocalModel): Boolean =
+        (model.filesFor(device.tensorChip).maxOfOrNull { it.sizeBytes } ?: 0L) > deviceMemoryBytes * MEMORY_SHARE
+
+    private companion object {
+        /** Above this share of the phone's memory, a model may not load next to the other apps. */
+        const val MEMORY_SHARE = 0.4
+    }
 }
 
 /** Actions of the screen that need the device: they are handed in, so the ViewModel stays testable. */
@@ -50,13 +69,17 @@ class LocalAiActions(
 
 class LocalAiViewModel(
     supported: Boolean,
+    device: DeviceProfile,
     deviceMemoryBytes: Long,
     settings: Flow<LocalAiSettings>,
     install: Flow<InstallState>,
+    active: Flow<ActiveBackend?>,
     private val actions: LocalAiActions,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(LocalAiUiState(supported = supported, deviceMemoryBytes = deviceMemoryBytes))
+    private val _state = MutableStateFlow(
+        LocalAiUiState(supported = supported, device = device, deviceMemoryBytes = deviceMemoryBytes),
+    )
     val state: StateFlow<LocalAiUiState> = _state.asStateFlow()
 
     init {
@@ -69,6 +92,7 @@ class LocalAiViewModel(
                 }
             }
         }
+        viewModelScope.launch { active.collect { backend -> _state.update { it.copy(active = backend) } } }
     }
 
     fun download(model: LocalModel) {
@@ -115,9 +139,11 @@ class LocalAiViewModel(
             initializer {
                 LocalAiViewModel(
                     supported = container.localLanguageModel.isSupported,
+                    device = container.aiDevice,
                     deviceMemoryBytes = container.deviceMemoryBytes,
                     settings = container.localAiSettings.settings,
                     install = container.modelInstaller.state,
+                    active = container.localLanguageModel.active,
                     actions = LocalAiActions(
                         install = container.modelInstaller::install,
                         cancel = container.modelInstaller::cancel,

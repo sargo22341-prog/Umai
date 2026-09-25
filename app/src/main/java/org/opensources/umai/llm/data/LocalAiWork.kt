@@ -20,13 +20,13 @@ import org.opensources.umai.llm.domain.LlmProgress
  * the app would freeze it half way. The service runs from the first token to
  * the last, and its notification shows how far the model is.
  */
-class LocalAiWork(context: Context) {
+class LocalAiWork(context: Context) : ModelWork {
 
     private val context = context.applicationContext
     private val manager = this.context.getSystemService(NotificationManager::class.java)
     private val serviceIntent = Intent(this.context, LocalAiService::class.java)
     private var running = false
-    private var lastPercent = -1
+    private var lastWritten = -1
 
     init {
         manager.createNotificationChannel(
@@ -43,8 +43,8 @@ class LocalAiWork(context: Context) {
 
     /** Called from a screen on display: the app is in the foreground and may start the service. */
     @Synchronized
-    fun begin() {
-        lastPercent = -1
+    override fun begin() {
+        lastWritten = -1
         if (!running) {
             context.startForegroundService(serviceIntent)
             running = true
@@ -52,16 +52,17 @@ class LocalAiWork(context: Context) {
     }
 
     @Synchronized
-    fun progress(progress: LlmProgress) {
+    override fun progress(progress: LlmProgress) {
         if (!running) return
-        val percent = if (progress.readingPrompt) (progress.promptFraction * 100).toInt() else 100
-        if (percent == lastPercent && !(progress.generated > 0 && progress.generated % TOKEN_STEP == 0)) return
-        lastPercent = percent
+        // Once when the answer starts, then every few pieces written.
+        val step = progress.generated / TOKEN_STEP
+        if (step == lastWritten && progress.generated != 1) return
+        lastWritten = step
         manager.notify(NOTIFICATION_ID, notification(progress))
     }
 
     @Synchronized
-    fun end() {
+    override fun end() {
         if (!running) return
         context.stopService(serviceIntent)
         running = false
@@ -87,7 +88,7 @@ class LocalAiWork(context: Context) {
             progress == null -> builder.setProgress(0, 0, true)
             progress.readingPrompt -> builder
                 .setContentText(context.getString(R.string.local_ai_reading))
-                .setProgress(progress.promptTotal, progress.promptRead, false)
+                .setProgress(0, 0, true)
             else -> builder
                 .setContentText(
                     context.resources.getQuantityString(R.plurals.local_ai_writing, progress.generated, progress.generated),
@@ -101,7 +102,7 @@ class LocalAiWork(context: Context) {
         const val NOTIFICATION_ID = 2_000
         private const val CHANNEL = "local_ai"
 
-        /** How often, in tokens written, the notification is refreshed. */
+        /** How often, in pieces written, the notification is refreshed. */
         private const val TOKEN_STEP = 16
     }
 }

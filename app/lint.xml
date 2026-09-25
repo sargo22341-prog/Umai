@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!--
+      LiteRT-LM is held at the version built from the same LiteRT source as the Google Tensor
+      dispatch library LiteRT publishes: later versions refuse that library or crash the TPU in
+      native code (docs/local-ai.md). Every other outdated dependency is still reported.
+    -->
+    <issue id="GradleDependency">
+        <ignore regexp="com\.google\.ai\.edge\.litertlm:litertlm-android" />
+    </issue>
+</lint>

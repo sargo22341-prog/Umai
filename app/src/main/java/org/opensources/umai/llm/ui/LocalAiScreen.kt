@@ -31,7 +31,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -43,6 +42,7 @@ import org.opensources.umai.core.format.currentLocale
 import org.opensources.umai.llm.data.InstallFailure
 import org.opensources.umai.llm.data.InstallState
 import org.opensources.umai.llm.data.LlmBenchmark
+import org.opensources.umai.llm.domain.AiBackend
 import org.opensources.umai.llm.domain.LocalModel
 import org.opensources.umai.settings.ui.SettingsSectionHeader
 import org.opensources.umai.settings.ui.SettingsSwitchRow
@@ -113,6 +113,8 @@ fun LocalAiScreen(state: LocalAiUiState, actions: LocalAiScreenActions, modifier
                 return@LazyColumn
             }
 
+            item { Paragraph(deviceText(state)) }
+
             item {
                 SettingsSwitchRow(
                     title = stringResource(R.string.local_ai_enabled),
@@ -152,7 +154,9 @@ fun LocalAiScreen(state: LocalAiUiState, actions: LocalAiScreenActions, modifier
                     model = model,
                     recommended = model.id == state.recommended.id,
                     installed = model.id == state.installed?.id,
-                    tight = model.sizeBytes > state.deviceMemoryBytes * MEMORY_SHARE,
+                    sizeBytes = state.downloadSize(model),
+                    tpuChip = state.device.socName.takeIf { state.hasTpuBuild(model) },
+                    tight = state.isTight(model),
                     enabled = !state.busy,
                     onDownload = { actions.onDownload(model) },
                 )
@@ -168,11 +172,19 @@ fun LocalAiScreen(state: LocalAiUiState, actions: LocalAiScreenActions, modifier
 private fun InstalledModelCard(state: LocalAiUiState, model: LocalModel, actions: LocalAiScreenActions) {
     ModelCard {
         Text(model.name, style = MaterialTheme.typography.titleMedium)
-        if (model.sizeBytes > 0) {
+        val size = state.downloadSize(model)
+        if (size > 0) {
             Text(
-                text = stringResource(R.string.local_ai_model_meta, gigabytes(model.sizeBytes), model.license),
+                text = stringResource(R.string.local_ai_model_meta, gigabytes(size), model.license),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        state.active?.let { active ->
+            Text(
+                text = stringResource(R.string.local_ai_running_on, backendName(active.backend)),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
             )
         }
         state.benchmark?.let { BenchmarkResult(it) }
@@ -210,12 +222,11 @@ private fun BenchmarkResult(benchmark: LlmBenchmark) {
             style = MaterialTheme.typography.bodyMedium,
         )
         Text(
-            text = pluralStringResource(
-                R.plurals.local_ai_benchmark_details,
-                benchmark.threads,
+            text = stringResource(
+                R.string.local_ai_benchmark_details,
                 decimal(benchmark.loadMillis / 1000.0),
                 gigabytes(benchmark.memoryBytes),
-                benchmark.threads,
+                backendName(benchmark.backend),
             ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -287,6 +298,9 @@ private fun CatalogModelCard(
     model: LocalModel,
     recommended: Boolean,
     installed: Boolean,
+    sizeBytes: Long,
+    /** The chip whose TPU build of the model comes with it, if any. */
+    tpuChip: String?,
     tight: Boolean,
     enabled: Boolean,
     onDownload: () -> Unit,
@@ -298,10 +312,17 @@ private fun CatalogModelCard(
         }
         model.descriptionRes?.let { Text(stringResource(it), style = MaterialTheme.typography.bodyMedium) }
         Text(
-            text = stringResource(R.string.local_ai_model_meta, gigabytes(model.sizeBytes), model.license),
+            text = stringResource(R.string.local_ai_model_meta, gigabytes(sizeBytes), model.license),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        tpuChip?.let {
+            Text(
+                text = stringResource(R.string.local_ai_model_tpu, it),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (tight) {
             Text(
                 text = stringResource(R.string.local_ai_model_tight),
@@ -380,5 +401,17 @@ private fun gigabytes(bytes: Long): String = decimal(bytes / 1_000_000_000.0)
 @Composable
 private fun decimal(value: Double): String = String.format(currentLocale(), "%.1f", value)
 
-/** Above this share of the phone's memory, a model may not load next to the other apps. */
-private const val MEMORY_SHARE = 0.4
+@Composable
+private fun deviceText(state: LocalAiUiState): String = stringResource(
+    if (state.device.tpuReachable) R.string.local_ai_device_tpu else R.string.local_ai_device_no_tpu,
+    state.device.socName,
+)
+
+@Composable
+private fun backendName(backend: AiBackend): String = stringResource(
+    when (backend) {
+        AiBackend.TPU -> R.string.local_ai_backend_tpu
+        AiBackend.GPU -> R.string.local_ai_backend_gpu
+        AiBackend.CPU -> R.string.local_ai_backend_cpu
+    },
+)

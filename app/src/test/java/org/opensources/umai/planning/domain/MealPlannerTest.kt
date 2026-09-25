@@ -137,7 +137,6 @@ class ModelCourseClassifierTest {
     private class Answering(private val text: String, private val ready: Boolean = true) : LanguageModel {
         var asked: LlmRequest? = null
         override suspend fun isReady() = ready
-        override suspend fun tokenCount(text: String) = text.length
         override val contextSize = 16_384
         override suspend fun generate(request: LlmRequest, onProgress: (LlmProgress) -> Unit): LlmOutcome {
             asked = request

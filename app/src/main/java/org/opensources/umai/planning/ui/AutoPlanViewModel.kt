@@ -15,7 +15,6 @@ import org.opensources.umai.core.model.MealPlanEntry
 import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
-import org.opensources.umai.llm.domain.LlmProgress
 import org.opensources.umai.planning.data.DishPool
 import org.opensources.umai.planning.data.DishPoolPhase
 import org.opensources.umai.planning.data.DishPoolRepository
@@ -41,7 +40,6 @@ data class AutoPlanUiState(
     val scope: AutoPlanScope = AutoPlanScope.WEEK,
     val day: LocalDate = today,
     val phase: AutoPlanPhase? = null,
-    val modelProgress: LlmProgress? = null,
     val proposal: MealPlanProposal? = null,
     val error: NetworkError? = null,
     /** The instance holds no dish to plan: every recipe is a dessert, a drink or a side. */
@@ -111,7 +109,7 @@ class AutoPlanViewModel(
 
     fun close() {
         job?.cancel()
-        _state.update { it.copy(visible = false, phase = null, modelProgress = null) }
+        _state.update { it.copy(visible = false, phase = null) }
     }
 
     fun setScope(scope: AutoPlanScope) = _state.update { it.copy(scope = scope, proposal = null, noDishes = false) }
@@ -177,7 +175,7 @@ class AutoPlanViewModel(
 
     private suspend fun gather(): DishPool? {
         val state = _state.value
-        val result = dishes.dishPool(state.today, random) { phase, progress ->
+        val result = dishes.dishPool(state.today, random) { phase ->
             _state.update {
                 it.copy(
                     phase = when (phase) {
@@ -185,13 +183,12 @@ class AutoPlanViewModel(
                         DishPoolPhase.READING_DISHES -> AutoPlanPhase.READING_DISHES
                         DishPoolPhase.RECOGNIZING -> AutoPlanPhase.RECOGNIZING
                     },
-                    modelProgress = progress,
                 )
             }
         }
         return when (result) {
             is ApiResult.Failure -> {
-                _state.update { it.copy(phase = null, modelProgress = null, error = result.error) }
+                _state.update { it.copy(phase = null, error = result.error) }
                 null
             }
             is ApiResult.Success -> {
@@ -208,7 +205,7 @@ class AutoPlanViewModel(
     }
 
     private fun compose(pool: DishPool) {
-        _state.update { it.copy(phase = AutoPlanPhase.COMPOSING, modelProgress = null) }
+        _state.update { it.copy(phase = AutoPlanPhase.COMPOSING) }
         val slots = _state.value.slots
         if (pool.candidates.isEmpty()) {
             _state.update { it.copy(phase = null, noDishes = true) }

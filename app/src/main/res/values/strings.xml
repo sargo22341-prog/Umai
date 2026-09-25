@@ -600,10 +600,7 @@
     <string name="local_ai_benchmark_failed">The model could not run. The phone may lack free memory: close other apps, or pick a smaller model.</string>
     <string name="local_ai_benchmark_generation">Writes %1$s tokens per second</string>
     <string name="local_ai_benchmark_prompt">Reads %1$s tokens per second</string>
-    <plurals name="local_ai_benchmark_details">
-        <item quantity="one">Loaded in %1$s s · %2$s GB of memory · %3$d core</item>
-        <item quantity="other">Loaded in %1$s s · %2$s GB of memory · %3$d cores</item>
-    </plurals>
+    <string name="local_ai_benchmark_details">Loaded in %1$s s · %2$s GB of memory · ran on the %3$s</string>
     <string name="local_ai_downloading">Downloading %1$s</string>
     <string name="local_ai_download_waiting">Waiting for a Wi-Fi network</string>
     <string name="local_ai_download_progress">%1$s of %2$s GB</string>
@@ -613,21 +610,28 @@
     <string name="local_ai_failure_space">Not enough free space for %1$s.</string>
     <string name="local_ai_failure_download">The download of %1$s failed. Try again later.</string>
     <string name="local_ai_failure_corrupted">The file of %1$s is damaged and was deleted. Try again.</string>
-    <string name="local_ai_failure_not_model">%1$s is not a GGUF model file.</string>
+    <string name="local_ai_failure_not_model">%1$s is not a LiteRT-LM model file (.litertlm).</string>
     <string name="local_ai_recommended">Recommended</string>
     <string name="local_ai_model_tight">Large for this phone: it may not load while other apps take memory.</string>
     <string name="local_ai_model_installed">Installed</string>
     <string name="local_ai_download">Download</string>
-    <string name="local_ai_custom_hint">Any instruction model in GGUF format that llama.cpp reads, by the address of its file, such as a Hugging Face download link. It replaces the installed model.</string>
-    <string name="local_ai_custom_label">Address of a .gguf file</string>
-    <string name="local_ai_custom_invalid">An https address ending with the .gguf file name</string>
-    <string name="local_ai_model_qwen4b">Quick, and good at understanding recipes in French and English. The best balance on a recent phone.</string>
-    <string name="local_ai_model_gemma4">Google\'s model for phones, strong in many languages. Slower to read long transcripts.</string>
-    <string name="local_ai_model_qwen9b">The most capable, for the finest results, but about twice as slow: a video takes several minutes.</string>
+    <string name="local_ai_custom_hint">Any instruction model in the LiteRT-LM format, by the address of its file, such as a Hugging Face download link. It runs on the GPU or the processor, and replaces the installed model.</string>
+    <string name="local_ai_custom_label">Address of a .litertlm file</string>
+    <string name="local_ai_custom_invalid">An https address ending with the .litertlm file name</string>
+    <string name="local_ai_model_gemma4_e2b">Google\'s model for phones, good at recipes in French and English. On a Pixel with a Tensor G5 or G6 chip, its build for the TPU comes with it.</string>
+    <string name="local_ai_model_gemma4_e4b">Larger and finer, for the best results, but slower. It runs on the GPU or the processor.</string>
+    <string name="local_ai_model_tpu">Includes the build for the TPU of the %1$s.</string>
+    <string name="local_ai_device_tpu">This phone has a %1$s chip: the model runs on its TPU when it can, otherwise on its GPU, and on its processor as a last resort.</string>
+    <string name="local_ai_device_no_tpu">This phone (%1$s) has no TPU the app can use: the model runs on its GPU, or on its processor when the GPU cannot.</string>
+    <string name="local_ai_running_on">Running on the %1$s</string>
+    <!-- The names of the processors, the same in every language. -->
+    <string name="local_ai_backend_tpu" translatable="false">TPU</string>
+    <string name="local_ai_backend_gpu" translatable="false">GPU</string>
+    <string name="local_ai_backend_cpu" translatable="false">CPU</string>
     <string name="local_ai_channel">Local AI</string>
     <string name="local_ai_channel_description">Shows the language model working on the phone.</string>
     <string name="local_ai_working">The local AI is working</string>
-    <string name="local_ai_reading">Reading</string>
+    <string name="local_ai_reading">Reading and writing</string>
     <plurals name="local_ai_writing">
         <item quantity="one">%d token written</item>
         <item quantity="other">%d tokens written</item>
@@ -640,7 +644,7 @@
     <string name="import_understanding">Rebuilding the recipe…</string>
     <string name="import_saving">Saving on Mealie…</string>
     <string name="import_model_loading">Loading the model…</string>
-    <string name="import_model_reading">Reading the video: %1$d%%</string>
+    <string name="import_model_reading">Reading the video and writing the recipe…</string>
     <plurals name="import_model_writing">
         <item quantity="one">Writing the recipe: %d token</item>
         <item quantity="other">Writing the recipe: %d tokens</item>

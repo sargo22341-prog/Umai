@@ -7,7 +7,6 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
-import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -20,8 +19,8 @@ import java.io.IOException
 
 private val Context.localAiDataStore: DataStore<Preferences> by preferencesDataStore(name = "umai_local_ai")
 
-/** A model being downloaded by the system's download manager. */
-data class PendingModel(val downloadId: Long, val model: LocalModel)
+/** A model being downloaded by the system's download manager, one download per file. */
+data class PendingModel(val downloadIds: List<Long>, val model: LocalModel)
 
 data class LocalAiSettings(
     /** The local AI can be turned off without deleting the model. */
@@ -42,8 +41,10 @@ class LocalAiSettingsStore(context: Context) {
             LocalAiSettings(
                 enabled = prefs[KeyEnabled] ?: true,
                 installed = model(prefs[KeyInstalledId], prefs[KeyInstalledUrl]),
-                pending = prefs[KeyPendingDownload]?.let { id ->
-                    model(prefs[KeyPendingId], prefs[KeyPendingUrl])?.let { PendingModel(id, it) }
+                pending = prefs[KeyPendingDownloads]?.let { ids ->
+                    model(prefs[KeyPendingId], prefs[KeyPendingUrl])?.let { model ->
+                        PendingModel(ids.split(',').mapNotNull(String::toLongOrNull), model)
+                    }
                 },
             )
         }
@@ -54,11 +55,11 @@ class LocalAiSettingsStore(context: Context) {
 
     suspend fun setPending(pending: PendingModel?) = dataStore.edit { prefs ->
         if (pending == null) {
-            prefs.remove(KeyPendingDownload)
+            prefs.remove(KeyPendingDownloads)
             prefs.remove(KeyPendingId)
             prefs.remove(KeyPendingUrl)
         } else {
-            prefs[KeyPendingDownload] = pending.downloadId
+            prefs[KeyPendingDownloads] = pending.downloadIds.joinToString(",")
             prefs.putModel(KeyPendingId, KeyPendingUrl, pending.model)
         }
     }
@@ -78,7 +79,7 @@ class LocalAiSettingsStore(context: Context) {
         model: LocalModel,
     ) {
         this[idKey] = model.id
-        if (model.isCustom) this[urlKey] = model.url else remove(urlKey)
+        if (model.isCustom) this[urlKey] = model.files.first().url else remove(urlKey)
     }
 
     private fun model(id: String?, url: String?): LocalModel? = when (id) {
@@ -91,7 +92,7 @@ class LocalAiSettingsStore(context: Context) {
         val KeyEnabled = booleanPreferencesKey("enabled")
         val KeyInstalledId = stringPreferencesKey("installed_model")
         val KeyInstalledUrl = stringPreferencesKey("installed_url")
-        val KeyPendingDownload = longPreferencesKey("pending_download")
+        val KeyPendingDownloads = stringPreferencesKey("pending_downloads")
         val KeyPendingId = stringPreferencesKey("pending_model")
         val KeyPendingUrl = stringPreferencesKey("pending_url")
     }

@@ -21,12 +21,9 @@
 -dontwarn org.bouncycastle.**
 -dontwarn org.openjsse.**
 
-# llm_bridge.cpp calls back GenerationListener.onProgress by name, and binds the
-# native methods of LlamaNative by their class and method names.
--keep interface org.opensources.umai.llm.data.GenerationListener { *; }
--keepclasseswithmembernames class org.opensources.umai.llm.data.LlamaNative {
-    native <methods>;
-}
+# LiteRT-LM ships no R8 rules: its native library binds the JNI methods and calls
+# back its callbacks and data classes by name, and reads tool classes by reflection.
+-keep class com.google.ai.edge.litertlm.** { *; }
 
 # NewPipeExtractor, as NewPipe itself ships it: the time-ago patterns are loaded
 # by name per language, YouTube's signature code runs in Rhino, which reaches

@@ -42,7 +42,6 @@ import org.opensources.umai.core.ui.component.RemoteImage
 import org.opensources.umai.core.ui.component.imageContentDescription
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
-import org.opensources.umai.llm.domain.LlmProgress
 import org.opensources.umai.planning.domain.MealPlanProposal
 import org.opensources.umai.planning.domain.PlannedMeal
 import org.opensources.umai.recipe.ui.labelRes
@@ -130,7 +129,7 @@ fun AutoPlanSheet(
             val proposal = state.proposal
             val error = state.error
             when {
-                phase != null -> Progress(phase, state.modelProgress)
+                phase != null -> Progress(phase)
                 proposal != null -> Proposal(state, proposal, actions, recipeImageUrl)
                 else -> Button(
                     onClick = actions.onPropose,
@@ -163,13 +162,9 @@ fun AutoPlanSheet(
 }
 
 @Composable
-private fun Progress(phase: AutoPlanPhase, progress: LlmProgress?) {
+private fun Progress(phase: AutoPlanPhase) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (phase == AutoPlanPhase.RECOGNIZING && progress != null && progress.readingPrompt) {
-            LinearProgressIndicator(progress = { progress.promptFraction }, modifier = Modifier.fillMaxWidth())
-        } else {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        }
+        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         Text(
             text = stringResource(
                 when (phase) {

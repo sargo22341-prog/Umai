@@ -2,12 +2,14 @@ package org.opensources.umai.core.di
 
 import android.app.ActivityManager
 import android.content.Context
+import android.os.Build
 import android.os.SystemClock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.map
 import okhttp3.OkHttpClient
+import org.opensources.umai.BuildConfig
 import org.opensources.umai.cooking.data.CookingTimerController
 import org.opensources.umai.cooking.data.SystemTimerAlarm
 import org.opensources.umai.cooking.data.SystemTimerHost
@@ -21,10 +23,13 @@ import org.opensources.umai.core.session.SessionStore
 import org.opensources.umai.core.settings.AppPreferencesRepository
 import org.opensources.umai.core.settings.LocaleController
 import org.opensources.umai.home.data.RecentRecipesStore
+import org.opensources.umai.llm.data.DeviceAccelerators
+import org.opensources.umai.llm.data.LiteRtLmLoader
 import org.opensources.umai.llm.data.LocalAiSettingsStore
 import org.opensources.umai.llm.data.LocalAiWork
 import org.opensources.umai.llm.data.LocalLanguageModel
 import org.opensources.umai.llm.data.ModelInstaller
+import org.opensources.umai.llm.data.TpuCrashGuard
 import org.opensources.umai.organizer.data.OrganizerRepository
 import org.opensources.umai.planning.data.DishCourseStore
 import org.opensources.umai.planning.data.DishPoolRepository
@@ -143,15 +148,29 @@ class AppContainer(context: Context) {
         .also { appContext.getSystemService(ActivityManager::class.java).getMemoryInfo(it) }
         .totalMem
 
+    private val nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir
+
+    private val tpuGuard = TpuCrashGuard(
+        marker = appContext.noBackupFilesDir.resolve("tpu-loading"),
+        build = "${BuildConfig.VERSION_CODE} ${Build.FINGERPRINT}",
+    )
+
+    /** The chip of this phone, and whether its TPU is within the app's reach. */
+    val aiDevice = DeviceAccelerators.profile(nativeLibraryDir, tpuGuard)
+
     val localAiSettings = LocalAiSettingsStore(appContext)
     val localAiWork = LocalAiWork(appContext)
-    val modelInstaller = ModelInstaller(appContext, localAiSettings, applicationScope).also { it.resume() }
+    val modelInstaller = ModelInstaller(appContext, localAiSettings, aiDevice.tensorChip, applicationScope)
+        .also { it.resume() }
+
+    private val liteRtLm = LiteRtLmLoader(nativeLibraryDir, appContext.cacheDir.resolve("litertlm"), tpuGuard)
 
     /** The on-device language model; every feature using it also works without it. */
     val localLanguageModel = LocalLanguageModel(
-        context = appContext,
-        store = localAiSettings,
-        installer = modelInstaller,
+        installed = modelInstaller::installedModel,
+        device = aiDevice,
+        loader = liteRtLm,
+        isSupported = liteRtLm.isAvailable,
         work = localAiWork,
         scope = applicationScope,
     )

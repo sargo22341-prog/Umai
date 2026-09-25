@@ -38,7 +38,7 @@ Avant de coder : lire ce fichier, parcourir le dépôt, et consulter `.context/`
 | Images | Coil 3 (`coil-network-okhttp`) |
 | Vidéo | Media3 ExoPlayer (+ HLS) |
 | YouTube | NewPipeExtractor (JitPack), sur le client OkHttp « sites externes » |
-| IA locale | llama.cpp (C++, NDK r30, `app/src/main/cpp`), modèles GGUF téléchargés à part |
+| IA locale | LiteRT-LM (TPU Tensor → GPU → CPU, derrière `AiEngine`), modèles `.litertlm` téléchargés à part |
 | Stockage | DataStore Preferences + Android Keystore |
 | Injection | `AppContainer` écrit à la main (§4) |
 
@@ -62,19 +62,23 @@ Pièges du build, déjà rencontrés — ne pas les réintroduire :
   `kotlin { compilerOptions }` racine.
 * Pas de rétrocompatibilité : utiliser directement les API Android 17, sans
   `Build.VERSION` ni bibliothèque de compat superflue.
-* llama.cpp est téléchargé à la compilation (release épinglée + SHA-256 dans
-  `app/src/main/cpp/CMakeLists.txt`) et n'est **jamais** copié dans le dépôt. Seuls ses dossiers
-  utiles sont extraits : `tools/ui` dépasse la limite de chemins de Windows.
+* La bibliothèque de dispatch TPU Google Tensor est téléchargée à la compilation (release LiteRT
+  épinglée + SHA-256, tâche `FetchTensorDispatch` de `app/build.gradle.kts`) et n'est **jamais**
+  copiée dans le dépôt.
+* LiteRT-LM est **épinglé à 0.14.0** : c'est la seule version construite depuis le même source
+  LiteRT que ce dispatch (v2.1.6). Les suivantes le refusent ou plantent le TPU en code natif. Ne
+  monter les deux qu'ensemble, puis repasser `LiteRtLmBackendTest` sur un Pixel Tensor G5/G6.
 * NewPipeExtractor n'est publié que sur JitPack : `settings.gradle.kts` limite ce dépôt au groupe
   `com.github.TeamNewPipe` (`exclusiveContent`). Ne pas l'ouvrir à d'autres groupes.
 * NewPipeExtractor : imposer la langue sur l'extracteur (`forceLocalization`), sa préférence globale
   ne suffit pas ; ses règles R8 (Rhino, protobuf-lite, `timeago.patterns`) sont dans
   `proguard-rules.pro`. Il n'expose que les chapitres posés par l'auteur, pas ceux que YouTube génère.
   Quand YouTube casse l'import, monter sa version plutôt que contourner. Détails : `docs/local-ai.md`.
-* `jniLibs.useLegacyPackaging = true` est nécessaire : llama.cpp choisit sa variante CPU en
-  listant le dossier des bibliothèques natives, vide si elles restent dans l'APK.
-* Le premier build natif prend une dizaine de minutes (7 variantes CPU) ; il est ensuite en cache.
-  Détails, mesures et choix du modèle : `docs/local-ai.md`.
+* `jniLibs.useLegacyPackaging = true` est nécessaire : LiteRT-LM charge le dispatch TPU par son
+  chemin dans le dossier des bibliothèques natives, vide si elles restent dans l'APK.
+* Ne jamais afficher un backend qui n'est pas prouvé : `DeviceAccelerators.missingDriver` vérifie
+  que le pilote du backend est chargé dans le processus. Le contexte CPU reste à 4 096 jetons : au-delà,
+  Android tue l'app (plafond mémoire de 4 Gio). Détails, mesures et choix du modèle : `docs/local-ai.md`.
 
 ---
 

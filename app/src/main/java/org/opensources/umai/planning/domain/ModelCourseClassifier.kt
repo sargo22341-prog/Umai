@@ -7,7 +7,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import org.opensources.umai.llm.domain.LanguageModel
 import org.opensources.umai.llm.domain.LlmOutcome
-import org.opensources.umai.llm.domain.LlmProgress
 import org.opensources.umai.llm.domain.LlmRequest
 
 /** A recipe no category, tag, name or past meal places, described for the model. */
@@ -21,7 +20,7 @@ data class UnplacedRecipe(val id: String, val name: String, val ingredients: Lis
  */
 class ModelCourseClassifier(private val model: LanguageModel) {
 
-    suspend fun classify(recipes: List<UnplacedRecipe>, onProgress: (LlmProgress) -> Unit = {}): Map<String, DishCourse> {
+    suspend fun classify(recipes: List<UnplacedRecipe>): Map<String, DishCourse> {
         if (recipes.isEmpty() || !model.isReady()) return emptyMap()
         val found = mutableMapOf<String, DishCourse>()
         recipes.chunked(BATCH).forEach { batch ->
@@ -36,7 +35,7 @@ class ModelCourseClassifier(private val model: LanguageModel) {
                 maxTokens = batch.size * TOKENS_PER_ITEM + TOKENS_OVERHEAD,
                 temperature = 0f,
             )
-            val outcome = model.generate(request, onProgress) as? LlmOutcome.Success ?: return found
+            val outcome = model.generate(request) as? LlmOutcome.Success ?: return found
             parse(outcome.text).forEach { (code, course) -> codes[code]?.let { found[it.id] = course } }
         }
         return found

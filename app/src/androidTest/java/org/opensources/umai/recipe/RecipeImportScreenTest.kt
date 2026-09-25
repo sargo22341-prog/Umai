@@ -177,12 +177,12 @@ class RecipeImportScreenTest {
                 isVideo = true,
                 videoUsesModel = true,
                 phase = ImportPhase.UNDERSTANDING,
-                modelProgress = LlmProgress(promptRead = 1_000, promptTotal = 4_000, generated = 0),
+                modelProgress = LlmProgress(generated = 0),
             ),
         )
 
         rule.onNodeWithText(string(R.string.import_understanding)).assertIsDisplayed()
-        rule.onNodeWithText(string(R.string.import_model_reading, 25)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.import_model_reading)).assertIsDisplayed()
         rule.onNodeWithText(string(R.string.action_cancel)).assertIsDisplayed()
     }
 

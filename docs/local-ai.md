@@ -13,7 +13,7 @@ classique.
 | Planning automatique | Classe les recettes que rien ne situe (ni catégorie, ni tag, ni nom, ni historique). | Ces recettes sont jugées sur leurs ingrédients (sucré seul = dessert). |
 
 Restent volontairement **algorithmiques**, parce qu'un algorithme y est plus fiable qu'un modèle
-de 4 milliards de paramètres :
+de téléphone :
 
 - le lien étape ↔ ingrédients (`IngredientLinker`, par les noms) : essayé avec le modèle (positions
   dans la liste), il reliait des ingrédients faux lors de l'essai sur le téléphone (le vin rouge à
@@ -25,76 +25,119 @@ de 4 milliards de paramètres :
 - la liste finale des ingrédients (`IngredientMerge`, `IngredientEvidence`) : une ligne par aliment,
   et une quantité seulement si une source l'écrit ou la dit (voir *Ingrédients* plus bas).
 
-La réponse du modèle est **contrainte par un schéma JSON** : llama.cpp convertit le schéma en
-grammaire GBNF et n'autorise que les jetons qui la respectent. La réponse est donc toujours du JSON
-valide, puis elle est vérifiée (débuts d'étapes hors de la vidéo ou dans le désordre écartés, champs
-vides complétés par les règles).
+La réponse du modèle est **contrainte par un schéma JSON** : le runtime n'autorise que les jetons qui
+le respectent, donc la réponse est toujours du JSON valide, puis elle est vérifiée (débuts d'étapes
+hors de la vidéo ou dans le désordre écartés, champs vides complétés par les règles). Avec la version
+de LiteRT-LM utilisée (voir plus bas), seul le décodage des **appels d'outils** est contraint : le
+schéma devient les paramètres de l'unique outil `answer` par lequel le modèle répond, et l'app lit
+les arguments de l'appel (`LiteRtLmEngine`).
 
-## Runtime : llama.cpp, sur le CPU
+## Runtime : LiteRT-LM, sur le TPU, le GPU ou le CPU
 
-- **llama.cpp** (licence MIT), épinglé à la release `b11179` et vérifié par SHA-256
-  (`app/src/main/cpp/CMakeLists.txt`). Le code source n'est pas dans le dépôt : il est téléchargé à
-  la compilation, et seuls les dossiers utiles sont extraits (le dossier `tools/ui` dépasse la
-  limite de longueur des chemins de Windows).
-- Le backend CPU est compilé en 7 variantes (ARMv8.0 à ARMv9.2, `GGML_CPU_ALL_VARIANTS`) : la
-  meilleure pour le processeur est chargée à l'exécution (i8mm/SVE2 sur un Tensor G5, dotprod sur un
-  Tensor G1). Il faut pour cela que les bibliothèques soient extraites de l'APK
-  (`jniLibs.useLegacyPackaging = true`).
-- Pont JNI : `app/src/main/cpp/llm_bridge.cpp`, côté Kotlin `llm/data/LlamaNative.kt`.
-- Modèle chargé sans `mmap` (les poids sont réorganisés pour les instructions matricielles : avec
-  `mmap`, le fichier restait résident à côté de la copie, 6,3 Go au lieu de 4,2 Go), puis libéré
-  une minute après la dernière utilisation.
-- Contexte de 16 384 jetons, soit la transcription d'une vidéo d'environ 20 minutes.
-- Un service de premier plan tient l'application en vie pendant une génération : on peut passer à
-  une autre application pendant l'import d'une vidéo.
+- **LiteRT-LM** (Google, Apache 2.0), dépendance Maven `com.google.ai.edge.litertlm:litertlm-android`,
+  sans aucun service Google Play. Il est isolé derrière l'interface `AiEngine`
+  (`llm/domain/AiEngine.kt`) : seul `llm/data/LiteRtLmEngine.kt` l'importe.
+- **Ordre des backends : TPU → GPU → CPU** (`LocalLanguageModel`). Un backend n'est retenu qu'une
+  fois le modèle chargé **et prouvé** dessus : après le chargement, `DeviceAccelerators.missingDriver`
+  vérifie dans `/proc/self/maps` que le pilote du backend est bien chargé dans le processus
+  (`libLiteRtDispatch_GoogleTensor.so` et `libedgetpu_litert.so` pour le TPU, `libOpenCL*.so` pour le
+  GPU) ; l'app ne charge jamais ces bibliothèques elle-même, leur présence prouve donc que le runtime
+  s'en sert. Un runtime qui accepterait le TPU en retombant en silence sur le CPU ne passerait pas ce
+  contrôle : l'écran n'affiche jamais « TPU » pour une inférence qui tourne ailleurs.
+- Un backend qui échoue au chargement est écarté jusqu'au redémarrage de l'app ; une réponse qui
+  échoue en cours d'écriture est reprise sur le backend suivant. Un prompt trop long pour le contexte
+  d'un backend va directement au suivant ; si seul un backend à grand contexte pouvait le prendre et
+  qu'il échoue, l'appelant reçoit `TOO_LONG` et raccourcit la transcription.
+- Journal (`adb logcat -s UmaiAi`) : `Backend: TPU | Model: Gemma 4 E2B | SoC: Tensor G5` au
+  chargement, puis après chaque réponse les vitesses mesurées par le runtime
+  (`prompt 130 tokens at 136,6/s | answer 50 tokens at 13,9/s`).
+- Modèle chargé en `mmap`, libéré une minute après la dernière utilisation. Un service de premier
+  plan tient l'app en vie pendant une génération.
 
-### Pourquoi pas le TPU, le GPU ou un autre runtime
+### Le TPU Tensor
 
-- **TPU du Tensor G5** : il n'est accessible aux applications tierces qu'à travers le *Google Tensor
-  SDK*, en bêta fermée (inscription, compilation Bazel, bibliothèques de dispatch Google). AICore
-  (Gemini Nano) exige les services Google Play, absents de GrapheneOS. Pas utilisable ici.
-- **GPU** : le Tensor G5 a un GPU PowerVR ; le backend Vulkan de llama.cpp y est signalé comme
-  instable (sorties nulles, plantages du compilateur de shaders), et le backend OpenCL vise les
-  GPU Adreno. Le CPU reste le chemin fiable.
-- **LiteRT-LM / MediaPipe** : format de modèle propre (`.litertlm`), catalogue restreint, et
-  accélération NPU liée au même SDK Tensor ; GGUF + llama.cpp permet n'importe quel modèle de
-  Hugging Face, y compris un modèle personnalisé saisi par son adresse.
+- LiteRT-LM passe par une **bibliothèque de dispatch** Google Tensor, qui remet le modèle compilé au
+  pilote TPU du téléphone (`/vendor/lib64/libedgetpu_litert.so`, déclaré public par le fabricant,
+  `<uses-native-library>` dans le manifeste). Google la publie précompilée avec chaque release de
+  LiteRT (`litert_npu_runtime_libraries.zip`, Apache 2.0, construite depuis
+  `litert/vendors/google_tensor/dispatch`) ; elle est téléchargée à la compilation, à une release
+  épinglée, vérifiée par SHA-256 (`FetchTensorDispatch`, `app/build.gradle.kts`), jamais commitée.
+  Box fait de même (en la commitant dans son dépôt) ; umai reprend le mécanisme, pas Box.
+- **Le dispatch et le runtime doivent venir du même source LiteRT** : l'API qu'ils partagent change
+  sans numéro de version. Essais sur le Pixel 10 Pro XL :
 
-## Modèles mesurés (Pixel 10 Pro XL, Tensor G5, 16 Go, GrapheneOS)
+  | LiteRT-LM (LiteRT embarqué) | Dispatch | Résultat |
+  |---|---|---|
+  | 0.17.1 (`9fe5be4`, 27/08) | v2.2.0 | SIGSEGV dans le dispatch (options Google Tensor) |
+  | 0.16.1 (`0ff2811`, 03/08) | v2.1.6 | « Unsupported dispatch runtime version » |
+  | 0.15.0 (`3cb830a`, 28/07) | v2.1.6 | SIGSEGV (pointeur de fonction nul) |
+  | **0.14.0** (`622f1f3`, 29/06) | **v2.1.6** (`1461b6b`, un commit plus tôt) | **TPU utilisé** |
 
-Mesures de l'écran *Tester la vitesse* (invite d'environ 300 jetons, 64 jetons générés, 6 fils) :
+  D'où l'épinglage de LiteRT-LM à **0.14.0** (commentaire dans `gradle/libs.versions.toml`,
+  avertissement lint ciblé dans `app/lint.xml`). Cette version n'a pas encore `ResponseFormat` : d'où
+  le schéma porté par un appel d'outil (plus haut), et une réponse livrée **d'un bloc** une fois
+  écrite (l'app ne peut plus compter les jetons pendant l'écriture ; la progression affiche « lecture
+  et rédaction »). Monter de version exige un dispatch publié du même source : comparer le
+  `LITERT_REF` du `WORKSPACE` de LiteRT-LM au commit de la release LiteRT, puis passer le test
+  matériel.
+- Un dispatch incompatible plante **en code natif**, hors de portée d'un `try`. `TpuCrashGuard`
+  pose un marqueur avant le chargement TPU et le retire après : trouvé au démarrage suivant, il écarte
+  le TPU pour cette version de l'app sur cette version du système, et le modèle tourne sur le GPU ou
+  le CPU.
+- Puces prises en charge : **Tensor G5 et G6** (`TensorChip`, d'après `Build.SOC_MODEL`), les seules
+  pour lesquelles Google publie des modèles compilés pour le TPU. Sur les Tensor G1 à G4 : GPU puis
+  CPU.
+- Fonctionne sous **GrapheneOS**, sans services Google Play ni AICore : vérifié sur un Pixel 10 Pro XL
+  (le service `com.google.edgetpu.tachyon` et le pilote `/dev/edgetpu` démarrent dans le journal).
 
-| Modèle (GGUF Q4_K_M) | Fichier | Lecture | Écriture | Mémoire | Chargement |
-|---|---|---|---|---|---|
-| **Qwen3.5 4B** (recommandé) | 2,7 Go | 44 jetons/s | 6,5 jetons/s | 4,2 Go | 5,0 s |
-| Gemma 4 E4B | 5,0 Go | 26 jetons/s | 6,2 jetons/s | 6,6 Go | 8,9 s |
-| Qwen3.5 9B | 5,7 Go | 26 jetons/s | 3,8 jetons/s | 6,5 Go | 11,0 s |
+### Mémoire et contexte
 
-Import réel de la vidéo *Lasagnes* de 750g (7 min, chapitres et transcription automatique) avec
-Qwen3.5 4B : **4 min 13 s** au total (≈ 25 s de lecture, le reste en rédaction), recette de
-5 étapes titrées reliées à la vidéo, ingrédients avec quantités, minuteurs détectés dans les étapes.
+Android 17 plafonne la mémoire anonyme + swap d'une app (**4 Gio** sur le Pixel 10 Pro XL,
+`MemoryLimiter`) et la tue au-delà. Mesures (`LiteRtLmBackendTest`, mémoire anonyme après une
+réponse courte) :
 
-Choix : **Qwen3.5 4B** par défaut. Ce n'est pas le plus petit modèle disponible (0,8B et 2B
-existent), mais le meilleur compromis mesuré : il lit les transcriptions presque deux fois plus
-vite que les deux autres, pour une qualité suffisante sur la compréhension des recettes en français
-et en anglais. Qwen3.5 9B reste proposé pour qui accepte un import nettement plus long (estimé à environ
-7 à 8 minutes pour la même vidéo, d'après ses vitesses mesurées). Les trois
-modèles sont sous licence Apache 2.0.
+| Backend | Contexte | Mémoire anonyme | Lecture | Écriture |
+|---|---|---|---|---|
+| TPU (fichier Tensor G5) | 4 096 (fixé à la compilation) | 150 Mo | 120–280 jetons/s | **13,7 jetons/s** |
+| GPU (PowerVR, OpenCL) | 16 384 | 570 Mo | 64–77 jetons/s | 3,6–4,1 jetons/s |
+| CPU (XNNPACK, 6 fils) | 16 384 | 7,6 Go + 4,4 Go de swap : **tuée** | 9 jetons/s | 2,0 jetons/s |
+| CPU | 8 192 | 3,5 Go, plafond atteint | 15 jetons/s | 9,4 jetons/s |
+| **CPU** | **4 096** | **1,7 Go** | 21 jetons/s | **16,1 jetons/s** |
+
+D'où un contexte de **16 384** sur GPU et **4 096** sur CPU (`ModelFile.contextSizeOn`). Le premier
+chargement GPU prend près d'une minute (le GPU PowerVR fait préparer ses poids par le CPU) ; les
+suivants profitent du cache (`cacheDir/litertlm`).
+
+## Modèles
+
+Publiés par la communauté LiteRT sur Hugging Face (`litert-community`), sous licence Apache 2.0 :
+
+| Modèle | Fichiers téléchargés | Taille |
+|---|---|---|
+| **Gemma 4 E2B** (recommandé) | universel (GPU, CPU) + version Tensor G5 ou G6 (TPU) selon la puce | 2,6 Go, 5,7 Go avec le TPU G5 |
+| Gemma 4 E4B | universel (GPU, CPU) | 3,7 Go |
+
+Sur un Tensor G5 ou G6, les deux fichiers de Gemma 4 E2B sont gardés : le fichier TPU ne tourne que
+sur le TPU, avec 4 096 jetons de contexte ; le fichier universel sert au GPU (prompts longs : la
+transcription d'une vidéo) et au CPU (dernier recours). Les anciens modèles GGUF de llama.cpp sont
+supprimés au démarrage.
 
 ## Téléchargement
 
 - Par le gestionnaire de téléchargement du système (reprise après coupure, notification),
   **en Wi-Fi uniquement**, dans le stockage propre de l'application (supprimé avec elle).
-- Fichier vérifié avant usage : SHA-256 pour les modèles du catalogue, en-tête `GGUF` pour un
-  modèle saisi par son adresse. Un seul modèle est gardé : le précédent est supprimé une fois le
-  nouveau vérifié.
+- Chaque fichier est vérifié avant usage : en-tête `LITERTLM`, et SHA-256 pour les modèles du
+  catalogue. Un seul modèle est gardé : le précédent est supprimé une fois le nouveau vérifié.
 
 ## Faire évoluer
 
-- Nouveau modèle sans mise à jour : *Un autre modèle*, adresse `https://…/fichier.gguf`.
+- Nouveau modèle sans mise à jour : *Un autre modèle*, adresse `https://…/fichier.litertlm`
+  (GPU et CPU seulement : une version TPU ne tourne que sur la puce pour laquelle elle est compilée).
 - Nouveau modèle au catalogue : `llm/domain/LocalModels.kt` (adresse, taille, SHA-256 donnés par
   l'API Hugging Face `https://huggingface.co/api/models/<dépôt>/tree/main`).
-- Nouvelle version de llama.cpp : `LLAMA_TAG` et `LLAMA_SHA256` dans `app/src/main/cpp/CMakeLists.txt`.
+- Vérifier le TPU sur un téléphone : mettre les fichiers dans
+  `/sdcard/Android/data/org.opensources.umai.debug/files/models/` (téléchargés par l'app, ou
+  `adb push`), puis `connectedDebugAndroidTest` (classe `LiteRtLmBackendTest`, ignorée sans eux).
 
 ## YouTube
 

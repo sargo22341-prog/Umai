@@ -45,6 +45,22 @@
         android:theme="@style/Theme.Umai.Starting">
 
         <!--
+          The drivers the on-device language model (LiteRT-LM) runs on, which the vendor of the
+          phone publishes to apps: the TPU of a Google Tensor chip, and the GPU through OpenCL.
+          Android only lets an app load them once declared. None is required: without them, the
+          model runs on the CPU.
+        -->
+        <uses-native-library
+            android:name="libedgetpu_litert.so"
+            android:required="false" />
+        <uses-native-library
+            android:name="libOpenCL.so"
+            android:required="false" />
+        <uses-native-library
+            android:name="libOpenCL-pixel.so"
+            android:required="false" />
+
+        <!--
           The app is designed for portrait only, on purpose: its layouts are not made for landscape.
           LockedOrientationActivity and DiscouragedApi are ignored for that reason; Android itself
           lifts the lock on large screens (600dp and wider), where the layouts still work.

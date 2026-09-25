@@ -14,7 +14,6 @@ import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.network.api.MealieApi
 import org.opensources.umai.core.network.apiCall
-import org.opensources.umai.llm.domain.LlmProgress
 import org.opensources.umai.planning.domain.CourseClassifier
 import org.opensources.umai.planning.domain.CourseVocabulary
 import org.opensources.umai.planning.domain.DishCourse
@@ -57,10 +56,10 @@ class DishPoolRepository(
     suspend fun dishPool(
         today: LocalDate,
         random: Random,
-        onPhase: (DishPoolPhase, LlmProgress?) -> Unit,
+        onPhase: (DishPoolPhase) -> Unit,
     ): ApiResult<DishPool> {
         val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        onPhase(DishPoolPhase.READING_RECIPES, null)
+        onPhase(DishPoolPhase.READING_RECIPES)
         val recipes = when (val result = allRecipes(api, queryFilter = null)) {
             is ApiResult.Failure -> return result
             is ApiResult.Success -> result.value
@@ -95,7 +94,7 @@ class DishPoolRepository(
                 }
             ).distinctBy { it.id }
 
-        onPhase(DishPoolPhase.READING_DISHES, null)
+        onPhase(DishPoolPhase.READING_DISHES)
         val details = when (val result = details(api, sampled)) {
             is ApiResult.Failure -> return result
             is ApiResult.Success -> result.value
@@ -105,12 +104,12 @@ class DishPoolRepository(
         val decided = if (unplaced.isEmpty()) {
             emptyMap()
         } else {
-            onPhase(DishPoolPhase.RECOGNIZING, null)
+            onPhase(DishPoolPhase.RECOGNIZING)
             modelClassifier.classify(
                 unplaced.map { recipe ->
                     UnplacedRecipe(recipe.id, recipe.name, recipe.ingredients.mapNotNull(IngredientKeys::keyOf).distinct())
                 },
-            ) { onPhase(DishPoolPhase.RECOGNIZING, it) }.also { courses.rememberModelCourses(it) }
+            ).also { courses.rememberModelCourses(it) }
         }
 
         val candidates = details.mapNotNull { recipe ->

@@ -17,11 +17,10 @@ import org.opensources.umai.recipe.domain.VideoChapter
 class ScriptedModel(private val answers: List<LlmOutcome>, private val ready: Boolean = true) : LanguageModel {
     val requests = mutableListOf<LlmRequest>()
     override suspend fun isReady() = ready
-    override suspend fun tokenCount(text: String): Int = text.length / 3
     override val contextSize: Int = 16_384
     override suspend fun generate(request: LlmRequest, onProgress: (LlmProgress) -> Unit): LlmOutcome {
         requests += request
-        onProgress(LlmProgress(10, 10, 1))
+        onProgress(LlmProgress(1))
         return answers.getOrElse(requests.size - 1) { answers.last() }
     }
 }

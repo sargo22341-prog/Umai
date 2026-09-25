@@ -112,7 +112,7 @@ class DishPoolRepositoryTest {
         DishPoolRepository({ fake.api() }, courses, ModelCourseClassifier(model))
 
     private suspend fun DishPoolRepository.ids(): Set<String> =
-        (dishPool(today, Random(3)) { _, _ -> } as ApiResult.Success).value.candidates.map { it.recipe.id }.toSet()
+        (dishPool(today, Random(3)) { } as ApiResult.Success).value.candidates.map { it.recipe.id }.toSet()
 
     @Test
     fun `only dishes are kept, whatever tells them apart`() = runTest {
@@ -149,7 +149,7 @@ class DishPoolRepositoryTest {
     fun `a rule of the household comes with the recipes it allows`() = runTest {
         mealie.rules = """{"items":[{"id":"r","day":"friday","entryType":"dinner","queryFilterString":"tags.name = \"Four\""}]}"""
 
-        val pool = (repository().dishPool(today, Random(3)) { _, _ -> } as ApiResult.Success).value
+        val pool = (repository().dishPool(today, Random(3)) { } as ApiResult.Success).value
 
         val rule = pool.rules.single()
         assertEquals(java.time.DayOfWeek.FRIDAY, rule.day)
@@ -159,7 +159,7 @@ class DishPoolRepositoryTest {
     @Test
     fun `an unreachable instance is reported`() = runTest {
         fake.shutdown()
-        val result = repository().dishPool(today, Random(3)) { _, _ -> }
+        val result = repository().dishPool(today, Random(3)) { }
         assertTrue((result as ApiResult.Failure).error is NetworkError.Unreachable)
     }
 

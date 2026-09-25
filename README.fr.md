@@ -158,7 +158,7 @@ Elles viennent de l'API Mealie, pas de l'application :
 | Réseau | Retrofit, OkHttp, Kotlin Serialization |
 | Images | Coil |
 | Vidéo | Media3 ExoPlayer (HLS) |
-| IA locale | llama.cpp (NDK), modèles GGUF |
+| IA locale | LiteRT-LM (TPU Tensor → GPU → CPU), modèles `.litertlm` |
 | Stockage | DataStore |
 | Sécurité | Android Keystore (AES-GCM) |
 | Injection | Conteneur écrit à la main |
