@@ -34,6 +34,15 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!--
+      The barcode of a product is read live from the camera (BarcodeScannerDialog), which asks
+      for this the first time. A phone without a camera still types the barcode.
+    -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
     <application
         android:name=".UmaiApplication"
         android:allowBackup="false"

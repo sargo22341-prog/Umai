@@ -801,6 +801,11 @@
     <string name="food_barcode_field">Code-barres</string>
     <string name="food_barcode_search">Rechercher</string>
     <string name="food_barcode_searching">Recherche du produit…</string>
+    <string name="food_scanner_hint">Placez le code-barres dans le cadre</string>
+    <string name="food_scanner_permission">Umai a besoin de l\'appareil photo pour lire le code-barres. Autorisez-le dans les paramètres système de l\'application, ou saisissez les chiffres du code-barres.</string>
+    <string name="food_scanner_failed">L\'appareil photo n\'a pas pu être ouvert. Saisissez plutôt les chiffres du code-barres.</string>
+    <string name="food_scanner_torch_on">Allumer la lampe</string>
+    <string name="food_scanner_torch_off">Éteindre la lampe</string>
     <string name="food_lookup_unreadable">Aucun code-barres n\'a pu être lu sur la photo. Réessayez de plus près, les barres bien nettes, ou saisissez ses chiffres.</string>
     <string name="food_lookup_invalid">Ce n\'est pas un code-barres valide : vérifiez ses chiffres.</string>
     <string name="food_lookup_not_found">Open Food Facts ne connaît pas ce produit : décrivez-le à la main.</string>

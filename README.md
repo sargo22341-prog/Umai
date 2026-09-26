@@ -176,7 +176,8 @@ with no warranty. Full text: [`LICENSE`](LICENSE).
 
 The app reads YouTube with [NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor),
 itself under GPL-3.0-or-later; every other dependency is under a license compatible with the GPLv3
-(Apache 2.0, MIT, BSD, MPL 2.0). Barcodes are read with [ZXing](https://github.com/zxing/zxing)
+(Apache 2.0, MIT, BSD, MPL 2.0). Barcodes are read live from the camera with
+[CameraX](https://developer.android.com/media/camera/camerax) and [ZXing](https://github.com/zxing/zxing)
 (Apache 2.0), and products looked up in [Open Food Facts](https://world.openfoodfacts.org), whose
 data is under the Open Database License.
 

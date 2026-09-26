@@ -151,8 +151,12 @@ dependencies {
     // Runs the on-device language model on the TPU, the GPU or the CPU (Apache 2.0).
     implementation(libs.litertlm.android)
 
-    // Reads the barcode of a product on a photo, without Google Play Services (Apache 2.0).
+    // Reads the barcode of a product, live from the camera or on a picture,
+    // without Google Play Services (Apache 2.0).
     implementation(libs.zxing.core)
+    implementation(libs.camerax.camera2)
+    implementation(libs.camerax.lifecycle)
+    implementation(libs.camerax.compose)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

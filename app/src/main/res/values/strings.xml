@@ -790,6 +790,11 @@
     <string name="food_barcode_field">Barcode</string>
     <string name="food_barcode_search">Search</string>
     <string name="food_barcode_searching">Looking the product up…</string>
+    <string name="food_scanner_hint">Place the barcode inside the frame</string>
+    <string name="food_scanner_permission">Umai needs the camera to read the barcode. Allow it from the system settings of the app, or type the digits of the barcode.</string>
+    <string name="food_scanner_failed">The camera could not be opened. Type the digits of the barcode instead.</string>
+    <string name="food_scanner_torch_on">Turn the light on</string>
+    <string name="food_scanner_torch_off">Turn the light off</string>
     <string name="food_lookup_unreadable">No barcode could be read on the photo. Try again closer, with the bars sharp, or type its digits.</string>
     <string name="food_lookup_invalid">This is not a valid barcode: check its digits.</string>
     <string name="food_lookup_not_found">Open Food Facts does not know this product: describe it by hand.</string>

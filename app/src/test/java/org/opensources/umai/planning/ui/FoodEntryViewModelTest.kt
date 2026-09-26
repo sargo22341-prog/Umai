@@ -119,7 +119,7 @@ class FoodEntryViewModelTest {
         fake.enqueueJson(SANDWICH)
         val vm = viewModel(photos = photos)
 
-        vm.scanBarcode("content://barcode")
+        vm.readBarcodePicture("content://barcode")
         val state = vm.await { it.found != null && !it.processingPhoto }
 
         assertEquals(FoodEntryMode.AUTO, state.mode)
@@ -137,13 +137,26 @@ class FoodEntryViewModelTest {
     }
 
     @Test
+    fun `a barcode read by the camera is looked up`() = runBlocking {
+        fake.enqueueJson(SANDWICH)
+        val vm = viewModel(downloaded = null)
+
+        vm.barcodeScanned("3560070565313")
+        val state = vm.await { it.found != null }
+
+        assertEquals("3560070565313", state.barcode)
+        assertEquals("CLASSIC' Jambon Beurre", state.name)
+        assertEquals("/api/v2/product/3560070565313", fake.takeRequest().url.encodedPath)
+    }
+
+    @Test
     fun `a photo already taken is not replaced by the one of the database`() = runBlocking {
         val photos = FakePlanPhotos()
         fake.enqueueJson(SANDWICH)
         val vm = viewModel(photos = photos)
         vm.setPhoto("content://photo", CropRegion.Full)
 
-        vm.scanBarcode("content://barcode")
+        vm.readBarcodePicture("content://barcode")
         vm.await { it.found != null && !it.processingPhoto }
 
         assertTrue(photos.kept.isEmpty())
@@ -154,7 +167,7 @@ class FoodEntryViewModelTest {
         fake.enqueueJson("""{"status":0,"status_verbose":"product not found"}""", code = 404)
         val vm = viewModel()
 
-        vm.scanBarcode("content://barcode")
+        vm.readBarcodePicture("content://barcode")
         val state = vm.await { !it.searching && it.lookupIssue != null }
 
         assertEquals(LookupIssue.NOT_FOUND, state.lookupIssue)
@@ -167,7 +180,7 @@ class FoodEntryViewModelTest {
         fake.enqueueJson("""{"status":1,"product":{"product_name":"Madeleines","nutriments":{}}}""")
         val vm = viewModel(downloaded = null)
 
-        vm.scanBarcode("content://barcode")
+        vm.readBarcodePicture("content://barcode")
         val state = vm.await { !it.searching && it.lookupIssue != null }
 
         assertEquals(LookupIssue.NO_NUTRITION, state.lookupIssue)
@@ -178,7 +191,7 @@ class FoodEntryViewModelTest {
     @Test
     fun `a photo without a barcode, or digits that are not one, are told apart`() = runBlocking {
         val unreadable = viewModel(scanned = null)
-        unreadable.scanBarcode("content://barcode")
+        unreadable.readBarcodePicture("content://barcode")
         assertEquals(LookupIssue.UNREADABLE, unreadable.await { !it.searching }.lookupIssue)
 
         val mistyped = viewModel()

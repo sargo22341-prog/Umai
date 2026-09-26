@@ -8,6 +8,7 @@ liste des commits. Détails : [docs/release.md](docs/release.md).
 
 <!-- notes -->
 
+- Ajout d'un produit : le code-barres se scanne maintenant en direct dans l'application, avec un cadre de visée et une lampe, au lieu d'une photo à prendre et valider ; bien plus fiable.
 - Import vidéo : sans sous-titres (ou quand YouTube les refuse), l'IA locale écoute la vidéo, et regarde ses images quand rien n'y est dit, pour placer chaque étape au bon moment.
 - Import vidéo : les chapitres ne sont plus devinés quand la vidéo ne donne aucun repère, et le nombre de portions et les temps lus par l'IA ne sont plus perdus.
 - Modifier une recette : nouvel onglet Vidéo pour placer ou corriger le début et la fin de chaque étape dans la vidéo, avec le lecteur à portée de main.

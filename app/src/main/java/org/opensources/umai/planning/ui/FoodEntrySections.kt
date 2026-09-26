@@ -1,5 +1,6 @@
 package org.opensources.umai.planning.ui
 
+import android.content.ActivityNotFoundException
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -35,6 +36,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -42,11 +44,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import org.opensources.umai.R
+import org.opensources.umai.core.image.CameraCapture
 import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.ui.component.CropFrame
 import org.opensources.umai.core.ui.component.ImagePicker
@@ -362,4 +366,32 @@ private fun LabelIssue.messageRes(): Int = when (this) {
     LabelIssue.PICTURE_UNREADABLE -> R.string.food_label_picture_unreadable
     LabelIssue.NOTHING_FOUND -> R.string.food_label_nothing
     LabelIssue.FAILED -> R.string.food_label_failed
+}
+
+/**
+ * Takes one photo with the camera app, into a file Umai shares with it, for a
+ * picture that is read at once. The function returned answers false when the
+ * phone has no camera app.
+ */
+@Composable
+internal fun rememberPhotoTaker(onTaken: (String) -> Unit): () -> Boolean {
+    val context = LocalContext.current
+    val taken by rememberUpdatedState(onTaken)
+    var output by rememberSaveable { mutableStateOf<String?>(null) }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
+        val photo = output
+        output = null
+        if (saved && photo != null) taken(photo)
+    }
+    return {
+        val target = CameraCapture.newPhotoUri(context)
+        output = target.toString()
+        try {
+            camera.launch(target)
+            true
+        } catch (_: ActivityNotFoundException) {
+            output = null
+            false
+        }
+    }
 }

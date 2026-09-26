@@ -1,6 +1,5 @@
 package org.opensources.umai.planning.ui
 
-import android.content.ActivityNotFoundException
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -31,18 +30,15 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import org.opensources.umai.R
-import org.opensources.umai.core.image.CameraCapture
 import org.opensources.umai.planning.domain.Nutrient
 import kotlin.math.roundToInt
 
@@ -65,15 +61,23 @@ internal fun ModeSelector(state: FoodEntryUiState, actions: FoodEntryActions) {
 }
 
 /**
- * The barcode photographed with the camera app, picked, or typed, then looked
- * up in Open Food Facts. The photo is only read, then deleted.
+ * The barcode scanned live with the camera, read on a picture of the gallery,
+ * or typed, then looked up in Open Food Facts.
  */
 @Composable
 internal fun BarcodeSection(state: FoodEntryUiState, actions: FoodEntryActions) {
-    var cameraUnavailable by rememberSaveable { mutableStateOf(false) }
-    val takePhoto = rememberPhotoTaker(onTaken = actions.onScanBarcode)
+    var scanning by rememberSaveable { mutableStateOf(false) }
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        uri?.let { actions.onScanBarcode(it.toString()) }
+        uri?.let { actions.onBarcodePicked(it.toString()) }
+    }
+    if (scanning) {
+        BarcodeScannerDialog(
+            onScanned = { code ->
+                scanning = false
+                actions.onBarcodeScanned(code)
+            },
+            onDismiss = { scanning = false },
+        )
     }
 
     HelperText(stringResource(R.string.food_barcode_intro))
@@ -93,7 +97,7 @@ internal fun BarcodeSection(state: FoodEntryUiState, actions: FoodEntryActions) 
 
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
         Button(
-            onClick = { cameraUnavailable = !takePhoto() },
+            onClick = { scanning = true },
             modifier = Modifier.weight(1f),
         ) {
             Icon(Icons.Outlined.QrCodeScanner, contentDescription = null)
@@ -105,7 +109,6 @@ internal fun BarcodeSection(state: FoodEntryUiState, actions: FoodEntryActions) 
             Icon(Icons.Outlined.PhotoLibrary, contentDescription = stringResource(R.string.food_photo_pick))
         }
     }
-    if (cameraUnavailable) ErrorText(stringResource(R.string.image_camera_unavailable))
 
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
@@ -174,34 +177,6 @@ internal fun FoundProductCard(state: FoodEntryUiState) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
-        }
-    }
-}
-
-/**
- * Takes one photo with the camera app, into a file Umai shares with it, for a
- * picture that is read at once. The function returned answers false when the
- * phone has no camera app.
- */
-@Composable
-internal fun rememberPhotoTaker(onTaken: (String) -> Unit): () -> Boolean {
-    val context = LocalContext.current
-    val taken by rememberUpdatedState(onTaken)
-    var output by rememberSaveable { mutableStateOf<String?>(null) }
-    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
-        val photo = output
-        output = null
-        if (saved && photo != null) taken(photo)
-    }
-    return {
-        val target = CameraCapture.newPhotoUri(context)
-        output = target.toString()
-        try {
-            camera.launch(target)
-            true
-        } catch (_: ActivityNotFoundException) {
-            output = null
-            false
         }
     }
 }

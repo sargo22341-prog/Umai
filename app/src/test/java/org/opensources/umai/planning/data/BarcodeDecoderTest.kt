@@ -40,6 +40,22 @@ class BarcodeDecoderTest {
     }
 
     @Test
+    fun `the barcode of a camera frame is read on its luminance, bars standing or lying`() {
+        val width = 400
+        val height = 120
+        val pixels = drawn("3250390103745", width, height)
+        val luminance = ByteArray(pixels.size) { index -> (pixels[index] and 0xFF).toByte() }
+        val lying = ByteArray(luminance.size) { index ->
+            val x = index % height
+            val y = index / height
+            luminance[x * width + (width - 1 - y)]
+        }
+
+        assertEquals("3250390103745", BarcodeDecoder.decodeLuminance(luminance, width, height))
+        assertEquals("3250390103745", BarcodeDecoder.decodeLuminance(lying, height, width))
+    }
+
+    @Test
     fun `a picture without a barcode gives none`() {
         assertNull(BarcodeDecoder.decode(IntArray(300 * 200) { WHITE }, 300, 200))
     }

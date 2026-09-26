@@ -189,7 +189,8 @@ avec son code source. Il est fourni sans aucune garantie. Texte complet : [`LICE
 
 L'application lit YouTube avec [NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor),
 lui-même sous GPL-3.0-or-later ; toutes les autres dépendances sont sous une licence compatible
-avec la GPLv3 (Apache 2.0, MIT, BSD, MPL 2.0). Les codes-barres sont lus avec
+avec la GPLv3 (Apache 2.0, MIT, BSD, MPL 2.0). Les codes-barres sont lus en direct
+par l'appareil photo avec [CameraX](https://developer.android.com/media/camera/camerax) et
 [ZXing](https://github.com/zxing/zxing) (Apache 2.0), et les produits cherchés dans
 [Open Food Facts](https://fr.openfoodfacts.org), dont les données sont sous Open Database License.
 

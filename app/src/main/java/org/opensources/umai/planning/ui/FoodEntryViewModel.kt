@@ -182,8 +182,13 @@ class FoodEntryViewModel(
 
     fun setBarcode(text: String) = _state.update { it.copy(barcode = text, lookupIssue = null) }
 
+    /** Looks up the product of the barcode read by the camera. */
+    fun barcodeScanned(code: String) = search {
+        Barcodes.normalize(code) ?: return@search fail(LookupIssue.INVALID_CODE)
+    }
+
     /** Reads the barcode on the picture at [sourceUri], then looks the product up. */
-    fun scanBarcode(sourceUri: String) = search {
+    fun readBarcodePicture(sourceUri: String) = search {
         barcodePictures.read(sourceUri) ?: return@search fail(LookupIssue.UNREADABLE)
     }
 
