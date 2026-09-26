@@ -23,6 +23,7 @@ import org.opensources.umai.recipe.ui.RecipeEditScreen
 import org.opensources.umai.recipe.ui.RecipeEditUiState
 import org.opensources.umai.recipe.ui.RecipeFormActions
 import org.opensources.umai.recipe.ui.RecipeFormSection
+import org.opensources.umai.recipe.ui.VideoChapterActions
 
 /** Deleting a recipe from its editor, behind the ⋮ menu of the top bar. */
 @RunWith(AndroidJUnit4::class)
@@ -49,6 +50,7 @@ class RecipeEditScreenTest {
                 RecipeEditScreen(
                     state = state,
                     actions = RecipeFormActions(NoEditing),
+                    videoActions = VideoChapterActions(onStartChange = { _, _ -> }, onEndChange = { _, _ -> }, onRetryVideo = {}),
                     currentImageUrl = null,
                     stepPhotoUrl = { null },
                     onBack = {},

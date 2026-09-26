@@ -28,11 +28,14 @@ import org.opensources.umai.llm.domain.AiBackend
 import org.opensources.umai.llm.domain.AiBackendUnavailable
 import org.opensources.umai.llm.domain.AiEngine
 import org.opensources.umai.llm.domain.AiEngineLoader
+import org.opensources.umai.llm.domain.AiSense
 import org.opensources.umai.llm.domain.AiSpeed
+import org.opensources.umai.llm.domain.LlmMedia
 import org.opensources.umai.llm.domain.LlmRequest
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import kotlin.math.abs
 
 /**
  * Loads models with LiteRT-LM, Google's runtime for language models on
@@ -52,20 +55,27 @@ class LiteRtLmLoader(
     /** The big cores do the work; the two smallest would only slow the others down. */
     private val cpuThreads = (Runtime.getRuntime().availableProcessors() - 2).coerceIn(MIN_THREADS, MAX_THREADS)
 
-    override fun load(path: String, backend: AiBackend, contextSize: Int): AiEngine {
+    override fun load(path: String, backend: AiBackend, contextSize: Int, sense: AiSense?): AiEngine {
         // Asks the runtime to time each answer: the speeds tell in the logs where the model ran.
         ExperimentalFlags.enableBenchmark = true
         cacheDir.mkdirs()
+        val runtimeBackend = when (backend) {
+            AiBackend.TPU -> Backend.NPU(nativeLibraryDir = nativeLibraryDir)
+            AiBackend.GPU -> Backend.GPU()
+            AiBackend.CPU -> Backend.CPU(threadCount = cpuThreads)
+        }
+        // Only the part a request needs is loaded, from the file that holds
+        // it. The audio part runs on the CPU, as the runtime requires; the
+        // vision part on the GPU, where it reads a picture about twice as fast.
         val engine = Engine(
             EngineConfig(
                 modelPath = path,
-                backend = when (backend) {
-                    AiBackend.TPU -> Backend.NPU(nativeLibraryDir = nativeLibraryDir)
-                    AiBackend.GPU -> Backend.GPU()
-                    AiBackend.CPU -> Backend.CPU(threadCount = cpuThreads)
-                },
+                backend = runtimeBackend,
+                visionBackend = Backend.GPU().takeIf { sense == AiSense.SIGHT },
+                audioBackend = Backend.CPU(threadCount = cpuThreads).takeIf { sense == AiSense.HEARING },
                 // A TPU build runs with the context it was compiled with.
                 maxNumTokens = contextSize.takeUnless { backend == AiBackend.TPU },
+                maxNumImages = 1.takeIf { sense == AiSense.SIGHT },
                 cacheDir = cacheDir.path,
             ),
         )
@@ -84,7 +94,7 @@ class LiteRtLmLoader(
             engine.close()
             throw AiBackendUnavailable("LiteRT-LM accepted $backend but $driver is not loaded: the model would run elsewhere")
         }
-        return LiteRtLmEngine(engine, backend)
+        return LiteRtLmEngine(engine, backend, sense)
     }
 
     private companion object {
@@ -102,7 +112,11 @@ class LiteRtLmLoader(
  * The runtime hands a tool call over whole, once written.
  */
 @OptIn(ExperimentalApi::class)
-private class LiteRtLmEngine(private val engine: Engine, override val backend: AiBackend) : AiEngine {
+private class LiteRtLmEngine(
+    private val engine: Engine,
+    override val backend: AiBackend,
+    override val sense: AiSense?,
+) : AiEngine {
 
     @Volatile
     override var lastSpeed: AiSpeed? = null
@@ -131,12 +145,17 @@ private class LiteRtLmEngine(private val engine: Engine, override val backend: A
             }
         }
         val finished = CountDownLatch(1)
+        val media = when (val given = request.media) {
+            null -> null
+            is LlmMedia.Sound -> Content.AudioBytes(given.wav)
+            is LlmMedia.Picture -> Content.ImageBytes(given.jpeg)
+        }
         conversation.sendMessageAsync(
-            request.user,
+            Contents.of(listOfNotNull(media, Content.Text(request.user))),
             object : MessageCallback {
                 override fun onMessage(message: Message) {
                     val answer = message.toolCalls.firstOrNull { it.name == AnswerTool.NAME }
-                    trySend(answer?.let { toJson(it.arguments).toString() } ?: message.text())
+                    trySend(answer?.let { ToolArguments.toJson(it.arguments).toString() } ?: message.text())
                 }
 
                 override fun onDone() {
@@ -190,16 +209,29 @@ private class LiteRtLmEngine(private val engine: Engine, override val backend: A
         const val TOP_K = 40
         const val TOP_P = 0.95
         const val CANCEL_TIMEOUT_SECONDS = 10L
-
-        /** The runtime reads tool arguments as JSON numbers, maps and lists; whole numbers come back as doubles. */
-        fun toJson(value: Any?): JsonElement = when (value) {
-            null -> JsonNull
-            is Map<*, *> -> JsonObject(value.entries.associate { (key, item) -> key.toString() to toJson(item) })
-            is List<*> -> JsonArray(value.map(::toJson))
-            is Boolean -> JsonPrimitive(value)
-            is Double -> if (value % 1.0 == 0.0) JsonPrimitive(value.toLong()) else JsonPrimitive(value)
-            is Number -> JsonPrimitive(value)
-            else -> JsonPrimitive(value.toString())
-        }
     }
+}
+
+/** The arguments of a tool call, as the runtime hands them over, turned back into JSON. */
+internal object ToolArguments {
+
+    /**
+     * The runtime reads tool arguments as JSON numbers, maps and lists. A
+     * number comes back as Gson's lazily parsed number, never a Double, and
+     * the model writes `0.0` for `0`: a whole number is written back as the
+     * integer the schema asked for.
+     */
+    fun toJson(value: Any?): JsonElement = when (value) {
+        null -> JsonNull
+        is Map<*, *> -> JsonObject(value.entries.associate { (key, item) -> key.toString() to toJson(item) })
+        is List<*> -> JsonArray(value.map(::toJson))
+        is Boolean -> JsonPrimitive(value)
+        is Number -> value.toDouble().let { number ->
+            if (number % 1.0 == 0.0 && abs(number) < MAX_EXACT_INTEGER) JsonPrimitive(number.toLong()) else JsonPrimitive(value)
+        }
+        else -> JsonPrimitive(value.toString())
+    }
+
+    /** Beyond 2^53 a double no longer holds every integer: such a number is kept as it came. */
+    private const val MAX_EXACT_INTEGER = 9_007_199_254_740_992.0
 }

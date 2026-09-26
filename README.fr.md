@@ -62,8 +62,10 @@ Fonctionnalités principales :
 - **création et modification de recettes** : import depuis une page web (analysée par Mealie),
   avec la vidéo et les photos d'étapes de Jow et les photos d'étapes de 750g et Marmiton ;
   **import d'une vidéo YouTube** reconstruite en recette complète (ingrédients, étapes, passage de
-  la vidéo de chaque étape) à partir de sa description, de ses chapitres et de sa transcription,
-  avec les quantités de la page de recette vers laquelle pointe sa description ;
+  la vidéo de chaque étape) à partir de sa description, de ses chapitres et de sa transcription —
+  avec l'IA locale, une vidéo sans sous-titres est écoutée, et regardée quand rien n'y est dit —,
+  avec les quantités de la page de recette vers laquelle pointe sa description ; passage de chaque
+  étape corrigeable à la main dans l'onglet Vidéo de l'édition ;
 - **IA locale** facultative : un modèle de langage téléchargé à part tourne sur le téléphone, sans
   service distant, pour l'import vidéo et la reconnaissance des plats
   ([détails et mesures](docs/local-ai.md)) ;

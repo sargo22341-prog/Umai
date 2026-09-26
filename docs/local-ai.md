@@ -9,7 +9,7 @@ classique.
 
 | Fonction | Avec le modèle | Sans le modèle |
 |---|---|---|
-| Import d'une vidéo YouTube | Lit titre, description, chapitres et transcription horodatée ; écrit des étapes rédigées et titrées, le début de chaque étape dans la vidéo, et les ingrédients quand ni la page de recette ni la description ne les donnent. | Ingrédients de la page de recette ou de la description, étapes lues dans la description, sinon étapes = chapitres (texte tiré de la transcription), placées par les chapitres ou par alignement mots-transcription. |
+| Import d'une vidéo YouTube | Lit titre, description, chapitres et transcription horodatée ; sans sous-titres, **écoute** la vidéo, et sans parole **regarde** ses images (voir *Vidéos sans sous-titres*) ; écrit des étapes rédigées et titrées, le début de chaque étape dans la vidéo, et les ingrédients quand ni la page de recette ni la description ne les donnent. | Ingrédients de la page de recette ou de la description, étapes lues dans la description, sinon étapes = chapitres (texte tiré de la transcription), placées par les chapitres ou par alignement mots-transcription. |
 | Planning automatique | Classe les recettes que rien ne situe (ni catégorie, ni tag, ni nom, ni historique). | Ces recettes sont jugées sur leurs ingrédients (sucré seul = dessert). |
 
 Restent volontairement **algorithmiques**, parce qu'un algorithme y est plus fiable qu'un modèle
@@ -31,6 +31,17 @@ hors de la vidéo ou dans le désordre écartés, champs vides complétés par l
 de LiteRT-LM utilisée (voir plus bas), seul le décodage des **appels d'outils** est contraint : le
 schéma devient les paramètres de l'unique outil `answer` par lequel le modèle répond, et l'app lit
 les arguments de l'appel (`LiteRtLmEngine`).
+
+Ce que ce décodage contraint respecte, et ne respecte pas, constaté sur le Pixel 10 Pro XL :
+
+- les **propriétés** d'un objet et leur caractère obligatoire sont respectées : c'est pourquoi le
+  placement des étapes sur des images demande une clé par étape (`step_1`, `step_2`…), et non une
+  liste ;
+- `maxItems` et `minItems` ne le sont **pas** : une liste plafonnée à 8 étapes en a reçu 13 ;
+- les **nombres** reviennent en `LazilyParsedNumber` de Gson, jamais en `Double`, et le modèle écrit
+  `0.0` pour `0` : `ToolArguments` les réécrit en entiers. Avant cette correction, tous les entiers de
+  la réponse étaient perdus (portions, temps, **débuts des étapes**) : les chapitres venaient alors
+  tous de l'alignement par mots.
 
 ## Runtime : LiteRT-LM, sur le TPU, le GPU ou le CPU
 
@@ -63,6 +74,12 @@ les arguments de l'appel (`LiteRtLmEngine`).
   `litert/vendors/google_tensor/dispatch`) ; elle est téléchargée à la compilation, à une release
   épinglée, vérifiée par SHA-256 (`FetchTensorDispatch`, `app/build.gradle.kts`), jamais commitée.
   Box fait de même (en la commitant dans son dépôt) ; umai reprend le mécanisme, pas Box.
+- **Box n'a pas de solution plus récente** (vérifié le 26/09/2026 sur ses branches `main`,
+  `custom-rom-support` et `experimental`) : il est épinglé sur LiteRT-LM **0.10.0**, plus ancien que
+  le 0.14.0 d'umai, avec un dispatch commité. Le code publié s'arrête à sa v1.0.12 (avril 2026) ; les
+  versions suivantes, dont l'APK « custom-rom-support » pour GrapheneOS, ne publient que leur README.
+  Cet APK retire surtout ce qui dépend des services Google (Gemini Nano via AICore, synthèse vocale
+  Google) : umai n'en a jamais dépendu.
 - **Le dispatch et le runtime doivent venir du même source LiteRT** : l'API qu'ils partagent change
   sans numéro de version. Essais sur le Pixel 10 Pro XL :
 
@@ -72,6 +89,11 @@ les arguments de l'appel (`LiteRtLmEngine`).
   | 0.16.1 (`0ff2811`, 03/08) | v2.1.6 | « Unsupported dispatch runtime version » |
   | 0.15.0 (`3cb830a`, 28/07) | v2.1.6 | SIGSEGV (pointeur de fonction nul) |
   | **0.14.0** (`622f1f3`, 29/06) | **v2.1.6** (`1461b6b`, un commit plus tôt) | **TPU utilisé** |
+
+  Les autres versions n'offrent pas de meilleure paire : 0.16.0 et 0.17.0 embarquent le même LiteRT
+  que 0.16.1 et 0.17.1. La plus proche du dispatch v2.2.0 (`145c752`, 06/08) est 0.16.x (`0ff2811`,
+  03/08), mais les 40 commits qui les séparent ajoutent un `LiteRtAbiHeader` en tête de
+  `LiteRtDispatchApi` (48 → 56 octets) : les deux ne lisent pas la même structure.
 
   D'où l'épinglage de LiteRT-LM à **0.14.0** (commentaire dans `gradle/libs.versions.toml`,
   avertissement lint ciblé dans `app/lint.xml`). Cette version n'a pas encore `ResponseFormat` : d'où
@@ -117,6 +139,12 @@ Publiés par la communauté LiteRT sur Hugging Face (`litert-community`), sous l
 | **Gemma 4 E2B** (recommandé) | universel (GPU, CPU) + version Tensor G5 ou G6 (TPU) selon la puce | 2,6 Go, 5,7 Go avec le TPU G5 |
 | Gemma 4 E4B | universel (GPU, CPU) | 3,7 Go |
 
+Le « modèle spécial Pixel 10 » de Box est ce même **Gemma 4 E2B compilé pour le Tensor G5**, déjà
+téléchargé par umai sur un Pixel 10. Les autres versions Tensor publiées ne conviennent pas :
+Gemma 3 1B « Tensor G5/G6 » (`litert-community/Gemma3-1B-IT`) exige un compte Hugging Face et
+l'acceptation de la licence Gemma, et n'a que 1 280 jetons de contexte, moins que le seul prompt
+d'import ; `Gemma3-1B-IT-Tensor-NPU` n'existe que pour les Tensor G3 et G4 (Pixel 8 et 9).
+
 Sur un Tensor G5 ou G6, les deux fichiers de Gemma 4 E2B sont gardés : le fichier TPU ne tourne que
 sur le TPU, avec 4 096 jetons de contexte ; le fichier universel sert au GPU (prompts longs : la
 transcription d'une vidéo) et au CPU (dernier recours). Les anciens modèles GGUF de llama.cpp sont
@@ -135,6 +163,10 @@ supprimés au démarrage.
   (GPU et CPU seulement : une version TPU ne tourne que sur la puce pour laquelle elle est compilée).
 - Nouveau modèle au catalogue : `llm/domain/LocalModels.kt` (adresse, taille, SHA-256 donnés par
   l'API Hugging Face `https://huggingface.co/api/models/<dépôt>/tree/main`).
+- Le fichier universel contient aussi les parties **audio** et **vision** du modèle, chargées à la
+  demande, une à la fois (`AiSense`) : l'audio sur le CPU (exigé par le runtime), la vision sur le GPU
+  (deux fois plus rapide qu'au CPU). Un fichier TPU n'en a pas. Une partie qui ne se charge pas
+  n'écarte pas le backend pour le texte.
 - Vérifier le TPU sur un téléphone : mettre les fichiers dans
   `/sdcard/Android/data/org.opensources.umai.debug/files/models/` (téléchargés par l'app, ou
   `adb push`), puis `connectedDebugAndroidTest` (classe `LiteRtLmBackendTest`, ignorée sans eux).
@@ -165,7 +197,54 @@ Limites constatées :
   d'auteur, les étapes sont placées par le modèle ou par alignement sur la transcription ;
 - quand YouTube casse l'extraction (« YouTube a répondu d'une façon que l'application ne sait pas
   lire »), la correction est une montée de version de NewPipeExtractor, publiée en général en
-  quelques jours.
+  quelques jours ;
+- YouTube **limite par adresse IP** la lecture des sous-titres (`/api/timedtext`) : au-delà, il
+  répond 429 pendant des heures, à tous les clients (web, iOS), alors que la page de la vidéo et ses
+  flux restent lisibles. L'app ne le masque plus (`transcriptRefused`) : la vidéo est alors écoutée,
+  et l'avis d'import le dit si les étapes n'ont pas pu être placées.
+
+### Vidéos sans sous-titres
+
+Idée reprise de [yt-transcript](https://github.com/plc/yt-transcript) (Whisper quand il n'y a pas
+de sous-titres) et de [pick-a-recipe](https://github.com/pickeld/pick-a-recipe) (Whisper et texte à
+l'écran lu par un modèle vision), mais **sur le téléphone**, avec le modèle déjà installé
+(`VideoWatcher`, `AndroidVideoMedia`) :
+
+1. **Écouter** — quand la vidéo n'a pas de sous-titres, ou que YouTube les refuse : la piste audio
+   **d'origine** (pas celle que YouTube double automatiquement dans une autre langue) est décodée
+   (`MediaExtractor` + `MediaCodec`), ramenée à 16 kHz mono en moyennant les échantillons (sans ce
+   filtre, la transcription française inventait des phrases), et donnée au modèle par tranches de
+   **30 s**, la plus longue qu'il entende d'un coup. Chaque tranche devient une ligne horodatée de la
+   transcription. Au-delà de 20 minutes, la suite n'est pas écoutée.
+2. **Regarder** — quand rien n'est dit (ni sous-titres, ni parole entendue) et qu'il n'y a pas de
+   chapitres : une image au milieu de chaque tranche de **20 s** (30 images au plus, plus espacées sur
+   une longue vidéo), lue dans le fichier MP4 à l'endroit voulu (`MediaMetadataRetriever`), décrite en
+   une phrase. Ces descriptions ne servent **pas** à écrire les étapes à leur place : le modèle écrit
+   la recette en voyant ce que montrent les images, **sans leurs temps** (avec la frise horodatée, il
+   écrivait une étape par image, fautes comprises : « versez du jus d'orange »), puis un second appel
+   court place chaque étape sur la frise (`PicturePlacement`). Si la réponse ne donne pas un temps
+   par étape, l'alignement par mots prend le relais.
+
+Sans aucun repère (ni chapitres, ni parole, ni images lisibles), les débuts que le schéma oblige le
+modèle à écrire sont des devinettes (il écrit `0` partout) : ils sont écartés, et la recette n'a pas
+de chapitres plutôt que des chapitres faux. Les étapes se placent alors à la main, dans *Modifier ›
+Vidéo*. De même, l'alignement par mots ne place plus une étape qui ne partage aucun mot avec le
+passage où elle tomberait.
+
+Mesures sur le Pixel 10 Pro XL, vidéo de 4 min 45 (« Petits pains farcis à la poêle », Deli Cuisine,
+sous-titres refusés par YouTube) :
+
+| Étape | Où | Durée |
+|---|---|---|
+| Écoute, 10 tranches de 30 s | CPU (≈ 870 jetons lus, ≈ 110 écrits à 14–18/s par tranche) | 3 min 35 à 3 min 46 |
+| Recette depuis la transcription entendue | TPU (1 731 jetons lus, 495 écrits) | 47 s |
+| Regard, 14 images (test sans le son) | CPU, vision au GPU (≈ 410 jetons lus par image) | 3 min 47 |
+| Recette depuis les images, puis placement | TPU | 42 s |
+
+Avec la transcription entendue, les 7 étapes tombent là où elles sont dites (pâte 0:00, repos 1:00,
+garniture 1:30, pâtons 2:00, étalage 2:30, farce 3:00, cuisson 4:00), et les portions (8) et les
+temps sont lus. Avec les images seules, 5 étapes cohérentes sont placées à 0:40, 1:20, 2:40, 3:00 et
+4:00 : moins précis, à corriger au besoin dans l'éditeur.
 
 ### Ingrédients
 

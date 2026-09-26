@@ -30,6 +30,7 @@ fun video(
     chapters: List<ChapterMark> = emptyList(),
     transcript: List<TranscriptCue> = emptyList(),
     duration: Int = 300,
+    source: TranscriptSource? = if (transcript.isEmpty()) null else TranscriptSource.AUTOMATIC,
 ) = YouTubeVideo(
     id = "0nE7dAlDshk",
     title = "Lasagnes express | Recette facile #Shorts",
@@ -39,7 +40,7 @@ fun video(
     thumbnailUrl = "https://i.ytimg.com/vi/0nE7dAlDshk/maxresdefault.jpg",
     chapters = chapters,
     transcript = transcript,
-    transcriptAutomatic = true,
+    transcriptSource = source,
 )
 
 class RuleRecipeBuilderTest {
@@ -143,8 +144,9 @@ class ModelRecipeBuilderTest {
     @Test
     fun `the answer of the model becomes the recipe, out-of-order starts dropped`() = runBlocking {
         val model = ScriptedModel(listOf(LlmOutcome.Success(answer)))
+        val spoken = video(transcript = listOf(TranscriptCue(55.0, 60.0, "on fait revenir le bœuf")))
 
-        val outcome = ModelRecipeBuilder(model).build(video(), "fr") {}
+        val outcome = ModelRecipeBuilder(model).build(spoken, "fr") {}
 
         val blueprint = (outcome as ModelRecipeBuilder.Outcome.Built).blueprint
         assertEquals("Lasagnes à la bolognaise", blueprint.name)

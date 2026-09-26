@@ -18,14 +18,47 @@ data class YouTubeVideo(
     val chapters: List<ChapterMark>,
     /** Empty when the video has no captions at all. */
     val transcript: List<TranscriptCue>,
-    /** Whether the captions were written by YouTube's speech recognition rather than a person. */
-    val transcriptAutomatic: Boolean,
+    /** Where [transcript] comes from; `null` when it is empty. */
+    val transcriptSource: TranscriptSource?,
+    /**
+     * The video has captions, but YouTube refused to hand them over — it
+     * limits how often one address may read them — so [transcript] is empty.
+     */
+    val transcriptRefused: Boolean = false,
+    /** The original sound track, which the phone can listen to when there are no captions. */
+    val soundUrl: String? = null,
+    /** A file of the pictures the phone can look at, when nothing is said. */
+    val pictureUrl: String? = null,
+    /** The language spoken in the video, such as "fr", when YouTube tells it. */
+    val spokenLanguage: String? = null,
 ) {
     val watchUrl: String get() = YouTubeLinks.watchUrl(id)
+
+    /**
+     * Whether anything tells where things happen in the video: chapters, or
+     * words spoken. Captions of a video with only music hold nothing but "[Musique]".
+     */
+    val hasTimes: Boolean
+        get() = chapters.isNotEmpty() || transcript.any { Transcript.clean(it.text).isNotEmpty() }
 
     /** Where chapter [index] ends: the next one's start, or the end of the video. */
     fun chapterEnd(index: Int): Double =
         chapters.getOrNull(index + 1)?.start ?: durationSeconds.toDouble()
+}
+
+/** Where the transcript of a video comes from, from the most to the least reliable. */
+enum class TranscriptSource {
+    /** Captions written by a person. */
+    WRITTEN,
+
+    /** Captions of YouTube's speech recognition. */
+    AUTOMATIC,
+
+    /** The sound track, transcribed on the phone by the language model. */
+    HEARD,
+
+    /** Nothing is said: what pictures of the video show, described by the language model. */
+    SEEN,
 }
 
 /** Why a video could not be read. */

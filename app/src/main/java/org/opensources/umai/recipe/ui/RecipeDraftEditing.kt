@@ -8,8 +8,31 @@ import org.opensources.umai.recipe.domain.DraftStep
 import org.opensources.umai.recipe.domain.IngredientLinker
 import org.opensources.umai.recipe.domain.RecipeDraft
 
-/** The sections of the recipe form, in the order the creation walks through them. */
-enum class RecipeFormSection { BASICS, IMAGE, INGREDIENTS, INSTRUCTIONS, ORGANIZERS }
+/**
+ * The sections of the recipe form. The creation walks through [creation]; the
+ * video one only exists for a recipe that has a video, in the editor.
+ */
+enum class RecipeFormSection {
+    BASICS, IMAGE, INGREDIENTS, INSTRUCTIONS, VIDEO, ORGANIZERS;
+
+    companion object {
+        val creation: List<RecipeFormSection> = entries - VIDEO
+    }
+}
+
+/**
+ * Where the steps are shown in the recipe video. [stepIndex] counts the steps
+ * from 0, `-1` standing for the ingredients; `null` seconds take a step out of
+ * the video, or bring its end back to the start of the next chapter.
+ */
+interface VideoChapterEditing {
+
+    fun setChapterStart(stepIndex: Int, seconds: Double?)
+
+    fun setChapterEnd(stepIndex: Int, seconds: Double?)
+
+    fun loadVideoStream()
+}
 
 /** The outcome of the last automatic linking: [added] new links, [total] links in all. */
 data class IngredientLinkResult(val added: Int, val total: Int)

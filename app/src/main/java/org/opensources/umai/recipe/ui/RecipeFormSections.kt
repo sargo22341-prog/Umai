@@ -89,6 +89,7 @@ internal fun RecipeFormSection.labelRes(): Int = when (this) {
     RecipeFormSection.IMAGE -> R.string.create_step_image
     RecipeFormSection.INGREDIENTS -> R.string.recipe_ingredients
     RecipeFormSection.INSTRUCTIONS -> R.string.recipe_instructions
+    RecipeFormSection.VIDEO -> R.string.edit_section_video
     RecipeFormSection.ORGANIZERS -> R.string.create_step_organizers
 }
 

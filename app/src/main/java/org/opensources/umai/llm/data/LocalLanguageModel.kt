@@ -19,6 +19,7 @@ import org.opensources.umai.llm.domain.AiBackend
 import org.opensources.umai.llm.domain.AiBackendUnavailable
 import org.opensources.umai.llm.domain.AiEngine
 import org.opensources.umai.llm.domain.AiEngineLoader
+import org.opensources.umai.llm.domain.AiSense
 import org.opensources.umai.llm.domain.DeviceProfile
 import org.opensources.umai.llm.domain.LanguageModel
 import org.opensources.umai.llm.domain.LlmFailure
@@ -65,6 +66,11 @@ data class LlmBenchmark(
  * runs there; one that fails is skipped until the app restarts. A prompt too
  * long for the fixed context of a TPU build goes to the GPU or the CPU.
  *
+ * A request with a sound or a picture goes to the file that holds the audio
+ * and vision parts, which a TPU build has not: on the CPU first, which writes
+ * a short answer four times faster than the GPU (see docs/local-ai.md). A
+ * backend where those parts do not load still answers text.
+ *
  * The model is loaded on first use and unloaded after a minute without use:
  * it takes gigabytes of memory, which the rest of the phone needs back. One
  * generation runs at a time.
@@ -85,6 +91,9 @@ class LocalLanguageModel(
     private var loadedPath: String? = null
     private var unloadJob: Job? = null
     private val unavailable = mutableSetOf<AiBackend>()
+
+    /** The parts of the model that did not load on a backend, which may still answer text. */
+    private val senseless = mutableSetOf<Pair<AiBackend, AiSense>>()
 
     private val _active = MutableStateFlow<ActiveBackend?>(null)
 
@@ -117,7 +126,7 @@ class LocalLanguageModel(
             withContext(Dispatchers.Default) {
                 unload()
                 val start = SystemClock.elapsedRealtime()
-                val engine = routes(model).firstNotNullOfOrNull { load(model, it) } ?: return@withContext null
+                val engine = routes(model).firstNotNullOfOrNull { load(model, it, sense = null) } ?: return@withContext null
                 val loadMillis = SystemClock.elapsedRealtime() - start
                 runCatching { engine.generate(BENCH_REQUEST).collect {} }
                     .onFailure { if (it is CancellationException) throw it }
@@ -141,14 +150,16 @@ class LocalLanguageModel(
     }
 
     private suspend fun run(model: InstalledModel, request: LlmRequest, onProgress: (LlmProgress) -> Unit): LlmOutcome {
-        val routes = routes(model)
-        if (routes.isEmpty()) return LlmOutcome.Failure(LlmFailure.LOAD_FAILED)
+        val sense = request.media?.sense
+        val media = sense != null
+        val routes = if (sense != null) senseRoutes(model, sense) else routes(model)
+        if (routes.isEmpty()) return LlmOutcome.Failure(if (media) LlmFailure.MEDIA_UNSUPPORTED else LlmFailure.LOAD_FAILED)
         val needed = estimatedTokens(request)
         val fitting = routes.filter { needed <= it.contextSize }
         if (fitting.isEmpty()) return LlmOutcome.Failure(LlmFailure.TOO_LONG)
-        var failure = LlmFailure.LOAD_FAILED
+        var failure = if (media) LlmFailure.MEDIA_UNSUPPORTED else LlmFailure.LOAD_FAILED
         for (route in fitting) {
-            val engine = load(model, route) ?: continue
+            val engine = load(model, route, sense) ?: continue
             try {
                 return LlmOutcome.Success(write(engine, request, onProgress)).also { logSpeed(model, engine) }
             } catch (e: CancellationException) {
@@ -190,20 +201,33 @@ class LocalLanguageModel(
                 ?.let { (file, path) -> Route(backend, path, file.contextSizeOn(backend)) }
         }
 
-    /** The engine for [route], loaded if needed; null when the backend cannot run the model. */
-    private fun load(model: InstalledModel, route: Route): AiEngine? {
-        engine?.let { if (it.backend == route.backend && loadedPath == route.path) return it }
+    /**
+     * The backends that may [sense], with the file that holds that part: the
+     * CPU first, then the GPU. A TPU build has neither part.
+     */
+    private fun senseRoutes(model: InstalledModel, sense: AiSense): List<Route> =
+        routes(model).filter { it.backend != AiBackend.TPU && (it.backend to sense) !in senseless }
+            .sortedByDescending { it.backend.ordinal }
+
+    /**
+     * The engine for [route], loaded if needed, with the part that gives it
+     * [sense]; null when the backend cannot run the model so.
+     */
+    private fun load(model: InstalledModel, route: Route, sense: AiSense?): AiEngine? {
+        engine?.let { if (it.backend == route.backend && loadedPath == route.path && (sense == null || it.sense == sense)) return it }
         unload()
         return try {
-            loader.load(route.path, route.backend, route.contextSize).also {
+            loader.load(route.path, route.backend, route.contextSize, sense).also {
                 engine = it
                 loadedPath = route.path
                 _active.value = ActiveBackend(it.backend, model.model.name, device.socName)
                 Log.i(TAG, "Backend: ${it.backend} | Model: ${model.model.name} | SoC: ${device.socName}")
             }
         } catch (e: AiBackendUnavailable) {
-            unavailable += route.backend
-            Log.w(TAG, "Backend: ${route.backend} unavailable | Model: ${model.model.name} | SoC: ${device.socName} | ${e.message}")
+            // Without that part, the backend may still answer text.
+            if (sense != null) senseless += route.backend to sense else unavailable += route.backend
+            val what = if (sense != null) "without $sense" else "unavailable"
+            Log.w(TAG, "Backend: ${route.backend} $what | Model: ${model.model.name} | SoC: ${device.socName} | ${e.message}")
             null
         }
     }
@@ -247,8 +271,12 @@ class LocalLanguageModel(
         /** The turn markers the chat template wraps the prompt in. */
         private const val TEMPLATE_TOKENS = 64
 
+        /** What a picture or 30 seconds of sound take in the context, with room to spare. */
+        private const val MEDIA_TOKENS = 1_000
+
         fun estimatedTokens(request: LlmRequest): Int =
-            (request.system.length + request.user.length) / CHARS_PER_TOKEN + TEMPLATE_TOKENS + request.maxTokens
+            (request.system.length + request.user.length) / CHARS_PER_TOKEN + TEMPLATE_TOKENS + request.maxTokens +
+                (if (request.media != null) MEDIA_TOKENS else 0)
 
         private val BENCH_REQUEST = LlmRequest(
             system = "You are a helpful cooking assistant. Answer in French.",

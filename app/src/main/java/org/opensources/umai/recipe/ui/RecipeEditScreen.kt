@@ -57,6 +57,7 @@ import org.opensources.umai.core.ui.component.NetworkErrorView
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
 import org.opensources.umai.recipe.domain.DraftStep
+import org.opensources.umai.recipe.domain.VideoStream
 import java.io.File
 
 /**
@@ -117,10 +118,12 @@ fun RecipeEditScreen(
     }
 
     val actions = remember(viewModel) { RecipeFormActions(viewModel) }
+    val videoActions = remember(viewModel) { VideoChapterActions(viewModel) }
 
     RecipeEditScreen(
         state = state,
         actions = actions,
+        videoActions = videoActions,
         currentImageUrl = state.recipe?.let { container.imageUrls.original(it.recipeId, it.imageToken) },
         stepPhotoUrl = { step ->
             step.photoPath?.let { Uri.fromFile(File(it)).toString() }
@@ -138,12 +141,16 @@ fun RecipeEditScreen(
     )
 }
 
-/** Stateless editor, driven by [RecipeEditUiState]. */
+/**
+ * Stateless editor, driven by [RecipeEditUiState]. [videoPlayer] plays the
+ * recipe video in the video section; a test puts a still stand-in there.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeEditScreen(
     state: RecipeEditUiState,
     actions: RecipeFormActions,
+    videoActions: VideoChapterActions,
     currentImageUrl: String?,
     stepPhotoUrl: (DraftStep) -> String?,
     onBack: () -> Unit,
@@ -153,6 +160,7 @@ fun RecipeEditScreen(
     onDelete: () -> Unit,
     onDismissDeleteError: () -> Unit,
     modifier: Modifier = Modifier,
+    videoPlayer: @Composable (VideoStream, ChapterPlayerState) -> Unit = { stream, player -> ChapterVideoPlayer(stream, player) },
 ) {
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     if (confirmDelete) {
@@ -197,7 +205,7 @@ fun RecipeEditScreen(
                     },
                 )
                 if (state.recipe != null) {
-                    SectionTabs(selected = state.section, onSelect = actions.onShowSection)
+                    SectionTabs(sections = state.sections, selected = state.section, onSelect = actions.onShowSection)
                 }
             }
         },
@@ -228,6 +236,18 @@ fun RecipeEditScreen(
                 },
                 label = "editSection",
             ) { section ->
+                val banners = @Composable { EditBanners(state, onDismissError, onDismissDeleteError) }
+                // The player stays in view while the steps scroll under it.
+                if (section == RecipeFormSection.VIDEO) {
+                    VideoSection(
+                        draft = state.draft,
+                        video = VideoSectionState(state.videoStream, state.videoStreamLoading, state.videoStreamFailed),
+                        actions = videoActions,
+                        videoPlayer = videoPlayer,
+                        banners = banners,
+                    )
+                    return@AnimatedContent
+                }
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -235,15 +255,7 @@ fun RecipeEditScreen(
                         .padding(horizontal = 20.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    state.saveError?.let { error ->
-                        ErrorBanner(message = "${error.title()}\n${error.message()}", onDismiss = onDismissError)
-                    }
-                    state.deleteError?.let { error ->
-                        ErrorBanner(
-                            message = "${stringResource(R.string.edit_delete_failed)}\n${error.title()}\n${error.message()}",
-                            onDismiss = onDismissDeleteError,
-                        )
-                    }
+                    banners()
 
                     when (section) {
                         RecipeFormSection.BASICS -> BasicsSection(state.draft, actions)
@@ -264,12 +276,28 @@ fun RecipeEditScreen(
                             loading = state.loadingOrganizers,
                             actions = actions,
                         )
+                        // Laid out above, outside this scrolling column.
+                        RecipeFormSection.VIDEO -> Unit
                     }
 
                     Spacer(Modifier.size(12.dp))
                 }
             }
         }
+    }
+}
+
+/** What went wrong with the last save or deletion, above the section. */
+@Composable
+private fun EditBanners(state: RecipeEditUiState, onDismissError: () -> Unit, onDismissDeleteError: () -> Unit) {
+    state.saveError?.let { error ->
+        ErrorBanner(message = "${error.title()}\n${error.message()}", onDismiss = onDismissError)
+    }
+    state.deleteError?.let { error ->
+        ErrorBanner(
+            message = "${stringResource(R.string.edit_delete_failed)}\n${error.title()}\n${error.message()}",
+            onDismiss = onDismissDeleteError,
+        )
     }
 }
 
@@ -323,9 +351,9 @@ private fun DeleteRecipeDialog(name: String, onConfirm: () -> Unit, onDismiss: (
 /** The menu of the editor: one tab per section, scrollable at large font sizes. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SectionTabs(selected: RecipeFormSection, onSelect: (RecipeFormSection) -> Unit) {
-    PrimaryScrollableTabRow(selectedTabIndex = selected.ordinal, edgePadding = 12.dp) {
-        RecipeFormSection.entries.forEach { section ->
+private fun SectionTabs(sections: List<RecipeFormSection>, selected: RecipeFormSection, onSelect: (RecipeFormSection) -> Unit) {
+    PrimaryScrollableTabRow(selectedTabIndex = sections.indexOf(selected).coerceAtLeast(0), edgePadding = 12.dp) {
+        sections.forEach { section ->
             Tab(
                 selected = section == selected,
                 onClick = { onSelect(section) },

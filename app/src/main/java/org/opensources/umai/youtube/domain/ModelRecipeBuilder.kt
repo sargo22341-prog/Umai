@@ -5,12 +5,13 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.doubleOrNull
 import org.opensources.umai.llm.domain.LanguageModel
 import org.opensources.umai.llm.domain.LlmFailure
 import org.opensources.umai.llm.domain.LlmOutcome
 import org.opensources.umai.llm.domain.LlmProgress
 import org.opensources.umai.llm.domain.LlmRequest
+import kotlin.math.roundToInt
 
 /**
  * Rebuilds a recipe from a video with the language model: it reads the title,
@@ -28,6 +29,8 @@ import org.opensources.umai.llm.domain.LlmRequest
  */
 class ModelRecipeBuilder(private val model: LanguageModel) {
 
+    private val pictures = PicturePlacement(model)
+
     sealed interface Outcome {
         data class Built(val blueprint: RecipeBlueprint) : Outcome
 
@@ -44,19 +47,27 @@ class ModelRecipeBuilder(private val model: LanguageModel) {
         page: RecipePage? = null,
         onProgress: (LlmProgress) -> Unit,
     ): Outcome {
+        // Given a timeline of pictures, a phone-sized model writes one step
+        // per picture: it is given what they show without times, to write the
+        // recipe's few steps, then places them (see PicturePlacement).
+        val seen = video.transcriptSource == TranscriptSource.SEEN
+        val source = if (seen) video.copy(transcript = emptyList(), transcriptSource = null) else video
+        val shown = if (seen) video.transcript.map { it.text } else emptyList()
         var transcriptBudget = transcriptChars(model.contextSize)
         repeat(ATTEMPTS) {
             val request = LlmRequest(
                 system = systemPrompt(language),
-                user = userPrompt(video, transcriptBudget, page),
+                user = userPrompt(source, transcriptBudget, page, shown),
                 jsonSchema = SCHEMA,
                 maxTokens = MAX_ANSWER_TOKENS,
             )
             when (val outcome = model.generate(request, onProgress)) {
                 is LlmOutcome.Success -> {
-                    val blueprint = parse(outcome.text, video, page)
+                    val written = parse(outcome.text, source, page)
                         ?: return Outcome.Failed(LlmFailure.GENERATION_FAILED)
-                    return Outcome.Built(blueprint)
+                    if (!seen) return Outcome.Built(written)
+                    val placed = pictures.place(written.steps, video, onProgress)
+                    return Outcome.Built(written.copy(steps = placed, video = video))
                 }
                 is LlmOutcome.Failure -> {
                     // A prompt too long for the context is tried again with less transcript.
@@ -68,7 +79,13 @@ class ModelRecipeBuilder(private val model: LanguageModel) {
         return Outcome.Failed(LlmFailure.TOO_LONG)
     }
 
-    internal fun userPrompt(video: YouTubeVideo, transcriptChars: Int, page: RecipePage? = null): String = buildString {
+    /** [shown] is what pictures of a video without speech show, in order. */
+    internal fun userPrompt(
+        video: YouTubeVideo,
+        transcriptChars: Int,
+        page: RecipePage? = null,
+        shown: List<String> = emptyList(),
+    ): String = buildString {
         appendLine("Title: ${video.title}")
         appendLine("Channel: ${video.author}")
         appendLine("Duration: ${video.durationSeconds}s")
@@ -90,8 +107,21 @@ class ModelRecipeBuilder(private val model: LanguageModel) {
             video.chapters.forEach { appendLine("[${it.start.toInt()}s] ${it.title}") }
         }
         appendLine()
-        appendLine(if (video.transcriptAutomatic) "Transcript (automatic captions, may contain errors):" else "Transcript:")
+        appendLine(transcriptHeading(video))
         appendLine(Transcript.timedBlocks(video.transcript, maxChars = transcriptChars).ifBlank { "(none)" })
+        if (shown.isNotEmpty()) {
+            appendLine()
+            appendLine("Nothing is said in this video. What pictures of it show, in order (may contain errors):")
+            shown.forEach { appendLine("- $it") }
+            appendLine("Several pictures show the same step: write the few steps of the recipe, usually 3 to 8, not one per picture.")
+        }
+    }
+
+    private fun transcriptHeading(video: YouTubeVideo): String = when (video.transcriptSource) {
+        TranscriptSource.WRITTEN, null -> "Transcript:"
+        TranscriptSource.AUTOMATIC -> "Transcript (automatic captions, may contain errors):"
+        TranscriptSource.HEARD -> "Transcript (heard from the sound track, in pieces; may contain errors):"
+        TranscriptSource.SEEN -> "What pictures of the video show, at their times (nothing is said in it; may contain errors):"
     }
 
     internal fun parse(text: String, video: YouTubeVideo, page: RecipePage? = null): RecipeBlueprint? {
@@ -103,13 +133,16 @@ class ModelRecipeBuilder(private val model: LanguageModel) {
             page = page,
             modelLines = root.array("ingredients").mapNotNull { it.string() },
         )
+        // Without chapters or speech the model has no time to read: the starts it
+        // must still write are guesses, and a guessed chapter plays the wrong part.
+        val timed = video.hasTimes
         val steps = root.array("steps").mapNotNull { element ->
             val step = element as? JsonObject ?: return@mapNotNull null
             val body = step.text("text") ?: return@mapNotNull null
             BlueprintStep(
                 title = step.text("title").orEmpty(),
                 text = body,
-                start = step.int("start")?.toDouble(),
+                start = if (timed) step.number("start") else null,
             )
         }.withOrderedStarts(video.durationSeconds)
         if (steps.isEmpty() && ingredients.isEmpty()) return null
@@ -118,9 +151,9 @@ class ModelRecipeBuilder(private val model: LanguageModel) {
             name = root.text("name") ?: fallback.name,
             summary = root.text("summary") ?: fallback.summary,
             // Said by the author, else counted by the model, which may guess.
-            servings = RuleRecipeBuilder.servings(video, page) ?: root.int("servings")?.takeIf { it > 0 },
-            prepMinutes = root.int("prepMinutes")?.takeIf { it > 0 },
-            cookMinutes = root.int("cookMinutes")?.takeIf { it > 0 },
+            servings = RuleRecipeBuilder.servings(video, page) ?: root.count("servings"),
+            prepMinutes = root.count("prepMinutes"),
+            cookMinutes = root.count("cookMinutes"),
             ingredients = ingredients,
             steps = placed(steps, video),
             ingredientsStart = video.chapters.firstOrNull { RuleRecipeBuilder.isIngredientsChapter(it.title) }?.start,
@@ -145,7 +178,13 @@ class ModelRecipeBuilder(private val model: LanguageModel) {
 
     private fun JsonObject.text(key: String): String? = (get(key) as? JsonPrimitive)?.string()?.trim()?.takeIf { it.isNotEmpty() }
 
-    private fun JsonObject.int(key: String): Int? = (get(key) as? JsonPrimitive)?.intOrNull
+    /** A number as JSON writes it: `12`, or `12.0` as the runtime returns tool arguments. */
+    private fun JsonObject.number(key: String): Double? =
+        (get(key) as? JsonPrimitive)?.takeIf { !it.isString }?.doubleOrNull?.takeIf { it.isFinite() }
+
+    /** A count or a number of minutes; `0` means unknown. */
+    private fun JsonObject.count(key: String): Int? =
+        number(key)?.takeIf { it >= 1 && it <= Int.MAX_VALUE }?.roundToInt()
 
     private fun kotlinx.serialization.json.JsonElement.string(): String? =
         (this as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
@@ -179,7 +218,7 @@ class ModelRecipeBuilder(private val model: LanguageModel) {
                 - ingredients: when no ingredient list is given, every ingredient the video uses, each one once, such as "200 g de farine". Write a quantity only when it is said in the transcript or written in the description, exactly as given; never estimate one: an ingredient whose quantity is not given is written without it, such as "sel". No headings.
                 - steps: the actions in the order they are done. Each step is one to three short sentences in the imperative, with the useful details said in the video: temperatures, times, sizes, textures. Leave out greetings, sponsors, tasting and goodbyes.
                 - title: two to five words naming the step.
-                - start: the second of the video where the step begins, taken from the chapters and the transcript times.
+                - start: the second of the video where the step begins, taken from the chapters and the transcript times; 0 when the video gives neither.
                 - In the steps, name the ingredients used as they are named in the list.
                 Never invent an ingredient, a quantity or a step the video does not give. Write every text in $writeIn, translating when the video is in another language.
             """.trimIndent()

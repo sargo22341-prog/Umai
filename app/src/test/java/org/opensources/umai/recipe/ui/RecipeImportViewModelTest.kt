@@ -26,8 +26,10 @@ import org.opensources.umai.recipe.data.RecipeEditRepository
 import org.opensources.umai.recipe.data.RecipeMediaRepository
 import org.opensources.umai.youtube.data.VideoRecipeImporter
 import org.opensources.umai.youtube.domain.ChapterMark
+import org.opensources.umai.youtube.domain.FakeVideoMedia
 import org.opensources.umai.youtube.domain.ScriptedModel
 import org.opensources.umai.youtube.domain.VideoSource
+import org.opensources.umai.youtube.domain.VideoWatcher
 import org.opensources.umai.youtube.domain.YouTubeFailure
 import org.opensources.umai.youtube.domain.YouTubeResult
 import org.opensources.umai.youtube.domain.YouTubeVideo
@@ -76,6 +78,7 @@ class RecipeImportViewModelTest {
             },
             pages = { null },
             model = ScriptedModel(emptyList(), ready = modelReady),
+            watcher = VideoWatcher(ScriptedModel(emptyList(), ready = modelReady), FakeVideoMedia()),
             apiProvider = { fake.api() },
             edits = RecipeEditRepository(apiProvider = { fake.api() }),
             media = RecipeMediaRepository { fake.api() },
@@ -166,6 +169,25 @@ class RecipeImportViewModelTest {
         // The duplicate check looks the video up by its watch address, whatever the shared form.
         assertTrue(fake.takeRequest().url.queryParameter("queryFilter").orEmpty().contains("youtube.com/watch?v=0nE7dAlDshk"))
         assertEquals("/api/recipes/create/html-or-json", fake.takeRequest().url.encodedPath)
+    }
+
+    @Test
+    fun `captions YouTube refused are named as why the steps are not in the video`() = runBlocking {
+        fake.enqueueJson("""{"page":1,"per_page":10,"total":0,"total_pages":0,"items":[]}""")
+        fake.enqueueJson(""""poulet-curry"""")
+        repeat(4) { fake.enqueueJson(VIDEO_RECIPE) }
+        val viewModel = viewModel(
+            "https://youtu.be/0nE7dAlDshk",
+            video = YouTubeResult.Success(
+                video(description = "Ingrédients :\n2 blancs de poulet\n1 oignon\n\nPréparation :\nCouper le poulet en dés.\nCuire la sauce au curry.")
+                    .copy(transcriptRefused = true),
+            ),
+        )
+
+        viewModel.import()
+        val state = withTimeout(TIMEOUT_MS) { viewModel.state.first { it.imported != null } }
+
+        assertEquals(ImportedRecipe("poulet-curry", ImportNotice.VIDEO_CAPTIONS_REFUSED), state.imported)
     }
 
     @Test

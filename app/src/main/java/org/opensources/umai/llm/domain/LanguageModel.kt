@@ -3,7 +3,8 @@ package org.opensources.umai.llm.domain
 /**
  * One question to the language model. The answer is JSON matching
  * [jsonSchema]: the runtime only lets the model write tokens the schema
- * allows, so the answer always parses, whatever the model.
+ * allows, so the answer always parses, whatever the model. [media] is a
+ * sound or a picture the question is about.
  */
 data class LlmRequest(
     val system: String,
@@ -13,7 +14,24 @@ data class LlmRequest(
     /** Low by default: the tasks extract and classify, they do not invent. */
     val temperature: Float = 0.2f,
     val seed: Int = 42,
+    val media: LlmMedia? = null,
 )
+
+/** What the model is given to listen to or to look at, besides the text. */
+sealed interface LlmMedia {
+    /** The part of the model that reads it. */
+    val sense: AiSense
+
+    /** A WAV file of 16 kHz mono sound, 30 seconds at most: the longest the model hears at once. */
+    class Sound(val wav: ByteArray) : LlmMedia {
+        override val sense: AiSense get() = AiSense.HEARING
+    }
+
+    /** A JPEG picture. */
+    class Picture(val jpeg: ByteArray) : LlmMedia {
+        override val sense: AiSense get() = AiSense.SIGHT
+    }
+}
 
 /**
  * How far a generation is: the prompt is read first, then the answer written.
@@ -40,6 +58,9 @@ enum class LlmFailure {
     TOO_LONG,
 
     GENERATION_FAILED,
+
+    /** The model has no part that hears sound or sees pictures, or none of them loads on this phone. */
+    MEDIA_UNSUPPORTED,
 }
 
 /**

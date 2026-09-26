@@ -52,9 +52,11 @@ import org.opensources.umai.recipe.data.RecipeMediaRepository
 import org.opensources.umai.recipe.data.RecipeRepository
 import org.opensources.umai.recipe.data.VideoStreams
 import org.opensources.umai.shopping.data.ShoppingRepository
+import org.opensources.umai.youtube.data.AndroidVideoMedia
 import org.opensources.umai.youtube.data.MealieRecipePages
 import org.opensources.umai.youtube.data.VideoRecipeImporter
 import org.opensources.umai.youtube.data.YouTubeClient
+import org.opensources.umai.youtube.domain.VideoWatcher
 import java.util.concurrent.TimeUnit
 
 /**
@@ -184,6 +186,7 @@ class AppContainer(context: Context) {
         youTube = youTubeClient,
         pages = MealieRecipePages(apiProvider, externalHttpClient),
         model = localLanguageModel,
+        watcher = VideoWatcher(localLanguageModel, AndroidVideoMedia()),
         apiProvider = apiProvider,
         edits = recipeEditRepository,
         media = recipeMediaRepository,

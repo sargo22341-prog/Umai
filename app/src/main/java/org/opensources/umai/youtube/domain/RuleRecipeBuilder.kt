@@ -20,6 +20,8 @@ object RuleRecipeBuilder {
 
     fun build(video: YouTubeVideo, page: RecipePage? = null): RecipeBlueprint {
         val description = video.description
+        // What pictures show places steps, but is no text for them.
+        val speech = if (video.transcriptSource == TranscriptSource.SEEN) emptyList() else video.transcript
         val chapters = video.chapters
         val ingredientsChapter = chapters.firstOrNull { isIngredientsChapter(it.title) }
         val cookingChapters = chapters.withIndex().filter { (_, chapter) ->
@@ -37,14 +39,14 @@ object RuleRecipeBuilder {
                 written.mapIndexed { index, text -> BlueprintStep(title = "", text = text, start = starts?.getOrNull(index)) }
             }
             cookingChapters.isNotEmpty() -> cookingChapters.map { (index, chapter) ->
-                val spoken = Transcript.textBetween(video.transcript, chapter.start, video.chapterEnd(index))
+                val spoken = Transcript.textBetween(speech, chapter.start, video.chapterEnd(index))
                 BlueprintStep(
                     title = chapter.title,
                     text = excerpt(spoken).ifBlank { chapter.title },
                     start = chapter.start,
                 )
             }
-            video.transcript.isNotEmpty() -> transcriptSteps(video)
+            speech.isNotEmpty() -> transcriptSteps(video)
             else -> emptyList()
         }
 

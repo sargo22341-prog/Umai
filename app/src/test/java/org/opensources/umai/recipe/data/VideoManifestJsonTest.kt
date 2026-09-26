@@ -33,6 +33,16 @@ class VideoManifestJsonTest {
     }
 
     @Test
+    fun `a file whose chapters were all removed still tells where the video is`() {
+        val manifest = requireNotNull(
+            VideoManifestJson.parse("""{"version":1,"source":{"originalVideoUrl":"https://youtu.be/y3L14JKSSYI"},"chapters":[]}"""),
+        )
+
+        assertEquals("https://youtu.be/y3L14JKSSYI", manifest.videoUrl)
+        assertTrue(manifest.chapters.isEmpty())
+    }
+
+    @Test
     fun `a file without chapters is not a chapters file`() {
         assertNull(VideoManifestJson.parse("""{"version":1,"chapters":[]}"""))
         assertNull(VideoManifestJson.parse("not json"))

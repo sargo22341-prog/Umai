@@ -5,6 +5,9 @@ import kotlinx.coroutines.flow.Flow
 /** The processor a model runs on, from the fastest to the one every phone has. */
 enum class AiBackend { TPU, GPU, CPU }
 
+/** A part of the model beyond text, loaded only when a request needs it. */
+enum class AiSense { HEARING, SIGHT }
+
 /** Speeds the runtime measured on the last answer. */
 data class AiSpeed(
     val promptTokens: Int,
@@ -24,6 +27,9 @@ interface AiEngine : AutoCloseable {
     /** The backend the model really runs on: an engine is only built once this is proven. */
     val backend: AiBackend
 
+    /** The part of the model loaded with it beyond text, if any. */
+    val sense: AiSense?
+
     /**
      * Streams the answer to [request] piece by piece as the model writes it.
      * Cancelling the collection stops the model.
@@ -39,10 +45,11 @@ fun interface AiEngineLoader {
 
     /**
      * Loads the model at [path] on [backend], with room for [contextSize]
-     * tokens. Throws [AiBackendUnavailable] when the model does not run there,
+     * tokens, and with the part of the model that gives it [sense], if any.
+     * Throws [AiBackendUnavailable] when the model does not run there,
      * including when the runtime would quietly run it somewhere else.
      */
-    fun load(path: String, backend: AiBackend, contextSize: Int): AiEngine
+    fun load(path: String, backend: AiBackend, contextSize: Int, sense: AiSense?): AiEngine
 }
 
 class AiBackendUnavailable(message: String, cause: Throwable? = null) : Exception(message, cause)

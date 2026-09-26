@@ -47,11 +47,11 @@ data class RecipeCreateUiState(
     /** Set once the form may close; the screen then navigates away. */
     val exit: RecipeCreateExit? = null,
 ) {
-    val isFirstStep: Boolean get() = step == RecipeFormSection.entries.first()
-    val isLastStep: Boolean get() = step == RecipeFormSection.entries.last()
+    val isFirstStep: Boolean get() = step == RecipeFormSection.creation.first()
+    val isLastStep: Boolean get() = step == RecipeFormSection.creation.last()
     val canCreate: Boolean get() = draft.canBeCreated && !creating && !processingImage && steps.processingPhoto == null
-    val stepNumber: Int get() = RecipeFormSection.entries.indexOf(step) + 1
-    val stepCount: Int get() = RecipeFormSection.entries.size
+    val stepNumber: Int get() = RecipeFormSection.creation.indexOf(step) + 1
+    val stepCount: Int get() = RecipeFormSection.creation.size
 }
 
 /**
@@ -166,13 +166,13 @@ class RecipeCreateViewModel(
     }
 
     fun next() {
-        val index = RecipeFormSection.entries.indexOf(_state.value.step)
-        RecipeFormSection.entries.getOrNull(index + 1)?.let(::showSection)
+        val index = RecipeFormSection.creation.indexOf(_state.value.step)
+        RecipeFormSection.creation.getOrNull(index + 1)?.let(::showSection)
     }
 
     fun previous() {
-        val index = RecipeFormSection.entries.indexOf(_state.value.step)
-        RecipeFormSection.entries.getOrNull(index - 1)?.let(::showSection)
+        val index = RecipeFormSection.creation.indexOf(_state.value.step)
+        RecipeFormSection.creation.getOrNull(index - 1)?.let(::showSection)
     }
 
     /**

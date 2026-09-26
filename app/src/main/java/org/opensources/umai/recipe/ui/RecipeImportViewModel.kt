@@ -26,14 +26,15 @@ import org.opensources.umai.youtube.data.VideoImportProgress
 import org.opensources.umai.youtube.data.VideoRecipeImporter
 import org.opensources.umai.youtube.domain.BlueprintOrigin
 import org.opensources.umai.youtube.domain.YouTubeFailure
+import org.opensources.umai.youtube.domain.WatchProgress
 import org.opensources.umai.youtube.domain.YouTubeLinks
 
 /**
  * Where an import stands while it runs. A web page goes through [CHECKING],
  * [IMPORTING] and [FETCHING_MEDIA]; a video through [CHECKING],
- * [READING_VIDEO], [UNDERSTANDING] and [SAVING].
+ * [READING_VIDEO], [WATCHING] when it has no captions, [UNDERSTANDING] and [SAVING].
  */
-enum class ImportPhase { CHECKING, IMPORTING, FETCHING_MEDIA, READING_VIDEO, UNDERSTANDING, SAVING }
+enum class ImportPhase { CHECKING, IMPORTING, FETCHING_MEDIA, READING_VIDEO, WATCHING, UNDERSTANDING, SAVING }
 
 /** What the user is told about an import that went through, but not entirely as hoped. */
 enum class ImportNotice {
@@ -48,6 +49,9 @@ enum class ImportNotice {
 
     /** The steps could not be tied to the video. */
     VIDEO_NOT_LINKED,
+
+    /** YouTube refused the captions, and without them the steps could not be tied to the video. */
+    VIDEO_CAPTIONS_REFUSED,
 }
 
 /** A recipe imported, and what did not go as hoped, if anything. */
@@ -73,6 +77,8 @@ data class RecipeImportUiState(
     val videoUsesModel: Boolean = false,
     /** How far the language model is, while it reads the video. */
     val modelProgress: LlmProgress? = null,
+    /** How far the language model is, while it listens to the video or looks at it. */
+    val watchProgress: WatchProgress? = null,
     val videoFailure: YouTubeFailure? = null,
     /** The video holds nothing a recipe could be rebuilt from. */
     val videoEmpty: Boolean = false,
@@ -212,9 +218,10 @@ class RecipeImportViewModel(
             _state.update {
                 when (progress) {
                     VideoImportProgress.ReadingVideo -> it.copy(phase = ImportPhase.READING_VIDEO)
+                    is VideoImportProgress.Watching -> it.copy(phase = ImportPhase.WATCHING, watchProgress = progress.progress)
                     is VideoImportProgress.Understanding ->
                         it.copy(phase = ImportPhase.UNDERSTANDING, modelProgress = progress.progress)
-                    VideoImportProgress.Saving -> it.copy(phase = ImportPhase.SAVING, modelProgress = null)
+                    VideoImportProgress.Saving -> it.copy(phase = ImportPhase.SAVING, modelProgress = null, watchProgress = null)
                 }
             }
         }
@@ -225,16 +232,17 @@ class RecipeImportViewModel(
                     val result = outcome.result
                     val notice = when {
                         result.modelFailure != null -> ImportNotice.VIDEO_MODEL_FAILED
+                        result.captionsRefused && !result.videoLinked -> ImportNotice.VIDEO_CAPTIONS_REFUSED
                         result.origin == BlueprintOrigin.RULES -> ImportNotice.VIDEO_WITHOUT_MODEL
                         !result.videoLinked -> ImportNotice.VIDEO_NOT_LINKED
                         else -> null
                     }
-                    it.copy(phase = null, modelProgress = null, imported = ImportedRecipe(result.slug, notice))
+                    it.copy(phase = null, modelProgress = null, watchProgress = null, imported = ImportedRecipe(result.slug, notice))
                 }
                 is VideoImportOutcome.VideoFailed ->
-                    it.copy(phase = null, modelProgress = null, videoFailure = outcome.failure)
-                VideoImportOutcome.NothingToRebuild -> it.copy(phase = null, modelProgress = null, videoEmpty = true)
-                is VideoImportOutcome.SaveFailed -> it.copy(phase = null, modelProgress = null, error = outcome.error)
+                    it.copy(phase = null, modelProgress = null, watchProgress = null, videoFailure = outcome.failure)
+                VideoImportOutcome.NothingToRebuild -> it.copy(phase = null, modelProgress = null, watchProgress = null, videoEmpty = true)
+                is VideoImportOutcome.SaveFailed -> it.copy(phase = null, modelProgress = null, watchProgress = null, error = outcome.error)
             }
         }
     }
@@ -242,7 +250,7 @@ class RecipeImportViewModel(
     /** Stops an import on its way; a recipe already created on Mealie stays. */
     fun cancel() {
         importJob?.cancel()
-        _state.update { it.copy(phase = null, modelProgress = null) }
+        _state.update { it.copy(phase = null, modelProgress = null, watchProgress = null) }
     }
 
     fun dismissDuplicate() = _state.update { it.copy(duplicate = null) }

@@ -52,13 +52,30 @@ class TranscriptTest {
             cues,
         )
 
+        val placed = requireNotNull(starts).map { requireNotNull(it) }
+        assertEquals(4, placed.size)
+        assertTrue(placed[0] <= 40.0)
+        assertTrue(placed[1] in 60.0..80.0)
+        assertTrue(placed[2] in 100.0..160.0)
+        assertTrue(placed[3] >= 180.0)
+        assertEquals(placed.sorted(), placed)
+    }
+
+    @Test
+    fun `a step that shares no word with where it lands is not placed there by guess`() {
+        val starts = Transcript.alignSteps(
+            listOf(
+                "Éplucher les carottes et les oignons.",
+                "Zzz qqq www.",
+                "Monter les lasagnes couche par couche.",
+            ),
+            cues,
+        )
+
         requireNotNull(starts)
-        assertEquals(4, starts.size)
-        assertTrue(starts[0] <= 40.0)
-        assertTrue(starts[1] in 60.0..80.0)
-        assertTrue(starts[2] in 100.0..160.0)
-        assertTrue(starts[3] >= 180.0)
-        assertEquals(starts.sorted(), starts)
+        assertTrue(requireNotNull(starts[0]) <= 40.0)
+        assertNull(starts[1])
+        assertTrue(requireNotNull(starts[2]) >= 180.0)
     }
 
     @Test

@@ -1,5 +1,7 @@
 package org.opensources.umai.llm
 
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -18,9 +20,13 @@ import org.opensources.umai.llm.data.DeviceAccelerators
 import org.opensources.umai.llm.data.LiteRtLmLoader
 import org.opensources.umai.llm.data.TpuCrashGuard
 import org.opensources.umai.llm.domain.AiBackend
+import org.opensources.umai.llm.domain.AiSense
+import org.opensources.umai.llm.domain.LlmMedia
 import org.opensources.umai.llm.domain.LlmRequest
 import org.opensources.umai.llm.domain.LocalModelCatalog
 import org.opensources.umai.llm.domain.ModelFile
+import org.opensources.umai.youtube.domain.SpeechSound
+import java.io.ByteArrayOutputStream
 import java.io.File
 
 /**
@@ -54,11 +60,41 @@ class LiteRtLmBackendTest {
 
     private fun universalFile() = model.files.first { it.chip == null }
 
+    /** The model hears on the CPU: what a video without captions is transcribed with. */
+    @Test
+    fun theCpuHearsASound() = sense(AiSense.HEARING, LlmMedia.Sound(SpeechSound.wav(ShortArray(SpeechSound.RATE))))
+
+    /** The model sees with its vision part on the GPU: what a video without speech is described with. */
+    @Test
+    fun theCpuSeesAPicture() {
+        val picture = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.WHITE) }
+        val jpeg = ByteArrayOutputStream().use { out ->
+            picture.compress(Bitmap.CompressFormat.JPEG, 90, out)
+            out.toByteArray()
+        }
+        sense(AiSense.SIGHT, LlmMedia.Picture(jpeg))
+    }
+
+    private fun sense(sense: AiSense, media: LlmMedia) = runBlocking {
+        val file = universalFile()
+        val path = context.getExternalFilesDir("models")?.resolve(file.fileName)
+        assumeTrue("${file.fileName} is not on the phone", path?.isFile == true)
+        val engine = loader.load(checkNotNull(path).path, AiBackend.CPU, file.contextSizeOn(AiBackend.CPU), sense)
+        try {
+            assertEquals(sense, engine.sense)
+            val answer = engine.generate(DESCRIBE.copy(media = media)).toList().joinToString("")
+            Log.i(TAG, "Sense: $sense | $answer")
+            assertTrue((Json.parseToJsonElement(answer) as JsonObject).containsKey("what"))
+        } finally {
+            engine.close()
+        }
+    }
+
     private fun run(file: ModelFile, backend: AiBackend) = runBlocking {
         val path = context.getExternalFilesDir("models")?.resolve(file.fileName)
         assumeTrue("${file.fileName} is not on the phone", path?.isFile == true)
         logMemory(backend, "before")
-        val engine = loader.load(checkNotNull(path).path, backend, file.contextSizeOn(backend))
+        val engine = loader.load(checkNotNull(path).path, backend, file.contextSizeOn(backend), sense = null)
         logMemory(backend, "loaded")
         try {
             assertEquals(backend, engine.backend)
@@ -88,6 +124,14 @@ class LiteRtLmBackendTest {
 
     private companion object {
         const val TAG = "UmaiAiTest"
+
+        val DESCRIBE = LlmRequest(
+            system = "You say in a few words what you hear or see.",
+            user = "What is it?",
+            jsonSchema = """{"type": "object", "properties": {"what": {"type": "string"}}, "required": ["what"]}""",
+            maxTokens = 64,
+            temperature = 0f,
+        )
 
         val REQUEST = LlmRequest(
             system = "You sort recipes by course: main, dessert, drink or other.",

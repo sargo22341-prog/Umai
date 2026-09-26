@@ -162,6 +162,8 @@ class CookingViewModel(
         val manifest = (mediaRepository.videoManifest(recipe.id, recipe.assets) as? ApiResult.Success)?.value
             ?: return
         _state.update { it.copy(video = manifest) }
+        // A video none of whose steps is placed has nothing to play.
+        if (manifest.chapters.isEmpty()) return
         val stream = manifest.videoUrl?.let { streamFor(it) } ?: return
         _state.update { it.copy(stream = stream) }
     }

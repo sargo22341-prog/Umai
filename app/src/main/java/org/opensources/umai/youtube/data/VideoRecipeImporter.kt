@@ -28,11 +28,16 @@ import org.opensources.umai.youtube.domain.RuleRecipeBuilder
 import org.opensources.umai.youtube.domain.YouTubeFailure
 import org.opensources.umai.youtube.domain.YouTubeLinks
 import org.opensources.umai.youtube.domain.VideoSource
+import org.opensources.umai.youtube.domain.VideoWatcher
+import org.opensources.umai.youtube.domain.WatchProgress
 import org.opensources.umai.youtube.domain.YouTubeResult
 
 /** Where an import from a video stands. */
 sealed interface VideoImportProgress {
     data object ReadingVideo : VideoImportProgress
+
+    /** Without captions, the language model listens to the video, or looks at it. */
+    data class Watching(val progress: WatchProgress) : VideoImportProgress
 
     /** The language model reads the transcript; [progress] is `null` until it starts. */
     data class Understanding(val progress: LlmProgress?) : VideoImportProgress
@@ -47,6 +52,8 @@ data class VideoImport(
     /** Why the language model was not used, when it was installed but failed. */
     val modelFailure: LlmFailure?,
     val hadTranscript: Boolean,
+    /** YouTube refused the captions of the video, which were then not read. */
+    val captionsRefused: Boolean,
     /** Whether the steps could be tied to the video, for the cooking mode. */
     val videoLinked: Boolean,
 )
@@ -66,6 +73,9 @@ sealed interface VideoImportOutcome {
  * Rebuilds a recipe from a YouTube video and writes it on Mealie, where
  * Mealie's own import stops at the title and the description.
  *
+ * A video without captions is first listened to, or looked at, by the
+ * language model ([VideoWatcher]), which gives the steps their times.
+ *
  * When the description links to the written recipe, that page gives the
  * ingredients and their quantities; the video gives the steps and where they
  * are shown, and stays the source of the recipe.
@@ -80,6 +90,7 @@ class VideoRecipeImporter(
     private val youTube: VideoSource,
     private val pages: RecipePageSource,
     private val model: LanguageModel,
+    private val watcher: VideoWatcher,
     private val apiProvider: () -> MealieApi?,
     private val edits: RecipeEditRepository,
     private val media: RecipeMediaRepository,
@@ -91,9 +102,14 @@ class VideoRecipeImporter(
     suspend fun import(url: String, onProgress: (VideoImportProgress) -> Unit): VideoImportOutcome {
         val id = YouTubeLinks.videoId(url) ?: return VideoImportOutcome.VideoFailed(YouTubeFailure.NOT_A_VIDEO)
         onProgress(VideoImportProgress.ReadingVideo)
-        val video = when (val result = youTube.video(id)) {
+        val read = when (val result = youTube.video(id)) {
             is YouTubeResult.Failure -> return VideoImportOutcome.VideoFailed(result.failure)
             is YouTubeResult.Success -> result.value
+        }
+        val video = if (model.isReady()) {
+            watcher.complete(read, language()) { onProgress(VideoImportProgress.Watching(it)) }
+        } else {
+            read
         }
 
         // The first linked page that holds a recipe; the others are not read.
@@ -131,6 +147,7 @@ class VideoRecipeImporter(
                 origin = blueprint.origin,
                 modelFailure = modelFailure,
                 hadTranscript = video.transcript.isNotEmpty(),
+                captionsRefused = video.transcriptRefused,
                 videoLinked = linked,
             ),
         )

@@ -45,6 +45,7 @@ import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
 import org.opensources.umai.llm.domain.LlmProgress
+import org.opensources.umai.youtube.domain.WatchProgress
 import org.opensources.umai.youtube.domain.YouTubeFailure
 
 /**
@@ -220,6 +221,11 @@ fun RecipeImportScreen(
                                 ImportPhase.IMPORTING -> R.string.import_running
                                 ImportPhase.FETCHING_MEDIA -> R.string.import_fetching_media
                                 ImportPhase.READING_VIDEO -> R.string.import_reading_video
+                                ImportPhase.WATCHING -> if (state.watchProgress?.seeing == true) {
+                                    R.string.import_watching_pictures
+                                } else {
+                                    R.string.import_watching_sound
+                                }
                                 ImportPhase.UNDERSTANDING -> R.string.import_understanding
                                 ImportPhase.SAVING -> R.string.import_saving
                             },
@@ -231,6 +237,7 @@ fun RecipeImportScreen(
             }
 
             if (state.phase == ImportPhase.UNDERSTANDING) ModelProgress(state.modelProgress)
+            state.watchProgress?.takeIf { state.phase == ImportPhase.WATCHING }?.let { WatchingProgress(it) }
 
             if (state.importing && state.isVideo) {
                 TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
@@ -258,6 +265,31 @@ private fun ModelProgress(progress: LlmProgress?) {
                 progress.readingPrompt -> stringResource(R.string.import_model_reading)
                 else -> pluralStringResource(R.plurals.import_model_writing, progress.generated, progress.generated)
             },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = stringResource(R.string.import_model_background),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** How far the model is in listening to the video, or in looking at it. */
+@Composable
+private fun WatchingProgress(progress: WatchProgress) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        LinearProgressIndicator(
+            progress = { if (progress.total > 0) progress.done.toFloat() / progress.total else 0f },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            text = stringResource(
+                if (progress.seeing) R.string.import_watching_pictures_count else R.string.import_watching_sound_count,
+                progress.done,
+                progress.total,
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

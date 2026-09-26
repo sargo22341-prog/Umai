@@ -56,8 +56,9 @@ Main features:
 - **recipe creation and editing**: import from a web page (Mealie parses it), with the video and
   step photos of Jow and the step photos of 750g and Marmiton; **import of a YouTube video**
   rebuilt into a full recipe (ingredients, steps, the part of the video of each step) from its
-  description, chapters and transcript, with the quantities of the recipe page the description
-  links to; write a recipe step by step with drafts kept on the phone,
+  description, chapters and transcript — with the local AI, a video without captions is listened
+  to, and looked at when nothing is said — with the quantities of the recipe page the description
+  links to; the part of the video of each step corrected by hand in the editor's Video tab; write a recipe step by step with drafts kept on the phone,
   crop the recipe photo;
 - optional **local AI**: a language model downloaded separately runs on the phone, with no online
   service, for the video import and the recognition of dishes ([details and figures](docs/local-ai.md),

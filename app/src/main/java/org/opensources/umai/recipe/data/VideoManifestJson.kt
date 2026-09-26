@@ -19,7 +19,8 @@ import org.opensources.umai.recipe.domain.VideoManifest
  *
  * Reading is lenient, as files already on Mealie were written by other tools:
  * a step index may be a number or a string, or be named `stepId`, and a chapter
- * that makes no sense is skipped rather than failing the whole file.
+ * that makes no sense is skipped rather than failing the whole file. A file
+ * whose chapters were all removed in the editor still tells where the video is.
  */
 internal object VideoManifestJson {
 
@@ -30,11 +31,12 @@ internal object VideoManifestJson {
         val chapters = (root["chapters"] as? JsonArray).orEmpty()
             .mapNotNull { (it as? JsonObject)?.toChapter() }
             .sortedBy { it.start }
-        if (chapters.isEmpty()) return null
+        val videoUrl = source?.text("originalVideoUrl")
+        if (chapters.isEmpty() && videoUrl == null) return null
         return VideoManifest(
             title = root.text("title").orEmpty(),
             sourceUrl = source?.text("url_ori"),
-            videoUrl = source?.text("originalVideoUrl"),
+            videoUrl = videoUrl,
             chapters = chapters,
         )
     }

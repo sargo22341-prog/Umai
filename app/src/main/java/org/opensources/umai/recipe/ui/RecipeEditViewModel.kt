@@ -20,7 +20,10 @@ import org.opensources.umai.recipe.data.CalorieTagRepository
 import org.opensources.umai.recipe.data.RecipeEditRepository
 import org.opensources.umai.recipe.data.RecipeImageFiles
 import org.opensources.umai.recipe.domain.EditableRecipe
+import org.opensources.umai.recipe.domain.DraftChapter
 import org.opensources.umai.recipe.domain.RecipeDraft
+import org.opensources.umai.recipe.domain.VideoChapters
+import org.opensources.umai.recipe.domain.VideoStream
 
 data class RecipeEditUiState(
     val loading: Boolean = true,
@@ -52,12 +55,27 @@ data class RecipeEditUiState(
     val deleteError: NetworkError? = null,
     /** Set once Mealie deleted the recipe; the screen then closes. */
     val deleted: Boolean = false,
+    /** Where the player of the video section reads the recipe video, once found. */
+    val videoStream: VideoStream? = null,
+    val videoStreamLoading: Boolean = false,
+    /** The video could not be read at the moment: the chapters can still be typed. */
+    val videoStreamFailed: Boolean = false,
 ) {
+    /**
+     * Chapters count as a change until Mealie holds them: after a save that
+     * stopped halfway, what is left to write is still there to retry.
+     */
     val hasChanges: Boolean
-        get() = recipe != null && (draft != recipe.draft || newImagePath != null)
+        get() = recipe != null &&
+            (draft != recipe.draft || newImagePath != null || VideoChapters.changed(draft, recipe.video))
 
     val canSave: Boolean
-        get() = hasChanges && draft.canBeCreated && !saving && !deleting && !processingImage && steps.processingPhoto == null
+        get() = hasChanges && draft.canBeCreated && VideoChapters.areValid(draft) &&
+            !saving && !deleting && !processingImage && steps.processingPhoto == null
+
+    /** The tabs of the editor: the video one only for a recipe with a video. */
+    val sections: List<RecipeFormSection>
+        get() = RecipeFormSection.entries.filter { it != RecipeFormSection.VIDEO || draft.video != null }
 
     /** Deleting waits for a save under way, whose result would be lost. */
     val canDelete: Boolean
@@ -80,7 +98,9 @@ class RecipeEditViewModel(
     private val imageFiles: RecipeImageFiles,
     private val recentRecipes: RecentRecipes,
     private val calorieTags: CalorieTagRepository? = null,
-) : ViewModel(), RecipeDraftEditing {
+    /** Where a video is read from: a YouTube page is turned into a stream the player reads. */
+    private val streamFor: suspend (String) -> VideoStream? = { null },
+) : ViewModel(), RecipeDraftEditing, VideoChapterEditing {
 
     /** Follows a rename saved here, so a retry addresses the recipe as it now is. */
     private var slug: String = slug
@@ -157,11 +177,32 @@ class RecipeEditViewModel(
     override fun showSection(section: RecipeFormSection) {
         _state.update { it.copy(section = section) }
         if (section == RecipeFormSection.ORGANIZERS) loadOrganizers()
+        if (section == RecipeFormSection.VIDEO && _state.value.videoStream == null) loadVideoStream()
+    }
+
+    override fun setChapterStart(stepIndex: Int, seconds: Double?) = editDraft { draft ->
+        VideoChapters.update(draft, stepIndex) { chapter -> seconds?.let { start -> DraftChapter(start, chapter?.end) } }
+    }
+
+    override fun setChapterEnd(stepIndex: Int, seconds: Double?) = editDraft { draft ->
+        VideoChapters.update(draft, stepIndex) { chapter -> chapter?.copy(end = seconds) }
+    }
+
+    /** Looks the video up again, when it could not be read. */
+    override fun loadVideoStream() {
+        val url = _state.value.draft.video?.url ?: return
+        if (_state.value.videoStreamLoading) return
+        _state.update { it.copy(videoStreamLoading = true, videoStreamFailed = false) }
+        viewModelScope.launch {
+            val stream = streamFor(url)
+            _state.update { it.copy(videoStreamLoading = false, videoStream = stream, videoStreamFailed = stream == null) }
+        }
     }
 
     /**
-     * Writes the recipe, then its new picture. The picture goes second because
-     * it is addressed by slug, and renaming the recipe changes the slug.
+     * Writes the recipe, then its video chapters, its step photos and its new
+     * picture. Those go after the text because they are addressed by slug, and
+     * renaming the recipe changes the slug.
      */
     fun save() {
         val current = _state.value
@@ -181,6 +222,23 @@ class RecipeEditViewModel(
                 slug = newSlug
             }
 
+            val chaptered = when (val chapters = editRepository.saveVideoChapters(newSlug, recipe, current.draft)) {
+                is ApiResult.Failure -> {
+                    // The text is saved; the chapters stay a change to retry.
+                    _state.update {
+                        it.copy(
+                            saving = false,
+                            saveError = chapters.error,
+                            committedSlug = newSlug,
+                            recipe = recipe.copy(draft = current.draft.copy(id = newSlug)),
+                            draft = it.draft.copy(id = newSlug),
+                        )
+                    }
+                    return@launch
+                }
+                is ApiResult.Success -> chapters.value
+            }
+
             val newPhotos = current.draft.writtenSteps.mapIndexedNotNull { index, step ->
                 step.photoPath?.let { path -> imageFiles.read(path)?.let { (index + 1) to it } }
             }.toMap()
@@ -192,7 +250,7 @@ class RecipeEditViewModel(
                         saving = false,
                         saveError = photos.error,
                         committedSlug = newSlug,
-                        recipe = recipe.copy(draft = current.draft.copy(id = newSlug)),
+                        recipe = chaptered.copy(draft = current.draft.copy(id = newSlug)),
                         draft = it.draft.copy(id = newSlug),
                     )
                 }
@@ -212,7 +270,7 @@ class RecipeEditViewModel(
                             saving = false,
                             saveError = upload.error,
                             committedSlug = newSlug,
-                            recipe = recipe.copy(draft = current.draft.copy(id = newSlug)),
+                            recipe = chaptered.copy(draft = current.draft.copy(id = newSlug)),
                             draft = it.draft.copy(id = newSlug),
                         )
                     }
@@ -278,6 +336,7 @@ class RecipeEditViewModel(
                     imageFiles = container.recipeImageFiles,
                     recentRecipes = container.recentRecipesStore,
                     calorieTags = container.calorieTagRepository,
+                    streamFor = container.videoStreams::streamFor,
                 )
             }
         }

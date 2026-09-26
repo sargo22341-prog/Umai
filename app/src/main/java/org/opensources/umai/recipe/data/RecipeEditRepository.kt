@@ -26,6 +26,7 @@ import org.opensources.umai.recipe.domain.EditableRecipe
 import org.opensources.umai.recipe.domain.RecipeDraft
 import org.opensources.umai.recipe.domain.RecipeLinks
 import org.opensources.umai.recipe.domain.RecipeMediaFiles
+import org.opensources.umai.recipe.domain.VideoChapters
 
 /**
  * Writes recipes on the Mealie instance: creates them by scraping a page or
@@ -128,23 +129,46 @@ class RecipeEditRepository(
             }
         }
 
-    /** The recipe as the edit form shows it, with what is needed to show its pictures. */
+    /**
+     * The recipe as the edit form shows it, with what is needed to show its
+     * pictures, and its video with the chapters of its steps. A chapters file
+     * that cannot be read fails the whole load: saving without it would
+     * write the chapters again from nothing.
+     */
     suspend fun loadForEdit(slug: String): ApiResult<EditableRecipe> {
         val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return when (val result = apiCall { api.recipe(slug) }) {
-            is ApiResult.Failure -> result
-            is ApiResult.Success -> {
-                val dto = result.value
-                val recipe = dto.toDomain() ?: return ApiResult.Failure(NetworkError.InvalidResponse)
-                ApiResult.Success(
-                    EditableRecipe(
-                        recipeId = recipe.id,
-                        imageToken = recipe.summary.imageToken,
-                        draft = dto.toEditableDraft(),
-                        mediaVersion = recipe.mediaVersion,
-                    ),
-                )
-            }
+        val dto = when (val result = apiCall { api.recipe(slug) }) {
+            is ApiResult.Failure -> return result
+            is ApiResult.Success -> result.value
+        }
+        val recipe = dto.toDomain() ?: return ApiResult.Failure(NetworkError.InvalidResponse)
+        val video = when (val result = media.videoManifest(recipe.id, recipe.assets)) {
+            is ApiResult.Failure -> return result
+            is ApiResult.Success -> result.value
+        }
+        return ApiResult.Success(
+            EditableRecipe(
+                recipeId = recipe.id,
+                imageToken = recipe.summary.imageToken,
+                draft = VideoChapters.withVideo(dto.toEditableDraft(), video, recipe.summary.sourceUrl),
+                mediaVersion = recipe.mediaVersion,
+                video = video,
+                videoFile = RecipeMediaFiles.chaptersFile(recipe.assets),
+            ),
+        )
+    }
+
+    /**
+     * Writes the chapters of [edited] when they differ from the file on
+     * Mealie — placed in the editor, or numbered again because steps were
+     * removed. Answers with [recipe] as it now is on Mealie.
+     */
+    suspend fun saveVideoChapters(slug: String, recipe: EditableRecipe, edited: RecipeDraft): ApiResult<EditableRecipe> {
+        if (!VideoChapters.changed(edited, recipe.video)) return ApiResult.Success(recipe)
+        val manifest = VideoChapters.manifest(edited, recipe.video) ?: return ApiResult.Success(recipe)
+        return when (val saved = media.saveVideoManifest(slug, manifest, recipe.videoFile)) {
+            is ApiResult.Failure -> saved
+            is ApiResult.Success -> ApiResult.Success(recipe.copy(video = manifest, videoFile = saved.value))
         }
     }
 

@@ -19,6 +19,7 @@ enum class AppNotice(@param:StringRes val messageRes: Int, val success: Boolean)
     VIDEO_IMPORTED_WITHOUT_MODEL(R.string.notice_video_without_model, success = true),
     VIDEO_MODEL_FAILED(R.string.notice_video_model_failed, success = false),
     VIDEO_NOT_LINKED(R.string.notice_video_not_linked, success = false),
+    VIDEO_CAPTIONS_REFUSED(R.string.notice_video_captions_refused, success = false),
     MEAL_PLAN_CREATED(R.string.notice_meal_plan_created, success = true),
     ;
 
@@ -28,6 +29,7 @@ enum class AppNotice(@param:StringRes val messageRes: Int, val success: Boolean)
             ImportNotice.VIDEO_WITHOUT_MODEL -> VIDEO_IMPORTED_WITHOUT_MODEL
             ImportNotice.VIDEO_MODEL_FAILED -> VIDEO_MODEL_FAILED
             ImportNotice.VIDEO_NOT_LINKED -> VIDEO_NOT_LINKED
+            ImportNotice.VIDEO_CAPTIONS_REFUSED -> VIDEO_CAPTIONS_REFUSED
         }
     }
 }

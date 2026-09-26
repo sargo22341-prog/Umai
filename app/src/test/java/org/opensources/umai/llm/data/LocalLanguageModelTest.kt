@@ -16,9 +16,11 @@ import org.opensources.umai.llm.domain.AiBackend
 import org.opensources.umai.llm.domain.AiBackendUnavailable
 import org.opensources.umai.llm.domain.AiEngine
 import org.opensources.umai.llm.domain.AiEngineLoader
+import org.opensources.umai.llm.domain.AiSense
 import org.opensources.umai.llm.domain.AiSpeed
 import org.opensources.umai.llm.domain.DeviceProfile
 import org.opensources.umai.llm.domain.LlmFailure
+import org.opensources.umai.llm.domain.LlmMedia
 import org.opensources.umai.llm.domain.LlmOutcome
 import org.opensources.umai.llm.domain.LlmProgress
 import org.opensources.umai.llm.domain.LlmRequest
@@ -39,14 +41,19 @@ class LocalLanguageModelTest {
     private class FakeLoader(
         private val failingLoads: Set<AiBackend> = emptySet(),
         private val failingAnswers: Set<AiBackend> = emptySet(),
+        private val failingSenses: Set<Pair<AiBackend, AiSense>> = emptySet(),
     ) : AiEngineLoader {
         val loads = mutableListOf<Pair<AiBackend, String>>()
+        val senses = mutableListOf<AiSense?>()
 
-        override fun load(path: String, backend: AiBackend, contextSize: Int): AiEngine {
+        override fun load(path: String, backend: AiBackend, contextSize: Int, sense: AiSense?): AiEngine {
             loads += backend to path
+            senses += sense
             if (backend in failingLoads) throw AiBackendUnavailable("$backend refused")
+            if (sense != null && (backend to sense) in failingSenses) throw AiBackendUnavailable("$backend has no $sense")
             return object : AiEngine {
                 override val backend = backend
+                override val sense = sense
                 override val lastSpeed = AiSpeed(10, 100.0, 5, 10.0)
 
                 override fun generate(request: LlmRequest): Flow<String> =
@@ -77,6 +84,8 @@ class LocalLanguageModelTest {
 
     private fun request(userChars: Int = 100) =
         LlmRequest(system = "Sort.", user = "x".repeat(userChars), jsonSchema = "{}", maxTokens = 256)
+
+    private fun listening() = request().copy(media = LlmMedia.Sound(ByteArray(44)))
 
     @After
     fun tearDown() = scope.cancel()
@@ -213,5 +222,50 @@ class LocalLanguageModelTest {
 
         assertEquals(AiBackend.GPU, benchmark?.backend)
         assertEquals(10.0, benchmark?.generationSpeed)
+    }
+
+    @Test
+    fun `a sound goes to the CPU with the audio part, never to the TPU build`() = runBlocking {
+        val loader = FakeLoader()
+        val llm = languageModel(loader)
+
+        assertEquals(LlmOutcome.Success("{\"on\":\"CPU\"}"), llm.generate(listening()))
+        assertEquals(AiBackend.CPU to "/models/gemma-4-E2B-it.litertlm", loader.loads.single())
+        assertEquals(AiSense.HEARING, loader.senses.single())
+    }
+
+    @Test
+    fun `a backend without the audio part still answers text`() = runBlocking {
+        val loader = FakeLoader(failingSenses = setOf(AiBackend.CPU to AiSense.HEARING))
+        val llm = languageModel(loader, device = DeviceProfile("Tensor G2", null, tpuReachable = false), installed = installed(chip = null))
+
+        assertEquals(LlmOutcome.Success("{\"on\":\"GPU\"}"), llm.generate(listening()))
+        assertEquals(listOf(AiBackend.CPU, AiBackend.GPU), loader.loads.map { it.first })
+
+        // Text goes to the GPU, the fastest backend here, which the failed sound did not rule out.
+        assertEquals(LlmOutcome.Success("{\"on\":\"GPU\"}"), llm.generate(request()))
+    }
+
+    @Test
+    fun `a model that hears nowhere says so`() = runBlocking {
+        val loader = FakeLoader(failingSenses = setOf(AiBackend.CPU to AiSense.HEARING, AiBackend.GPU to AiSense.HEARING))
+        val llm = languageModel(loader)
+
+        assertEquals(LlmOutcome.Failure(LlmFailure.MEDIA_UNSUPPORTED), llm.generate(listening()))
+        // Nothing is tried again for the next sound.
+        loader.loads.clear()
+        assertEquals(LlmOutcome.Failure(LlmFailure.MEDIA_UNSUPPORTED), llm.generate(listening()))
+        assertTrue(loader.loads.isEmpty())
+    }
+
+    @Test
+    fun `an engine loaded to hear is loaded again to see`() = runBlocking {
+        val loader = FakeLoader()
+        val llm = languageModel(loader)
+
+        llm.generate(listening())
+        llm.generate(request().copy(media = LlmMedia.Picture(ByteArray(8))))
+
+        assertEquals(listOf(AiSense.HEARING, AiSense.SIGHT), loader.senses)
     }
 }

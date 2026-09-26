@@ -181,6 +181,8 @@ fun RecipeCreateScreen(
                         loading = state.loadingOrganizers,
                         actions = actions,
                     )
+                    // A recipe being written has no video yet: the creation never walks here.
+                    RecipeFormSection.VIDEO -> Unit
                 }
 
                 Spacer(Modifier.size(12.dp))

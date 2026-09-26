@@ -28,6 +28,8 @@ data class RecipeDraft(
     val tags: List<DraftOrganizer> = emptyList(),
     /** The framed picture, stored on the device until the recipe reaches Mealie. */
     val imagePath: String? = null,
+    /** The video of an existing recipe, whose chapters the editor places. */
+    val video: DraftVideo? = null,
     /** Epoch millis, so the list can show the most recent draft first. */
     val updatedAt: Long = 0L,
 ) {
@@ -69,7 +71,8 @@ data class DraftFood(val name: String, val pluralName: String? = null)
  * existing recipe, so an edit keeps what hangs off it.
  *
  * [photoFile] is the photo the step has on Mealie, [photoPath] a new one framed
- * on the device and not uploaded yet.
+ * on the device and not uploaded yet. [chapter] is where the step is shown in
+ * the recipe video: it stays with the step when the steps around it change.
  */
 @Serializable
 data class DraftStep(
@@ -79,7 +82,22 @@ data class DraftStep(
     val ingredientReferences: List<String> = emptyList(),
     val photoFile: String? = null,
     val photoPath: String? = null,
+    val chapter: DraftChapter? = null,
 )
+
+/**
+ * Where a step is shown in the video, in seconds. Without an [end], it lasts
+ * until the next chapter of the video starts, or until the video ends.
+ */
+@Serializable
+data class DraftChapter(val start: Double, val end: Double? = null) {
+    /** An end set before the start would play nothing. */
+    val isValid: Boolean get() = start >= 0 && (end == null || end > start)
+}
+
+/** The video of a recipe: [url] at its publisher, and where the ingredients are shown in it. */
+@Serializable
+data class DraftVideo(val url: String, val ingredients: DraftChapter? = null)
 
 /** A category or a tag the user picked, kept with what Mealie needs to store it. */
 @Serializable
@@ -95,6 +113,10 @@ data class EditableRecipe(
     val draft: RecipeDraft,
     /** Changes whenever the recipe does, so a replaced photo is not served from a cache. */
     val mediaVersion: String? = null,
+    /** The chapters file on Mealie, as it is there: what saving the chapters compares with. */
+    val video: VideoManifest? = null,
+    /** The name of that file, which a save replaces rather than adding a second one. */
+    val videoFile: String? = null,
 )
 
 fun newReferenceId(): String = UUID.randomUUID().toString()

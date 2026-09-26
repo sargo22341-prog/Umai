@@ -413,6 +413,25 @@
     <string name="edit_delete_title">Delete “%1$s”?</string>
     <string name="edit_delete_message">The recipe will be deleted from Mealie, for every user of the instance. This cannot be undone.</string>
     <string name="edit_delete_confirm">Delete</string>
+    <string name="edit_section_video">Video</string>
+    <string name="cd_edit_video">Recipe video</string>
+    <string name="edit_video_play">Play</string>
+    <string name="edit_video_pause">Pause</string>
+    <string name="edit_video_position">%1$s / %2$s</string>
+    <string name="edit_video_loading">Loading the video…</string>
+    <string name="edit_video_unavailable">The video cannot be played right now. The times can still be typed.</string>
+    <string name="edit_video_helper">For each step, pause the video where the step begins, then tap the start button. The cooking mode plays each step on a loop, from its start to the next step.</string>
+    <string name="edit_video_start">Start</string>
+    <string name="edit_video_not_placed">Not in the video</string>
+    <string name="edit_video_start_here">%1$s: start here</string>
+    <string name="edit_video_play_step">%1$s: play from its start</string>
+    <string name="edit_video_remove">%1$s: take out of the video</string>
+    <string name="edit_video_end">End</string>
+    <string name="edit_video_end_next">Next step</string>
+    <string name="edit_video_end_here">%1$s: end here</string>
+    <string name="edit_video_end_clear">%1$s: end at the next step</string>
+    <string name="edit_video_end_before_start">The end must come after the start</string>
+    <string name="edit_video_time_format">Write minutes:seconds, such as 1:25</string>
     <string name="edit_delete_failed">The recipe could not be deleted.</string>
     <string name="notice_draft_saved">Draft saved</string>
     <string name="notice_recipe_saved">Recipe saved</string>
@@ -641,6 +660,10 @@
     <string name="import_video_hint_model">YouTube video: the local AI rebuilds the recipe from its transcript, chapters and description, and ties each step to its part of the video. It takes a few minutes.</string>
     <string name="import_video_hint_rules">YouTube video: the recipe is rebuilt from its description and chapters. Install the local AI, in your profile, for a recipe rewritten from the whole video.</string>
     <string name="import_reading_video">Reading the video…</string>
+    <string name="import_watching_sound">Listening to the video…</string>
+    <string name="import_watching_pictures">Looking at the video…</string>
+    <string name="import_watching_sound_count">The video has no captions: the local AI listens to it, piece %1$d of %2$d</string>
+    <string name="import_watching_pictures_count">Nothing is said in the video: the local AI looks at it, picture %1$d of %2$d</string>
     <string name="import_understanding">Rebuilding the recipe…</string>
     <string name="import_saving">Saving on Mealie…</string>
     <string name="import_model_loading">Loading the model…</string>
@@ -658,7 +681,8 @@
     <string name="import_video_unreadable">YouTube answered in a way the app cannot read. An update of the app may be needed.</string>
     <string name="notice_video_without_model">Recipe rebuilt from the description: check the steps</string>
     <string name="notice_video_model_failed">The local AI failed: recipe rebuilt from the description</string>
-    <string name="notice_video_not_linked">Recipe imported, but its steps are not tied to the video</string>
+    <string name="notice_video_not_linked">Recipe imported, but its steps are not tied to the video: place them from Edit › Video</string>
+    <string name="notice_video_captions_refused">YouTube refused the video captions for now: place the steps from Edit › Video, or import again later</string>
     <string name="notice_meal_plan_created">Meals added to the plan</string>
 
     <!-- Automatic planning -->

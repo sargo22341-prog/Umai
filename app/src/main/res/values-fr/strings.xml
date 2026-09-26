@@ -414,6 +414,25 @@
     <string name="edit_delete_title">Supprimer « %1$s » ?</string>
     <string name="edit_delete_message">La recette sera supprimée de Mealie, pour tous les utilisateurs de l\'instance. Cette action est définitive.</string>
     <string name="edit_delete_confirm">Supprimer</string>
+    <string name="edit_section_video">Vidéo</string>
+    <string name="cd_edit_video">Vidéo de la recette</string>
+    <string name="edit_video_play">Lire</string>
+    <string name="edit_video_pause">Pause</string>
+    <string name="edit_video_position">%1$s / %2$s</string>
+    <string name="edit_video_loading">Chargement de la vidéo…</string>
+    <string name="edit_video_unavailable">La vidéo ne peut pas être lue pour le moment. Les temps peuvent quand même être saisis.</string>
+    <string name="edit_video_helper">Pour chaque étape, mettez la vidéo en pause là où l\'étape commence, puis touchez le bouton de début. Le mode cuisine joue chaque étape en boucle, de son début jusqu\'à l\'étape suivante.</string>
+    <string name="edit_video_start">Début</string>
+    <string name="edit_video_not_placed">Pas dans la vidéo</string>
+    <string name="edit_video_start_here">%1$s : commencer ici</string>
+    <string name="edit_video_play_step">%1$s : lire depuis son début</string>
+    <string name="edit_video_remove">%1$s : retirer de la vidéo</string>
+    <string name="edit_video_end">Fin</string>
+    <string name="edit_video_end_next">Étape suivante</string>
+    <string name="edit_video_end_here">%1$s : finir ici</string>
+    <string name="edit_video_end_clear">%1$s : finir à l\'étape suivante</string>
+    <string name="edit_video_end_before_start">La fin doit venir après le début</string>
+    <string name="edit_video_time_format">Écrivez minutes:secondes, par exemple 1:25</string>
     <string name="edit_delete_failed">La recette n\'a pas pu être supprimée.</string>
     <string name="notice_draft_saved">Brouillon enregistré</string>
     <string name="notice_recipe_saved">Recette enregistrée</string>
@@ -647,6 +666,10 @@
     <string name="import_video_hint_model">Vidéo YouTube : l\'IA locale reconstruit la recette à partir de la transcription, des chapitres et de la description, et relie chaque étape à son passage de la vidéo. Comptez quelques minutes.</string>
     <string name="import_video_hint_rules">Vidéo YouTube : la recette est reconstruite à partir de la description et des chapitres. Installez l\'IA locale, dans votre profil, pour une recette réécrite à partir de toute la vidéo.</string>
     <string name="import_reading_video">Lecture de la vidéo…</string>
+    <string name="import_watching_sound">Écoute de la vidéo…</string>
+    <string name="import_watching_pictures">Observation de la vidéo…</string>
+    <string name="import_watching_sound_count">La vidéo n\'a pas de sous-titres : l\'IA locale l\'écoute, passage %1$d sur %2$d</string>
+    <string name="import_watching_pictures_count">Rien n\'est dit dans la vidéo : l\'IA locale la regarde, image %1$d sur %2$d</string>
     <string name="import_understanding">Reconstruction de la recette…</string>
     <string name="import_saving">Enregistrement sur Mealie…</string>
     <string name="import_model_loading">Chargement du modèle…</string>
@@ -665,7 +688,8 @@
     <string name="import_video_unreadable">YouTube a répondu d\'une façon que l\'application ne sait pas lire. Une mise à jour de l\'application est peut-être nécessaire.</string>
     <string name="notice_video_without_model">Recette reconstruite à partir de la description : vérifiez les étapes</string>
     <string name="notice_video_model_failed">L\'IA locale a échoué : recette reconstruite à partir de la description</string>
-    <string name="notice_video_not_linked">Recette importée, mais ses étapes ne sont pas reliées à la vidéo</string>
+    <string name="notice_video_not_linked">Recette importée, mais ses étapes ne sont pas reliées à la vidéo : placez-les depuis Modifier › Vidéo</string>
+    <string name="notice_video_captions_refused">YouTube refuse pour l\'instant les sous-titres de la vidéo : placez les étapes depuis Modifier › Vidéo, ou réimportez plus tard</string>
     <string name="notice_meal_plan_created">Repas ajoutés au planning</string>
 
     <!-- Automatic planning -->

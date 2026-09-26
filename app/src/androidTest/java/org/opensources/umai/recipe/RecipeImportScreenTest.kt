@@ -23,6 +23,7 @@ import org.opensources.umai.llm.domain.LlmProgress
 import org.opensources.umai.recipe.ui.ImportPhase
 import org.opensources.umai.recipe.ui.RecipeImportScreen
 import org.opensources.umai.recipe.ui.RecipeImportUiState
+import org.opensources.umai.youtube.domain.WatchProgress
 import org.opensources.umai.youtube.domain.YouTubeFailure
 
 /** Handing a web address to Mealie's own scraper. */
@@ -184,6 +185,39 @@ class RecipeImportScreenTest {
         rule.onNodeWithText(string(R.string.import_understanding)).assertIsDisplayed()
         rule.onNodeWithText(string(R.string.import_model_reading)).assertIsDisplayed()
         rule.onNodeWithText(string(R.string.action_cancel)).assertIsDisplayed()
+    }
+
+    @Test
+    fun listeningToAVideoWithoutCaptionsShowsHowFarItIs() {
+        render(
+            RecipeImportUiState(
+                url = "https://youtu.be/y3L14JKSSYI",
+                isVideo = true,
+                videoUsesModel = true,
+                phase = ImportPhase.WATCHING,
+                watchProgress = WatchProgress(seeing = false, done = 3, total = 10),
+            ),
+        )
+
+        rule.onNodeWithText(string(R.string.import_watching_sound)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.import_watching_sound_count, 3, 10)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.action_cancel)).assertIsDisplayed()
+    }
+
+    @Test
+    fun lookingAtAVideoWithoutSpeechSaysSo() {
+        render(
+            RecipeImportUiState(
+                url = "https://youtu.be/y3L14JKSSYI",
+                isVideo = true,
+                videoUsesModel = true,
+                phase = ImportPhase.WATCHING,
+                watchProgress = WatchProgress(seeing = true, done = 1, total = 14),
+            ),
+        )
+
+        rule.onNodeWithText(string(R.string.import_watching_pictures)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.import_watching_pictures_count, 1, 14)).assertIsDisplayed()
     }
 
     @Test

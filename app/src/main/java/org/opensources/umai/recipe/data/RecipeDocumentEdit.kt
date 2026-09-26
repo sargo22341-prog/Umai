@@ -76,8 +76,8 @@ private fun RecipeIngredientDto.editableLine(): String =
  * Everything else is left exactly as the server wrote it, including what Umai
  * does not model. Where a field did change, what can be kept is kept: an
  * ingredient line left as it was keeps its structured quantity, unit and food,
- * and a step keeps its id. Photos are not part of the document: they are
- * assets, saved apart.
+ * and a step keeps its id. Photos and video chapters are not part of the
+ * document: they are assets, saved apart.
  */
 internal fun JsonObject.withEdits(original: RecipeDraft, edited: RecipeDraft, json: Json): JsonObject {
     val fields = toMutableMap()
@@ -105,7 +105,7 @@ internal fun JsonObject.withEdits(original: RecipeDraft, edited: RecipeDraft, js
     if (ingredientsChanged) {
         fields["recipeIngredient"] = ingredientsFor(edited.ingredients, original.ingredients)
     }
-    if (ingredientsChanged || edited.steps.withoutPhotos() != original.steps.withoutPhotos()) {
+    if (ingredientsChanged || edited.steps.withoutMedia() != original.steps.withoutMedia()) {
         fields["recipeInstructions"] = stepsFor(edited.writtenSteps, edited.ingredients)
     }
     if (edited.categories != original.categories) {
@@ -116,7 +116,8 @@ internal fun JsonObject.withEdits(original: RecipeDraft, edited: RecipeDraft, js
     return JsonObject(fields)
 }
 
-private fun List<DraftStep>.withoutPhotos() = map { it.copy(photoFile = null, photoPath = null) }
+/** Photos and video chapters are assets, not part of the document. */
+private fun List<DraftStep>.withoutMedia() = map { it.copy(photoFile = null, photoPath = null, chapter = null) }
 
 private fun String.asTime(): JsonElement = trim().takeIf { it.isNotEmpty() }?.let(::JsonPrimitive) ?: JsonNull
 

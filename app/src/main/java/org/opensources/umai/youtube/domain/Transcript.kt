@@ -56,9 +56,11 @@ object Transcript {
      * transcript after the previous one's, the one that shares the most words.
      *
      * Returns one start per step, in seconds; `null` for all when the
-     * transcript shares too few words with the steps to be trusted.
+     * transcript shares too few words with the steps to be trusted. A step
+     * that shares no word with the stretch it lands on was only put there to
+     * keep the order: its start is `null` rather than a guess.
      */
-    fun alignSteps(steps: List<String>, cues: List<TranscriptCue>): List<Double>? {
+    fun alignSteps(steps: List<String>, cues: List<TranscriptCue>): List<Double?>? {
         if (steps.isEmpty() || cues.isEmpty()) return null
         val windows = windows(cues)
         if (windows.size < steps.size) return null
@@ -93,7 +95,7 @@ object Transcript {
             picked[i] = j
             if (i > 0) j = from[i][j]
         }
-        return picked.map { windows[it].first }
+        return picked.mapIndexed { i, window -> windows[window].first.takeIf { score[i][window] > 0.0 } }
     }
 
     /** Overlapping stretches of about [WINDOW_SECONDS], every [WINDOW_STEP] seconds. */

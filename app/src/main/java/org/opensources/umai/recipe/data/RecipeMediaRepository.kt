@@ -30,11 +30,19 @@ class RecipeMediaRepository(private val apiProvider: () -> MealieApi?) {
         return apiCall { VideoManifestJson.parse(api.recipeAsset(recipeId, fileName).string()) }
     }
 
-    /** Writes the chapters file of a recipe that has none. */
-    suspend fun saveVideoManifest(slug: String, manifest: VideoManifest): ApiResult<Unit> {
-        val name = "${fileSafe(manifest.title).ifBlank { slug }}${RecipeMediaFiles.CHAPTERS_SUFFIX}"
+    /**
+     * Writes the chapters file of a recipe: a new one, or over [fileName], the
+     * one it has. Mealie then lists the replaced file twice, which
+     * [tidyAssets] puts right. Answers with the name of the file.
+     */
+    suspend fun saveVideoManifest(slug: String, manifest: VideoManifest, fileName: String? = null): ApiResult<String> {
+        val name = fileName?.substringBeforeLast('.')
+            ?: "${fileSafe(manifest.title).ifBlank { slug }}${RecipeMediaFiles.CHAPTERS_SUFFIX}"
         val bytes = VideoManifestJson.write(manifest).toByteArray()
-        return upload(slug, name, icon = "file-json", extension = "json", bytes, JSON)
+        val saved = upload(slug, name, icon = "file-json", extension = "json", bytes, JSON)
+        if (saved is ApiResult.Failure) return saved
+        if (fileName != null) (tidyAssets(slug) as? ApiResult.Failure)?.let { return it }
+        return ApiResult.Success("$name.json")
     }
 
     /** Stores [image] as the photo of step [stepNumber], replacing the one it had. */
