@@ -51,7 +51,7 @@ class VideoWatcherTest {
         val model = ScriptedModel(listOf(said("On verse la farine."), said(""), said("[Musique] On cuit à la poêle.")))
         val progress = mutableListOf<WatchProgress>()
 
-        val watched = VideoWatcher(model, FakeVideoMedia(sounds = 3)).complete(silent(), "fr") { progress += it }
+        val watched = VideoWatcher(model, FakeVideoMedia(sounds = 3)).complete(silent(), "fr", ingredientsKnown = false) { progress += it }
 
         assertEquals(TranscriptSource.HEARD, watched.transcriptSource)
         assertEquals(
@@ -68,7 +68,7 @@ class VideoWatcherTest {
         val model = ScriptedModel(listOf(said("Autre chose.")))
         val video = silent(captions = listOf(TranscriptCue(0.0, 5.0, "on verse la farine")))
 
-        val watched = VideoWatcher(model, FakeVideoMedia(sounds = 3)).complete(video, "fr") {}
+        val watched = VideoWatcher(model, FakeVideoMedia(sounds = 3)).complete(video, "fr", ingredientsKnown = false) {}
 
         assertSame(video, watched)
         assertTrue(model.requests.isEmpty())
@@ -79,7 +79,7 @@ class VideoWatcherTest {
         val model = ScriptedModel(listOf(LlmOutcome.Failure(LlmFailure.MEDIA_UNSUPPORTED)))
         val video = silent().copy(pictureUrl = null)
 
-        val watched = VideoWatcher(model, FakeVideoMedia(sounds = 3)).complete(video, "fr") {}
+        val watched = VideoWatcher(model, FakeVideoMedia(sounds = 3)).complete(video, "fr", ingredientsKnown = false) {}
 
         assertEquals(video, watched)
         assertEquals(1, model.requests.size)
@@ -90,7 +90,7 @@ class VideoWatcherTest {
         val model = ScriptedModel(listOf(said("On verse la farine.")))
 
         val watched = VideoWatcher(model, FakeVideoMedia(sounds = 3, soundBreaksAfter = 1))
-            .complete(silent().copy(pictureUrl = null), "fr") {}
+            .complete(silent().copy(pictureUrl = null), "fr", ingredientsKnown = false) {}
 
         assertEquals(listOf(TranscriptCue(0.0, 30.0, "On verse la farine.")), watched.transcript)
     }
@@ -100,7 +100,7 @@ class VideoWatcherTest {
         val model = ScriptedModel(listOf(said(""), said(""), shown("On pétrit la pâte."), shown(""), shown("La galette cuit.")))
         val media = FakeVideoMedia(sounds = 2)
 
-        val watched = VideoWatcher(model, media).complete(silent(duration = 60), "fr") {}
+        val watched = VideoWatcher(model, media).complete(silent(duration = 60), "fr", ingredientsKnown = false) {}
 
         assertEquals(TranscriptSource.SEEN, watched.transcriptSource)
         // A picture in the middle of each 20-second stretch.
@@ -117,16 +117,27 @@ class VideoWatcherTest {
         val model = ScriptedModel(listOf(said("")))
         val media = FakeVideoMedia(sounds = 1)
 
-        VideoWatcher(model, media).complete(silent(chapters = listOf(ChapterMark("La pâte", 0.0))), "fr") {}
+        VideoWatcher(model, media).complete(silent(chapters = listOf(ChapterMark("La pâte", 0.0))), "fr", ingredientsKnown = false) {}
 
         assertTrue(media.picturesAsked.isEmpty())
+    }
+
+    @Test
+    fun `listed ingredients spare looking at the pictures`() = runBlocking {
+        val model = ScriptedModel(listOf(said("")))
+        val media = FakeVideoMedia(sounds = 1)
+
+        val watched = VideoWatcher(model, media).complete(silent(), "fr", ingredientsKnown = true) {}
+
+        assertTrue(media.picturesAsked.isEmpty())
+        assertTrue(watched.transcript.isEmpty())
     }
 
     @Test
     fun `a long video is looked at more sparsely`() = runBlocking {
         val media = FakeVideoMedia()
 
-        VideoWatcher(ScriptedModel(listOf(shown("On coupe."))), media).complete(silent(duration = 1_800).copy(soundUrl = null), "fr") {}
+        VideoWatcher(ScriptedModel(listOf(shown("On coupe."))), media).complete(silent(duration = 1_800).copy(soundUrl = null), "fr", ingredientsKnown = false) {}
 
         assertEquals(VideoWatcher.MAX_PICTURES, media.picturesAsked.size)
     }

@@ -23,6 +23,7 @@ import org.opensources.umai.youtube.domain.BlueprintOrigin
 import org.opensources.umai.youtube.domain.DescriptionLinks
 import org.opensources.umai.youtube.domain.ModelRecipeBuilder
 import org.opensources.umai.youtube.domain.RecipeBlueprint
+import org.opensources.umai.youtube.domain.RecipeIngredients
 import org.opensources.umai.youtube.domain.RecipePageSource
 import org.opensources.umai.youtube.domain.RuleRecipeBuilder
 import org.opensources.umai.youtube.domain.YouTubeFailure
@@ -106,14 +107,15 @@ class VideoRecipeImporter(
             is YouTubeResult.Failure -> return VideoImportOutcome.VideoFailed(result.failure)
             is YouTubeResult.Success -> result.value
         }
+        // The first linked page that holds a recipe; the others are not read.
+        // Read before the video is watched: its ingredients spare looking at the pictures.
+        val page = DescriptionLinks.recipeLinks(read.description).firstNotNullOfOrNull { pages.read(it) }
         val video = if (model.isReady()) {
-            watcher.complete(read, language()) { onProgress(VideoImportProgress.Watching(it)) }
+            val ingredientsKnown = RecipeIngredients.known(read, page).isNotEmpty()
+            watcher.complete(read, language(), ingredientsKnown) { onProgress(VideoImportProgress.Watching(it)) }
         } else {
             read
         }
-
-        // The first linked page that holds a recipe; the others are not read.
-        val page = DescriptionLinks.recipeLinks(video.description).firstNotNullOfOrNull { pages.read(it) }
 
         var modelFailure: LlmFailure? = null
         val blueprint = if (model.isReady() && (video.transcript.isNotEmpty() || video.description.isNotBlank())) {

@@ -59,6 +59,14 @@ Ce que ce décodage contraint respecte, et ne respecte pas, constaté sur le Pix
   échoue en cours d'écriture est reprise sur le backend suivant. Un prompt trop long pour le contexte
   d'un backend va directement au suivant ; si seul un backend à grand contexte pouvait le prendre et
   qu'il échoue, l'appelant reçoit `TOO_LONG` et raccourcit la transcription.
+- LiteRT-LM 0.14.0 ne compte pas les jetons à l'avance et ne plafonne pas la réponse : la taille est
+  **estimée** (`LocalLanguageModel.estimatedTokens` : système + message + schéma à 3,5 caractères par
+  jeton, plus la réponse attendue). Mesure sur le prompt d'import d'une vidéo française de 4 min 45
+  (`theImportPromptEstimateHoldsOnTheTpu`) : 5 497 caractères = **1 403 jetons** (3,9 car./jeton),
+  réponse de 451 jetons, 38 s au TPU. L'ancienne estimation (3 car./jeton, schéma oublié, 2 048 jetons
+  réservés à la réponse) donnait 4 414 jetons pour un tel import : il partait sur le GPU, trois fois
+  plus lent à écrire. Le journal dit quand un backend est écarté pour cette raison
+  (`Backend: TPU skipped: about 4414 tokens needed, context 4096`).
 - Journal (`adb logcat -s UmaiAi`) : `Backend: TPU | Model: Gemma 4 E2B | SoC: Tensor G5` au
   chargement, puis après chaque réponse les vitesses mesurées par le runtime
   (`prompt 130 tokens at 136,6/s | answer 50 tokens at 13,9/s`).
@@ -216,8 +224,9 @@ l'écran lu par un modèle vision), mais **sur le téléphone**, avec le modèle
    filtre, la transcription française inventait des phrases), et donnée au modèle par tranches de
    **30 s**, la plus longue qu'il entende d'un coup. Chaque tranche devient une ligne horodatée de la
    transcription. Au-delà de 20 minutes, la suite n'est pas écoutée.
-2. **Regarder** — quand rien n'est dit (ni sous-titres, ni parole entendue) et qu'il n'y a pas de
-   chapitres : une image au milieu de chaque tranche de **20 s** (30 images au plus, plus espacées sur
+2. **Regarder** — en dernier recours : quand rien n'est dit (ni sous-titres, ni parole entendue),
+   qu'il n'y a pas de chapitres, et que ni la description ni la page de recette ne listent les
+   ingrédients (la page est donc lue avant l'écoute) : une image au milieu de chaque tranche de **20 s** (30 images au plus, plus espacées sur
    une longue vidéo), lue dans le fichier MP4 à l'endroit voulu (`MediaMetadataRetriever`), décrite en
    une phrase. Ces descriptions ne servent **pas** à écrire les étapes à leur place : le modèle écrit
    la recette en voyant ce que montrent les images, **sans leurs temps** (avec la frise horodatée, il

@@ -156,6 +156,9 @@ class LocalLanguageModel(
         if (routes.isEmpty()) return LlmOutcome.Failure(if (media) LlmFailure.MEDIA_UNSUPPORTED else LlmFailure.LOAD_FAILED)
         val needed = estimatedTokens(request)
         val fitting = routes.filter { needed <= it.contextSize }
+        routes.filter { it !in fitting }.forEach {
+            Log.i(TAG, "Backend: ${it.backend} skipped: about $needed tokens needed, context ${it.contextSize}")
+        }
         if (fitting.isEmpty()) return LlmOutcome.Failure(LlmFailure.TOO_LONG)
         var failure = if (media) LlmFailure.MEDIA_UNSUPPORTED else LlmFailure.LOAD_FAILED
         for (route in fitting) {
@@ -265,8 +268,13 @@ class LocalLanguageModel(
         const val TAG = "UmaiAi"
         const val IDLE_UNLOAD_MS = 60_000L
 
-        /** A token is about three characters of French or English, or more: this errs on the long side. */
-        private const val CHARS_PER_TOKEN = 3
+        /**
+         * Gemma reads about 3.9 characters of a French import prompt per token
+         * (LiteRtLmBackendTest): this errs on the long side, but not so far that
+         * a prompt the TPU takes goes to the GPU, which writes three times slower.
+         * One that does not fit after all fails there and is written on the GPU.
+         */
+        private const val CHARS_PER_TOKEN = 3.5
 
         /** The turn markers the chat template wraps the prompt in. */
         private const val TEMPLATE_TOKENS = 64
@@ -274,8 +282,10 @@ class LocalLanguageModel(
         /** What a picture or 30 seconds of sound take in the context, with room to spare. */
         private const val MEDIA_TOKENS = 1_000
 
+        /** The schema is read too: it is the definition of the tool the model answers with. */
         fun estimatedTokens(request: LlmRequest): Int =
-            (request.system.length + request.user.length) / CHARS_PER_TOKEN + TEMPLATE_TOKENS + request.maxTokens +
+            ((request.system.length + request.user.length + request.jsonSchema.length) / CHARS_PER_TOKEN).toInt() +
+                TEMPLATE_TOKENS + request.maxTokens +
                 (if (request.media != null) MEDIA_TOKENS else 0)
 
         private val BENCH_REQUEST = LlmRequest(

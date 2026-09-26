@@ -55,13 +55,7 @@ class ModelRecipeBuilder(private val model: LanguageModel) {
         val shown = if (seen) video.transcript.map { it.text } else emptyList()
         var transcriptBudget = transcriptChars(model.contextSize)
         repeat(ATTEMPTS) {
-            val request = LlmRequest(
-                system = systemPrompt(language),
-                user = userPrompt(source, transcriptBudget, page, shown),
-                jsonSchema = SCHEMA,
-                maxTokens = MAX_ANSWER_TOKENS,
-            )
-            when (val outcome = model.generate(request, onProgress)) {
+            when (val outcome = model.generate(request(source, language, transcriptBudget, page, shown), onProgress)) {
                 is LlmOutcome.Success -> {
                     val written = parse(outcome.text, source, page)
                         ?: return Outcome.Failed(LlmFailure.GENERATION_FAILED)
@@ -78,6 +72,19 @@ class ModelRecipeBuilder(private val model: LanguageModel) {
         }
         return Outcome.Failed(LlmFailure.TOO_LONG)
     }
+
+    internal fun request(
+        video: YouTubeVideo,
+        language: String,
+        transcriptChars: Int,
+        page: RecipePage? = null,
+        shown: List<String> = emptyList(),
+    ) = LlmRequest(
+        system = systemPrompt(language),
+        user = userPrompt(video, transcriptChars, page, shown),
+        jsonSchema = SCHEMA,
+        maxTokens = MAX_ANSWER_TOKENS,
+    )
 
     /** [shown] is what pictures of a video without speech show, in order. */
     internal fun userPrompt(
@@ -193,7 +200,12 @@ class ModelRecipeBuilder(private val model: LanguageModel) {
         private val json = Json { ignoreUnknownKeys = true }
 
         private const val ATTEMPTS = 3
-        private const val MAX_ANSWER_TOKENS = 2_048
+        /**
+         * A recipe of seven steps takes about 500 tokens (docs/local-ai.md):
+         * twice that leaves room without keeping a short video off the TPU,
+         * whose 4,096 tokens hold the prompt and the answer together.
+         */
+        private const val MAX_ANSWER_TOKENS = 1_024
         private const val MAX_DESCRIPTION_CHARS = 4_000
 
         /** Room left for the instructions, the description and the chapters. */

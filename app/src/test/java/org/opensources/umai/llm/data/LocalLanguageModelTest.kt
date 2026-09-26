@@ -26,6 +26,11 @@ import org.opensources.umai.llm.domain.LlmProgress
 import org.opensources.umai.llm.domain.LlmRequest
 import org.opensources.umai.llm.domain.LocalModelCatalog
 import org.opensources.umai.llm.domain.TensorChip
+import org.opensources.umai.youtube.domain.ModelRecipeBuilder
+import org.opensources.umai.youtube.domain.ScriptedModel
+import org.opensources.umai.youtube.domain.TranscriptCue
+import org.opensources.umai.youtube.domain.TranscriptSource
+import org.opensources.umai.youtube.domain.video
 
 /** The TPU → GPU → CPU chain, with a runtime that fails where it is told to. */
 class LocalLanguageModelTest {
@@ -145,6 +150,18 @@ class LocalLanguageModelTest {
 
         assertEquals(LlmOutcome.Success("{\"on\":\"GPU\"}"), outcome)
         assertEquals(listOf(AiBackend.GPU), loader.loads.map { it.first })
+    }
+
+    @Test
+    fun `the import of a five-minute video is estimated to fit the TPU`() {
+        // About 5,000 characters of speech and a description with its links, as a short cooking video gives.
+        val said = (0 until 10).map { TranscriptCue(it * 30.0, it * 30.0 + 30, "je mélange la farine et le lait tiède ".repeat(13)) }
+        val description = "Ingrédients :\n400g de farine\n250ml de lait\n" + "Insta: https://www.instagram.com/chaine/\n".repeat(20)
+        val video = video(description = description, transcript = said, duration = 300, source = TranscriptSource.HEARD)
+        val request = ModelRecipeBuilder(ScriptedModel(emptyList())).request(video, "fr", ModelRecipeBuilder.transcriptChars(16_384))
+
+        assertTrue(request.user.length > 6_000)
+        assertTrue(LocalLanguageModel.estimatedTokens(request) <= 4_096)
     }
 
     @Test

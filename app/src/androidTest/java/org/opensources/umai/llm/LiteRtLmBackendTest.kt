@@ -2,6 +2,7 @@ package org.opensources.umai.llm
 
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.os.SystemClock
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -18,6 +19,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.opensources.umai.llm.data.DeviceAccelerators
 import org.opensources.umai.llm.data.LiteRtLmLoader
+import org.opensources.umai.llm.data.LocalLanguageModel
 import org.opensources.umai.llm.data.TpuCrashGuard
 import org.opensources.umai.llm.domain.AiBackend
 import org.opensources.umai.llm.domain.AiSense
@@ -50,6 +52,38 @@ class LiteRtLmBackendTest {
         assumeTrue("No TPU the app can reach on ${device.socName}", device.tpuReachable)
         val file = model.filesFor(device.tensorChip).first { AiBackend.TPU in it.backends }
         run(file, AiBackend.TPU)
+    }
+
+    /**
+     * The prompt of a video import, as the app builds it, on the TPU: the
+     * tokens the runtime counts must stay within what the app estimates, or a
+     * prompt the TPU can take goes to the slower GPU, or one it cannot is sent
+     * to it.
+     */
+    @Test
+    fun theImportPromptEstimateHoldsOnTheTpu() = runBlocking {
+        assumeTrue("No TPU the app can reach on ${device.socName}", device.tpuReachable)
+        val file = model.filesFor(device.tensorChip).first { AiBackend.TPU in it.backends }
+        val path = context.getExternalFilesDir("models")?.resolve(file.fileName)
+        assumeTrue("${file.fileName} is not on the phone", path?.isFile == true)
+        val request = ImportPromptSample.request()
+        val estimated = LocalLanguageModel.estimatedTokens(request)
+        val engine = loader.load(checkNotNull(path).path, AiBackend.TPU, file.contextSizeOn(AiBackend.TPU), sense = null)
+        try {
+            val started = SystemClock.elapsedRealtime()
+            engine.generate(request).toList()
+            val speed = checkNotNull(engine.lastSpeed) { "The runtime did not time the answer" }
+            Log.i(
+                TAG,
+                "Import prompt: ${request.system.length + request.user.length + request.jsonSchema.length} chars | " +
+                    "estimated $estimated tokens with ${request.maxTokens} for the answer | " +
+                    "prompt ${speed.promptTokens} tokens | answer ${speed.generatedTokens} tokens | " +
+                    "${SystemClock.elapsedRealtime() - started} ms",
+            )
+            assertTrue(speed.promptTokens + speed.generatedTokens <= estimated)
+        } finally {
+            engine.close()
+        }
     }
 
     @Test

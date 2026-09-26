@@ -41,8 +41,9 @@ data class WatchProgress(val seeing: Boolean, val done: Int, val total: Int)
  *
  * - a video without captions, or whose captions YouTube refused, is listened
  *   to: its original sound track, in pieces of [PIECE_SECONDS], written down;
- * - a video where nothing is said and that has no chapters is looked at: one
- *   picture every [MIN_PICTURE_GAP] seconds, or fewer on a long video, each described.
+ * - a video where nothing is said, that has no chapters and whose ingredients
+ *   nothing lists is looked at: one picture every [MIN_PICTURE_GAP] seconds, or
+ *   fewer on a long video, each described.
  *
  * Each piece becomes a timed line of the transcript, which the recipe is then
  * rebuilt from as from captions. A model without audio or vision part, or a
@@ -50,8 +51,18 @@ data class WatchProgress(val seeing: Boolean, val done: Int, val total: Int)
  */
 class VideoWatcher(private val model: LanguageModel, private val media: VideoMedia) {
 
-    /** [language] is the one the pictures are described in: "fr" or "en". */
-    suspend fun complete(video: YouTubeVideo, language: String, onProgress: (WatchProgress) -> Unit): YouTubeVideo {
+    /**
+     * [language] is the one the pictures are described in: "fr" or "en".
+     * [ingredientsKnown] when the description or the recipe page lists them:
+     * looking at the pictures, minutes of work, then only places the steps,
+     * and is left out.
+     */
+    suspend fun complete(
+        video: YouTubeVideo,
+        language: String,
+        ingredientsKnown: Boolean,
+        onProgress: (WatchProgress) -> Unit,
+    ): YouTubeVideo {
         var watched = video
         val soundUrl = video.soundUrl
         if (video.transcript.isEmpty() && soundUrl != null) {
@@ -59,7 +70,7 @@ class VideoWatcher(private val model: LanguageModel, private val media: VideoMed
             if (heard.isNotEmpty()) watched = watched.copy(transcript = heard, transcriptSource = TranscriptSource.HEARD)
         }
         val pictureUrl = video.pictureUrl
-        if (!watched.hasTimes && pictureUrl != null) {
+        if (!watched.hasTimes && !ingredientsKnown && pictureUrl != null) {
             val seen = see(video, pictureUrl, language, onProgress)
             if (seen.isNotEmpty()) watched = watched.copy(transcript = seen, transcriptSource = TranscriptSource.SEEN)
         }

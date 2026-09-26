@@ -11,3 +11,5 @@ liste des commits. Détails : [docs/release.md](docs/release.md).
 - Import vidéo : sans sous-titres (ou quand YouTube les refuse), l'IA locale écoute la vidéo, et regarde ses images quand rien n'y est dit, pour placer chaque étape au bon moment.
 - Import vidéo : les chapitres ne sont plus devinés quand la vidéo ne donne aucun repère, et le nombre de portions et les temps lus par l'IA ne sont plus perdus.
 - Modifier une recette : nouvel onglet Vidéo pour placer ou corriger le début et la fin de chaque étape dans la vidéo, avec le lecteur à portée de main.
+- Import vidéo : la recette est de nouveau écrite sur le TPU des Pixel 10, bien plus vite, au lieu du GPU pour une vidéo courte.
+- Import vidéo : les images de la vidéo ne sont plus analysées quand la description ou la page de recette donne déjà les ingrédients.
