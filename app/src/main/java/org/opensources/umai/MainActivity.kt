@@ -19,6 +19,8 @@ import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.settings.AppPreferences
 import org.opensources.umai.core.ui.theme.UmaiTheme
 import org.opensources.umai.navigation.UmaiApp
+import org.opensources.umai.recipe.data.ImportNotifications
+import org.opensources.umai.recipe.data.ImportRequest
 import org.opensources.umai.recipe.domain.RecipeLinks
 
 class MainActivity : ComponentActivity() {
@@ -29,6 +31,9 @@ class MainActivity : ComponentActivity() {
     /** A cooking mode asked for by a timer notification, waiting to open. */
     private val cookingRequest = MutableStateFlow<CookingStepRequest?>(null)
 
+    /** What an import notification asks to open, waiting to. */
+    private val importRequest = MutableStateFlow<ImportRequest?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         enableEdgeToEdge()
@@ -38,6 +43,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) {
             sharedUrl.value = intent.sharedRecipeUrl()
             cookingRequest.value = TimerIntents.cookingStep(intent)
+            importRequest.value = importRequestOf(intent)
         }
 
         val container = (application as UmaiApplication).container
@@ -48,6 +54,7 @@ class MainActivity : ComponentActivity() {
             val settings by preferences.collectAsState()
             val shared by sharedUrl.collectAsState()
             val cooking by cookingRequest.collectAsState()
+            val importAsked by importRequest.collectAsState()
             CompositionLocalProvider(LocalAppContainer provides container) {
                 UmaiTheme(
                     themeMode = settings.themeMode,
@@ -58,6 +65,8 @@ class MainActivity : ComponentActivity() {
                         onSharedUrlHandled = { sharedUrl.value = null },
                         cookingRequest = cooking,
                         onCookingRequestHandled = { cookingRequest.value = null },
+                        importRequest = importAsked,
+                        onImportRequestHandled = { importRequest.value = null },
                     )
                 }
             }
@@ -68,6 +77,12 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         intent.sharedRecipeUrl()?.let { sharedUrl.value = it }
         TimerIntents.cookingStep(intent)?.let { cookingRequest.value = it }
+        importRequestOf(intent)?.let { importRequest.value = it }
+    }
+
+    /** The recipe an import notification opens is how that import ended: it is seen. */
+    private fun importRequestOf(intent: Intent): ImportRequest? = ImportNotifications.request(intent)?.also { request ->
+        if (request is ImportRequest.OpenRecipe) (application as UmaiApplication).container.recipeImports.seen(request.slug)
     }
 
     private fun Intent.sharedRecipeUrl(): String? =

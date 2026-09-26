@@ -4,6 +4,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import org.opensources.umai.core.format.ApiDates
@@ -43,7 +44,8 @@ data class DishPool(val candidates: List<PlanCandidate>, val rules: List<PlanRul
  * 2. a sample of the dishes, favouring the best rated and those not eaten
  *    lately, whose ingredients are read;
  * 3. the recipes still unplaced after that are asked of the local language
- *    model when there is one, and otherwise judged by their ingredients.
+ *    model when there is one, loaded while the dishes are read, and otherwise
+ *    judged by their ingredients.
  *
  * Mealie's own meal plan rules are read too, with the recipes each allows.
  */
@@ -95,9 +97,15 @@ class DishPoolRepository(
             ).distinctBy { it.id }
 
         onPhase(DishPoolPhase.READING_DISHES)
-        val details = when (val result = details(api, sampled)) {
-            is ApiResult.Failure -> return result
-            is ApiResult.Success -> result.value
+        val details = coroutineScope {
+            // The model loads while the dishes are read, when some of them will need it.
+            if (sampled.any { placed[it.id] == null }) launch { modelClassifier.prepare() }
+            details(api, sampled)
+        }.let { result ->
+            when (result) {
+                is ApiResult.Failure -> return result
+                is ApiResult.Success -> result.value
+            }
         }
 
         val unplaced = details.filter { placed[it.id] == null }

@@ -1,5 +1,6 @@
 package org.opensources.umai.llm
 
+import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
@@ -86,6 +87,8 @@ class LocalAiScreenTest {
 
         rule.onNodeWithText(string(R.string.local_ai_none_installed)).assertIsDisplayed()
         rule.onNodeWithText(string(R.string.local_ai_recommended)).assertIsDisplayed()
+        // On a smaller phone, the recommended model's button is below the fold.
+        rule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(string(R.string.local_ai_download)))
         rule.onAllNodesWithText(string(R.string.local_ai_download)).onFirst().performClick()
 
         assertEquals(listOf(recommended), downloads)

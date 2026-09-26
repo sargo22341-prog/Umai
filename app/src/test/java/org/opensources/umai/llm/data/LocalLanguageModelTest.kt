@@ -32,7 +32,7 @@ import org.opensources.umai.youtube.domain.TranscriptCue
 import org.opensources.umai.youtube.domain.TranscriptSource
 import org.opensources.umai.youtube.domain.video
 
-/** The TPU → GPU → CPU chain, with a runtime that fails where it is told to. */
+/** The TPU → CPU → GPU chain, with a runtime that fails where it is told to. */
 class LocalLanguageModelTest {
 
     private val scope = CoroutineScope(SupervisorJob())
@@ -108,27 +108,27 @@ class LocalLanguageModelTest {
     }
 
     @Test
-    fun `a TPU that does not load falls back to the GPU, and is never shown`() = runBlocking {
+    fun `a TPU that does not load falls back to the CPU, and is never shown`() = runBlocking {
         val loader = FakeLoader(failingLoads = setOf(AiBackend.TPU))
         val llm = languageModel(loader)
 
-        assertEquals(LlmOutcome.Success("{\"on\":\"GPU\"}"), llm.generate(request()))
-        assertEquals(AiBackend.GPU, llm.active.value?.backend)
-        assertEquals(AiBackend.GPU to "/models/gemma-4-E2B-it.litertlm", loader.loads.last())
+        assertEquals(LlmOutcome.Success("{\"on\":\"CPU\"}"), llm.generate(request()))
+        assertEquals(AiBackend.CPU, llm.active.value?.backend)
+        assertEquals(AiBackend.CPU to "/models/gemma-4-E2B-it.litertlm", loader.loads.last())
 
         // The failed TPU is not tried again for the next answer.
         llm.generate(request())
-        assertEquals(listOf(AiBackend.TPU, AiBackend.GPU), loader.loads.map { it.first })
+        assertEquals(listOf(AiBackend.TPU, AiBackend.CPU), loader.loads.map { it.first })
     }
 
     @Test
-    fun `the CPU is the last resort`() = runBlocking {
-        val loader = FakeLoader(failingLoads = setOf(AiBackend.TPU, AiBackend.GPU))
+    fun `the GPU is the last resort for a short prompt`() = runBlocking {
+        val loader = FakeLoader(failingLoads = setOf(AiBackend.TPU, AiBackend.CPU))
         val llm = languageModel(loader)
 
-        assertEquals(LlmOutcome.Success("{\"on\":\"CPU\"}"), llm.generate(request()))
-        assertEquals(listOf(AiBackend.TPU, AiBackend.GPU, AiBackend.CPU), loader.loads.map { it.first })
-        assertEquals(AiBackend.CPU, llm.active.value?.backend)
+        assertEquals(LlmOutcome.Success("{\"on\":\"GPU\"}"), llm.generate(request()))
+        assertEquals(listOf(AiBackend.TPU, AiBackend.CPU, AiBackend.GPU), loader.loads.map { it.first })
+        assertEquals(AiBackend.GPU, llm.active.value?.backend)
     }
 
     @Test
@@ -136,16 +136,16 @@ class LocalLanguageModelTest {
         val loader = FakeLoader(failingAnswers = setOf(AiBackend.TPU))
         val llm = languageModel(loader)
 
-        assertEquals(LlmOutcome.Success("{\"on\":\"GPU\"}"), llm.generate(request()))
-        assertEquals(AiBackend.GPU, llm.active.value?.backend)
+        assertEquals(LlmOutcome.Success("{\"on\":\"CPU\"}"), llm.generate(request()))
+        assertEquals(AiBackend.CPU, llm.active.value?.backend)
     }
 
     @Test
-    fun `a prompt too long for the TPU context goes straight to the GPU`() = runBlocking {
+    fun `a prompt too long for the TPU and CPU contexts goes straight to the GPU`() = runBlocking {
         val loader = FakeLoader()
         val llm = languageModel(loader)
 
-        // About 5,000 tokens: more than the 4,096 of the TPU build, well within the 16,384 of the GPU.
+        // About 5,000 tokens: more than the 4,096 of the TPU build and of the CPU, well within the 16,384 of the GPU.
         val outcome = llm.generate(request(userChars = 15_000))
 
         assertEquals(LlmOutcome.Success("{\"on\":\"GPU\"}"), outcome)
@@ -198,8 +198,8 @@ class LocalLanguageModelTest {
         val loader = FakeLoader()
         val llm = languageModel(loader, device = tensorG5.copy(tpuReachable = false))
 
-        assertEquals(LlmOutcome.Success("{\"on\":\"GPU\"}"), llm.generate(request()))
-        assertEquals(listOf(AiBackend.GPU), loader.loads.map { it.first })
+        assertEquals(LlmOutcome.Success("{\"on\":\"CPU\"}"), llm.generate(request()))
+        assertEquals(listOf(AiBackend.CPU), loader.loads.map { it.first })
     }
 
     @Test
@@ -208,8 +208,8 @@ class LocalLanguageModelTest {
         val other = DeviceProfile("Snapdragon", tensorChip = null, tpuReachable = false)
         val llm = languageModel(loader, device = other, installed = installed(chip = null))
 
-        assertEquals(LlmOutcome.Success("{\"on\":\"GPU\"}"), llm.generate(request()))
-        assertEquals(AiBackend.GPU to "/models/gemma-4-E2B-it.litertlm", loader.loads.single())
+        assertEquals(LlmOutcome.Success("{\"on\":\"CPU\"}"), llm.generate(request()))
+        assertEquals(AiBackend.CPU to "/models/gemma-4-E2B-it.litertlm", loader.loads.single())
     }
 
     @Test
@@ -237,8 +237,29 @@ class LocalLanguageModelTest {
 
         val benchmark = languageModel(loader).benchmark()
 
-        assertEquals(AiBackend.GPU, benchmark?.backend)
+        assertEquals(AiBackend.CPU, benchmark?.backend)
         assertEquals(10.0, benchmark?.generationSpeed)
+    }
+
+    @Test
+    fun `preparing loads the model where a short request runs, which then reuses it`() = runBlocking {
+        val loader = FakeLoader(failingLoads = setOf(AiBackend.TPU))
+        val llm = languageModel(loader)
+
+        llm.prepare()
+        assertEquals(AiBackend.CPU, llm.active.value?.backend)
+
+        assertEquals(LlmOutcome.Success("{\"on\":\"CPU\"}"), llm.generate(request()))
+        assertEquals(listOf(AiBackend.TPU, AiBackend.CPU), loader.loads.map { it.first })
+    }
+
+    @Test
+    fun `preparing without an installed model loads nothing`() = runBlocking {
+        val loader = FakeLoader()
+
+        languageModel(loader, installed = null).prepare()
+
+        assertTrue(loader.loads.isEmpty())
     }
 
     @Test
@@ -259,8 +280,8 @@ class LocalLanguageModelTest {
         assertEquals(LlmOutcome.Success("{\"on\":\"GPU\"}"), llm.generate(looking()))
         assertEquals(listOf(AiBackend.CPU, AiBackend.GPU), loader.loads.map { it.first })
 
-        // Text goes to the GPU, the fastest backend here, which the failed picture did not rule out.
-        assertEquals(LlmOutcome.Success("{\"on\":\"GPU\"}"), llm.generate(request()))
+        // Text goes to the CPU, the first backend here, which the failed picture did not rule out.
+        assertEquals(LlmOutcome.Success("{\"on\":\"CPU\"}"), llm.generate(request()))
     }
 
     @Test

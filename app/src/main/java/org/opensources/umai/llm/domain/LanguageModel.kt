@@ -72,6 +72,13 @@ interface LanguageModel {
     val contextSize: Int
 
     /**
+     * Loads the model for a short request ahead of it, while the caller
+     * gathers what to ask: the request then starts at once. Nothing happens
+     * when the model is not ready, or already loaded.
+     */
+    suspend fun prepare() = Unit
+
+    /**
      * Runs [request]. Cancelling the calling coroutine stops the model at the
      * next token.
      */

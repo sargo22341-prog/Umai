@@ -64,7 +64,9 @@ Fonctionnalités principales :
   **import d'une vidéo YouTube** reconstruite en recette complète (ingrédients, étapes, passage de
   la vidéo de chaque étape) à partir de sa description, de ses chapitres et de sa transcription —
   avec l'IA locale, une vidéo sans sous-titres est écoutée par Whisper, et regardée quand rien n'y est dit —,
-  avec les quantités de la page de recette vers laquelle pointe sa description ; passage de chaque
+  avec les quantités de la page de recette vers laquelle pointe sa description ; l'import continue
+  quand on quitte son écran ou l'application, avec son avancement dans une notification et une
+  autre quand il est terminé ; passage de chaque
   étape corrigeable à la main dans l'onglet Vidéo de l'édition ;
 - **IA locale** facultative : un modèle de langage téléchargé à part tourne sur le téléphone, sans
   service distant, pour l'import vidéo et la reconnaissance des plats, et un modèle Whisper, en trois
@@ -161,7 +163,7 @@ Elles viennent de l'API Mealie, pas de l'application :
 | Réseau | Retrofit, OkHttp, Kotlin Serialization |
 | Images | Coil |
 | Vidéo | Media3 ExoPlayer (HLS) |
-| IA locale | LiteRT-LM (TPU Tensor → GPU → CPU), modèles `.litertlm` ; whisper.cpp (CPU) pour la parole |
+| IA locale | LiteRT-LM (TPU Tensor → CPU → GPU), modèles `.litertlm` ; whisper.cpp (CPU) pour la parole |
 | Stockage | DataStore |
 | Sécurité | Android Keystore (AES-GCM) |
 | Injection | Conteneur écrit à la main |

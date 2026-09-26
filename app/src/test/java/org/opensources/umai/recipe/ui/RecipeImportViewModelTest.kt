@@ -1,6 +1,13 @@
 package org.opensources.umai.recipe.ui
 
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -23,7 +30,12 @@ import org.opensources.umai.provider.data.ProviderSettings
 import org.opensources.umai.provider.jow.JowProvider
 import org.opensources.umai.recipe.data.CalorieTagRepository
 import org.opensources.umai.recipe.data.RecipeEditRepository
+import org.opensources.umai.recipe.data.RecipeImportController
 import org.opensources.umai.recipe.data.RecipeMediaRepository
+import org.opensources.umai.recipe.data.RecordingImportHost
+import org.opensources.umai.recipe.domain.ImportNotice
+import org.opensources.umai.recipe.domain.ImportPhase
+import org.opensources.umai.recipe.domain.ImportedRecipe
 import org.opensources.umai.youtube.data.VideoRecipeImporter
 import org.opensources.umai.youtube.domain.ChapterMark
 import org.opensources.umai.youtube.domain.FakeTranscriber
@@ -53,20 +65,32 @@ class RecipeImportViewModelTest {
         fake.shutdown()
     }
 
+    private val host = RecordingImportHost()
+
     private fun viewModel(
-        url: String,
+        url: String?,
         importsMedia: Boolean = false,
         video: YouTubeResult<YouTubeVideo> = YouTubeResult.Failure(YouTubeFailure.UNAVAILABLE),
         modelReady: Boolean = false,
+        imports: RecipeImportController = controller(importsMedia, { video }, modelReady),
     ) = RecipeImportViewModel(
         initialUrl = url,
+        imports = imports,
+        providers = ProviderRegistry(listOf(JowProvider)),
+        providerSettings = providerSettings(importsMedia),
+        modelReady = { modelReady },
+    ).also { it.onDisplayed(true) }
+
+    private fun controller(
+        importsMedia: Boolean,
+        video: suspend () -> YouTubeResult<YouTubeVideo>,
+        modelReady: Boolean = false,
+    ) = RecipeImportController(
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
         repository = RecipeEditRepository(apiProvider = { fake.api() }),
         calorieTags = CalorieTagRepository { fake.api() },
         providers = ProviderRegistry(listOf(JowProvider)),
-        providerSettings = object : ProviderSettings {
-            override fun importsMedia(providerId: String): Flow<Boolean> = flowOf(importsMedia)
-            override suspend fun setImportsMedia(providerId: String, enabled: Boolean) = Unit
-        },
+        providerSettings = providerSettings(importsMedia),
         mediaImporter = ProviderMediaImporter(
             apiProvider = { fake.api() },
             registry = ProviderRegistry(listOf(JowProvider)),
@@ -75,7 +99,7 @@ class RecipeImportViewModelTest {
         ),
         videoImporter = VideoRecipeImporter(
             youTube = object : VideoSource {
-                override suspend fun video(id: String) = video
+                override suspend fun video(id: String) = video()
             },
             pages = { null },
             model = ScriptedModel(emptyList(), ready = modelReady),
@@ -85,8 +109,13 @@ class RecipeImportViewModelTest {
             media = RecipeMediaRepository { fake.api() },
             language = { "fr" },
         ),
-        modelReady = { modelReady },
+        host = host,
     )
+
+    private fun providerSettings(importsMedia: Boolean) = object : ProviderSettings {
+        override fun importsMedia(providerId: String): Flow<Boolean> = flowOf(importsMedia)
+        override suspend fun setImportsMedia(providerId: String, enabled: Boolean) = Unit
+    }
 
     @Test
     fun `a shared address is filled in and its provider named`() {
@@ -202,6 +231,84 @@ class RecipeImportViewModelTest {
         assertEquals(YouTubeFailure.BLOCKED, state.videoFailure)
         assertNull(state.phase)
         assertEquals(1, fake.server.requestCount)
+    }
+
+    @Test
+    fun `an import goes on once its screen is gone, and the screen opened again finds it`() = runBlocking {
+        fake.enqueueJson("""{"page":1,"per_page":10,"total":0,"total_pages":0,"items":[]}""")
+        val answer = CompletableDeferred<YouTubeResult<YouTubeVideo>>()
+        val imports = controller(importsMedia = false, video = { answer.await() })
+        val store = ViewModelStore()
+        val first = ViewModelProvider.create(
+            store,
+            viewModelFactory { initializer { viewModel("https://youtu.be/0nE7dAlDshk", imports = imports) } },
+        )[RecipeImportViewModel::class]
+
+        first.import()
+        withTimeout(TIMEOUT_MS) { first.state.first { it.phase == ImportPhase.READING_VIDEO } }
+        first.onDisplayed(false)
+        store.clear()
+
+        val again = viewModel(url = null, imports = imports)
+        val running = again.state.value
+        assertEquals("https://youtu.be/0nE7dAlDshk", running.url)
+        assertEquals(ImportPhase.READING_VIDEO, running.phase)
+        assertTrue(running.isVideo)
+        assertTrue(host.keepsAlive)
+
+        answer.complete(YouTubeResult.Failure(YouTubeFailure.BLOCKED))
+        val ended = withTimeout(TIMEOUT_MS) { again.state.first { it.videoFailure != null } }
+
+        assertNull(ended.phase)
+        assertEquals("https://youtu.be/0nE7dAlDshk", ended.url)
+        // Seen ending on screen: nothing to announce, and nothing left to show.
+        assertNull(host.announced)
+        assertNull(imports.run.value)
+        assertEquals(false, host.keepsAlive)
+    }
+
+    @Test
+    fun `an import that ended with no screen on display is announced, then shown by the next screen`() = runBlocking {
+        fake.enqueueJson("""{"page":1,"per_page":10,"total":0,"total_pages":0,"items":[]}""")
+        val answer = CompletableDeferred<YouTubeResult<YouTubeVideo>>()
+        val imports = controller(importsMedia = false, video = { answer.await() })
+        val first = viewModel("https://youtu.be/0nE7dAlDshk", imports = imports)
+        first.import()
+        withTimeout(TIMEOUT_MS) { first.state.first { it.phase == ImportPhase.READING_VIDEO } }
+        first.onDisplayed(false)
+
+        answer.complete(YouTubeResult.Failure(YouTubeFailure.BLOCKED))
+        withTimeout(TIMEOUT_MS) { imports.run.first { it?.outcome != null } }
+
+        assertEquals("https://youtu.be/0nE7dAlDshk", host.announced?.url)
+        assertEquals(0, host.cleared)
+        // A screen that is not seen does not take the outcome over.
+        assertNull(first.state.value.videoFailure)
+
+        val again = viewModel(url = null, imports = imports)
+
+        assertEquals(YouTubeFailure.BLOCKED, again.state.value.videoFailure)
+        assertNull(imports.run.value)
+        assertEquals(1, host.cleared)
+    }
+
+    @Test
+    fun `a cancelled import leaves nothing running nor shown`() = runBlocking {
+        fake.enqueueJson("""{"page":1,"per_page":10,"total":0,"total_pages":0,"items":[]}""")
+        val imports = controller(importsMedia = false, video = { CompletableDeferred<YouTubeResult<YouTubeVideo>>().await() })
+        val viewModel = viewModel("https://youtu.be/0nE7dAlDshk", imports = imports)
+        viewModel.import()
+        withTimeout(TIMEOUT_MS) { viewModel.state.first { it.phase == ImportPhase.READING_VIDEO } }
+        // One import at a time: another one is not started over it.
+        imports.start("https://example.org/tarte", includeTags = true, includeCategories = true, evenIfPresent = false)
+        assertEquals("https://youtu.be/0nE7dAlDshk", imports.run.value?.url)
+
+        viewModel.cancel()
+
+        assertNull(viewModel.state.value.phase)
+        assertNull(imports.run.value)
+        assertEquals(false, host.keepsAlive)
+        assertNull(host.announced)
     }
 
     private companion object {

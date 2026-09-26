@@ -16,8 +16,12 @@ import org.opensources.umai.recipe.domain.VideoChapter
 /** A language model that answers what the test says, and remembers what it was asked. */
 class ScriptedModel(private val answers: List<LlmOutcome>, private val ready: Boolean = true) : LanguageModel {
     val requests = mutableListOf<LlmRequest>()
+    var prepared = 0
     override suspend fun isReady() = ready
     override val contextSize: Int = 16_384
+    override suspend fun prepare() {
+        prepared++
+    }
     override suspend fun generate(request: LlmRequest, onProgress: (LlmProgress) -> Unit): LlmOutcome {
         requests += request
         onProgress(LlmProgress(1))

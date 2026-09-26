@@ -1,7 +1,6 @@
 package org.opensources.umai.planning.domain
 
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -14,11 +13,18 @@ data class UnplacedRecipe(val id: String, val name: String, val ingredients: Lis
 
 /**
  * Asks the language model the course of the recipes the rules could not
- * place, a batch at a time. Each recipe is given a short code the model
- * echoes back with its answer, which small models get right far more often
- * than positions in a list. A recipe it does not answer for stays unplaced.
+ * place, a batch at a time. Each recipe is given a short code, and the answer
+ * is an object with one required property per code: the runtime holds the
+ * model to the schema, so it answers for every recipe, and writes little more
+ * than the courses. Measured on the phone (docs/local-ai.md), a list of
+ * `{"id", "course"}` items took two thirds longer to write and skipped recipes.
  */
 class ModelCourseClassifier(private val model: LanguageModel) {
+
+    /** Loads the model while the recipes to classify are being read. */
+    suspend fun prepare() {
+        if (model.isReady()) model.prepare()
+    }
 
     suspend fun classify(recipes: List<UnplacedRecipe>): Map<String, DishCourse> {
         if (recipes.isEmpty() || !model.isReady()) return emptyMap()
@@ -31,7 +37,7 @@ class ModelCourseClassifier(private val model: LanguageModel) {
                     val ingredients = recipe.ingredients.take(MAX_INGREDIENTS).joinToString(", ")
                     "$code: ${recipe.name}" + if (ingredients.isEmpty()) "" else " — $ingredients"
                 },
-                jsonSchema = SCHEMA,
+                jsonSchema = schema(codes.keys),
                 maxTokens = batch.size * TOKENS_PER_ITEM + TOKENS_OVERHEAD,
                 temperature = 0f,
             )
@@ -43,10 +49,8 @@ class ModelCourseClassifier(private val model: LanguageModel) {
 
     internal fun parse(text: String): Map<String, DishCourse> {
         val root = runCatching { json.parseToJsonElement(text) }.getOrNull() as? JsonObject ?: return emptyMap()
-        return (root["items"] as? JsonArray).orEmpty().mapNotNull { element ->
-            val item = element as? JsonObject ?: return@mapNotNull null
-            val code = (item["id"] as? JsonPrimitive)?.contentOrNull ?: return@mapNotNull null
-            val course = when ((item["course"] as? JsonPrimitive)?.contentOrNull) {
+        return root.mapNotNull { (code, value) ->
+            val course = when ((value as? JsonPrimitive)?.contentOrNull) {
                 "main" -> DishCourse.MAIN
                 "dessert" -> DishCourse.DESSERT
                 "drink" -> DishCourse.DRINK
@@ -57,12 +61,27 @@ class ModelCourseClassifier(private val model: LanguageModel) {
         }.toMap()
     }
 
+    /**
+     * One required property per code, each one of the courses. The runtime
+     * only holds a value to its `enum` when its type is given: without it,
+     * on a batch of a few recipes, the model copied each recipe line as the
+     * value, or answered as plain text (measured on the phone).
+     */
+    internal fun schema(codes: Collection<String>): String {
+        val properties = codes.joinToString(",") { "\"$it\":{\"type\":\"string\",\"enum\":$COURSES}" }
+        val required = codes.joinToString(",") { "\"$it\"" }
+        return """{"type":"object","properties":{$properties},"required":[$required],"additionalProperties":false}"""
+    }
+
     private companion object {
         val json = Json { ignoreUnknownKeys = true }
         const val BATCH = 25
         const val MAX_INGREDIENTS = 8
-        const val TOKENS_PER_ITEM = 16
-        const val TOKENS_OVERHEAD = 32
+
+        /** `"r12":"dessert",` is 8 tokens at most: measured 201 for 25 recipes. */
+        const val TOKENS_PER_ITEM = 10
+        const val TOKENS_OVERHEAD = 16
+        const val COURSES = """["main","dessert","drink","other"]"""
 
         val SYSTEM = """
             You sort recipes by course. Each line gives a code, a recipe name and some of its ingredients.
@@ -71,28 +90,6 @@ class ModelCourseClassifier(private val model: LanguageModel) {
             - "dessert" for sweet dishes, cakes, pastries, biscuits, ice creams, and sweet rice, semolina or fruit dishes;
             - "drink" for drinks and cocktails;
             - "other" for starters, side dishes, sauces, dips, breads, doughs, breakfasts and snacks.
-        """.trimIndent()
-
-        val SCHEMA = """
-            {
-              "type": "object",
-              "properties": {
-                "items": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "id": {"type": "string", "maxLength": 8},
-                      "course": {"type": "string", "enum": ["main", "dessert", "drink", "other"]}
-                    },
-                    "required": ["id", "course"],
-                    "additionalProperties": false
-                  }
-                }
-              },
-              "required": ["items"],
-              "additionalProperties": false
-            }
         """.trimIndent()
     }
 }

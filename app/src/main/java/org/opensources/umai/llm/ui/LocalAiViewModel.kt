@@ -63,8 +63,13 @@ data class LocalAiUiState(
         (model.filesFor(device.tensorChip).maxOfOrNull { it.sizeBytes } ?: 0L) > deviceMemoryBytes * MEMORY_SHARE
 
     private companion object {
-        /** Above this share of the phone's memory, a model may not load next to the other apps. */
-        const val MEMORY_SHARE = 0.4
+        /**
+         * Above this share of the phone's memory, a model may not load next to
+         * the other apps, or runs from swap: on a Pixel 6 Pro (12 GB), Gemma 4
+         * E2B (22 %) answers an import in 86 s, E4B (31 %) filled the swap and
+         * had not answered after 27 minutes.
+         */
+        const val MEMORY_SHARE = 0.3
     }
 }
 

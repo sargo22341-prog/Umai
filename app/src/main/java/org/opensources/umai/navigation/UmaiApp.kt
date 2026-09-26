@@ -57,6 +57,7 @@ import org.opensources.umai.recipe.ui.RecipeCreateScreen
 import org.opensources.umai.recipe.ui.RecipeDetailScreen
 import org.opensources.umai.recipe.ui.RecipeDraftsScreen
 import org.opensources.umai.recipe.ui.RecipeImportScreen
+import org.opensources.umai.recipe.data.ImportRequest
 import org.opensources.umai.search.ui.SearchScreen
 import org.opensources.umai.settings.ui.AppSettingsScreen
 import org.opensources.umai.settings.ui.MealieSettingsScreen
@@ -77,7 +78,8 @@ import java.time.LocalDate
 /**
  * [sharedUrl] is a recipe page shared to the app from another one: it opens the
  * import as soon as an instance is available, then [onSharedUrlHandled] clears it.
- * [cookingRequest] likewise opens the cooking mode a timer notification asks for.
+ * [cookingRequest] likewise opens the cooking mode a timer notification asks for,
+ * and [importRequest] the import, or the recipe it created, an import notification does.
  */
 @Composable
 fun UmaiApp(
@@ -86,6 +88,8 @@ fun UmaiApp(
     onSharedUrlHandled: () -> Unit = {},
     cookingRequest: CookingStepRequest? = null,
     onCookingRequestHandled: () -> Unit = {},
+    importRequest: ImportRequest? = null,
+    onImportRequestHandled: () -> Unit = {},
 ) {
     val container = LocalAppContainer.current
     val sessionState by container.sessionManager.state.collectAsStateWithLifecycle()
@@ -99,6 +103,8 @@ fun UmaiApp(
             onSharedUrlHandled = onSharedUrlHandled,
             cookingRequest = cookingRequest,
             onCookingRequestHandled = onCookingRequestHandled,
+            importRequest = importRequest,
+            onImportRequestHandled = onImportRequestHandled,
             modifier = modifier,
         )
     }
@@ -111,6 +117,8 @@ private fun MainNavigation(
     onSharedUrlHandled: () -> Unit,
     cookingRequest: CookingStepRequest?,
     onCookingRequestHandled: () -> Unit,
+    importRequest: ImportRequest?,
+    onImportRequestHandled: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val container = LocalAppContainer.current
@@ -136,6 +144,15 @@ private fun MainNavigation(
             navController.openCooking(cookingRequest.slug, cookingRequest.servings, cookingRequest.step)
             onCookingRequestHandled()
         }
+    }
+
+    LaunchedEffect(importRequest) {
+        when (importRequest) {
+            null -> return@LaunchedEffect
+            ImportRequest.OpenImport -> navController.openImport()
+            is ImportRequest.OpenRecipe -> navController.navigate(RecipeRoute(importRequest.slug))
+        }
+        onImportRequestHandled()
     }
 
     var notice by remember { mutableStateOf<AppNotice?>(null) }
@@ -533,6 +550,16 @@ private fun NavHostController.leaveDeletedRecipe(slug: String) {
 private fun NavHostController.openCooking(slug: String, servings: Int, step: Int) {
     navigate(CookingRoute(slug, servings, step)) {
         popUpTo<CookingRoute> { inclusive = true }
+    }
+}
+
+/**
+ * Opens the import, where it runs or tells how it ended: it replaces the
+ * import on screen, if any, rather than stacking a second one.
+ */
+private fun NavHostController.openImport() {
+    navigate(RecipeImportRoute()) {
+        popUpTo<RecipeImportRoute> { inclusive = true }
     }
 }
 

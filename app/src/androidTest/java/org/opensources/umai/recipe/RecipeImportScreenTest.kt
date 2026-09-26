@@ -20,7 +20,7 @@ import org.opensources.umai.TestData
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.ui.theme.UmaiTheme
 import org.opensources.umai.llm.domain.LlmProgress
-import org.opensources.umai.recipe.ui.ImportPhase
+import org.opensources.umai.recipe.domain.ImportPhase
 import org.opensources.umai.recipe.ui.RecipeImportScreen
 import org.opensources.umai.recipe.ui.RecipeImportUiState
 import org.opensources.umai.youtube.domain.WatchProgress

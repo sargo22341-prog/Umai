@@ -10,7 +10,7 @@ classique.
 | Fonction | Avec le modèle | Sans le modèle |
 |---|---|---|
 | Import d'une vidéo YouTube | Lit titre, description, chapitres et transcription horodatée ; sans sous-titres, fait **écouter** la vidéo par Whisper, et en dernier recours **regarde** ses images (voir *Vidéos sans sous-titres*) ; écrit des étapes rédigées et titrées, le début de chaque étape dans la vidéo, et les ingrédients quand ni la page de recette ni la description ne les donnent. | Ingrédients de la page de recette ou de la description, étapes lues dans la description, sinon étapes = chapitres (texte tiré de la transcription), placées par les chapitres ou par alignement mots-transcription. |
-| Planning automatique | Classe les recettes que rien ne situe (ni catégorie, ni tag, ni nom, ni historique). | Ces recettes sont jugées sur leurs ingrédients (sucré seul = dessert). |
+| Planning automatique | Classe les recettes que rien ne situe (ni catégorie, ni tag, ni nom, ni historique) : voir *Planning automatique* plus bas. | Ces recettes sont jugées sur leurs ingrédients (sucré seul = dessert). |
 
 Restent volontairement **algorithmiques**, parce qu'un algorithme y est plus fiable qu'un modèle
 de téléphone :
@@ -38,6 +38,9 @@ Ce que ce décodage contraint respecte, et ne respecte pas, constaté sur le Pix
   placement des étapes sur des images demande une clé par étape (`step_1`, `step_2`…), et non une
   liste ;
 - `maxItems` et `minItems` ne le sont **pas** : une liste plafonnée à 8 étapes en a reçu 13 ;
+- un `enum` n'est tenu que si la propriété a aussi son `"type"` (constaté sur le Pixel 6 Pro, voir
+  *Planning automatique*) ; `additionalProperties` avec un schéma fait échouer la contrainte, et
+  `$ref` n'est pas suivi ;
 - les **nombres** reviennent en `LazilyParsedNumber` de Gson, jamais en `Double`, et le modèle écrit
   `0.0` pour `0` : `ToolArguments` les réécrit en entiers. Avant cette correction, tous les entiers de
   la réponse étaient perdus (portions, temps, **débuts des étapes**) : les chapitres venaient alors
@@ -48,7 +51,12 @@ Ce que ce décodage contraint respecte, et ne respecte pas, constaté sur le Pix
 - **LiteRT-LM** (Google, Apache 2.0), dépendance Maven `com.google.ai.edge.litertlm:litertlm-android`,
   sans aucun service Google Play. Il est isolé derrière l'interface `AiEngine`
   (`llm/domain/AiEngine.kt`) : seul `llm/data/LiteRtLmEngine.kt` l'importe.
-- **Ordre des backends : TPU → GPU → CPU** (`LocalLanguageModel`). Un backend n'est retenu qu'une
+- **Ordre des backends : TPU → CPU → GPU** (`LocalLanguageModel.PREFERENCE`). Le CPU ne prend que
+  les prompts qui tiennent dans son contexte de 4 096 jetons ; les plus longs (la transcription d'une
+  longue vidéo) vont au GPU. Mesuré sur le Pixel 6 Pro (voir *Téléphones sans TPU* plus bas) et
+  cohérent avec les mesures du Pixel 10 Pro XL : le CPU écrit plus vite que le GPU, charge le modèle
+  en 2 s au lieu d'une minute, et ne pousse pas Android à fermer d'autres applications pour lui faire
+  de la place. Un backend n'est retenu qu'une
   fois le modèle chargé **et prouvé** dessus : après le chargement, `DeviceAccelerators.missingDriver`
   vérifie dans `/proc/self/maps` que le pilote du backend est bien chargé dans le processus
   (`libLiteRtDispatch_GoogleTensor.so` et `libedgetpu_litert.so` pour le TPU, `libOpenCL*.so` pour le
@@ -71,7 +79,12 @@ Ce que ce décodage contraint respecte, et ne respecte pas, constaté sur le Pix
   chargement, puis après chaque réponse les vitesses mesurées par le runtime
   (`prompt 130 tokens at 136,6/s | answer 50 tokens at 13,9/s`).
 - Modèle chargé en `mmap`, libéré une minute après la dernière utilisation. Un service de premier
-  plan tient l'app en vie pendant une génération.
+  plan tient l'app en vie pendant une génération ; pendant un import, c'est celui de l'import qui la
+  tient, avec sa propre notification d'avancement (`SystemImportHost`), et celui de l'IA ne démarre
+  pas. Les deux passent par `ForegroundKeeper` : un service arrêté avant d'avoir atteint le premier
+  plan ferait tuer l'app par Android (un import qui échoue aussitôt, par exemple).
+- `LanguageModel.prepare()` charge le modèle à l'avance, là où ira une requête courte : le planning
+  l'appelle pendant qu'il lit les recettes sur Mealie.
 
 ### Le TPU Tensor
 
@@ -115,8 +128,8 @@ Ce que ce décodage contraint respecte, et ne respecte pas, constaté sur le Pix
   le TPU pour cette version de l'app sur cette version du système, et le modèle tourne sur le GPU ou
   le CPU.
 - Puces prises en charge : **Tensor G5 et G6** (`TensorChip`, d'après `Build.SOC_MODEL`), les seules
-  pour lesquelles Google publie des modèles compilés pour le TPU. Sur les Tensor G1 à G4 : GPU puis
-  CPU.
+  pour lesquelles Google publie des modèles compilés pour le TPU. Sur les Tensor G1 à G4 : CPU puis
+  GPU.
 - Fonctionne sous **GrapheneOS**, sans services Google Play ni AICore : vérifié sur un Pixel 10 Pro XL
   (le service `com.google.edgetpu.tachyon` et le pilote `/dev/edgetpu` démarrent dans le journal).
 
@@ -290,8 +303,8 @@ les temps de chaque phrase. Il tourne sur le **CPU** (`speech/data/WhisperTransc
   | Large v3 Turbo (`q5_0`) | 574 Mo | 356 s | le plus juste, ponctuation comprise |
 
   Small est recommandé à partir de 6 Go de mémoire (`SpeechModelCatalog.recommendedFor`), Base
-  en dessous ; chacun peut prendre une autre taille. Mesures sur un **Pixel 10 Pro XL** seulement :
-  sur un Pixel 6 Pro (Tensor G1, 12 Go), Small tient en mémoire, mais sa vitesse n'a pas été mesurée.
+  en dessous ; chacun peut prendre une autre taille. Sur un Pixel 6 Pro, voir *Téléphones sans TPU*
+  plus bas : Small y reste le bon choix, Large v3 Turbo y est trop lent.
 - Sur un son sans parole (musique, bruit), Whisper peut inventer une courte phrase (« Sous-titrage
   ST' 501 » avec Turbo sur un son pur). Les segments que Whisper lui-même juge sans parole
   (`no_speech_prob` > 0,6) sont écartés, et les étiquettes comme « [Musique] » retirées.
@@ -327,3 +340,68 @@ la sauce) additionne ses quantités de même unité ; répété par le modèle, 
 Quand la page ou la description donne la liste, le modèle est prié de ne pas la réécrire (réponse
 plus courte, donc import plus rapide) et d'en reprendre les noms dans les étapes. La vidéo reste la
 source des étapes, de leurs passages, et l'URL d'origine de la recette.
+
+## Planning automatique
+
+Le modèle ne sert qu'à classer (plat, dessert, boisson, autre) les recettes que rien ne situe ; le
+choix des plats reste un algorithme (`MealPlanner`). Les réponses sont gardées sur le téléphone
+(`DishCourseStore`) : une recette n'est demandée qu'une fois.
+
+- **Une propriété obligatoire par recette**, typée (`{"r1": "main", "r2": "dessert", …}`, chaque
+  valeur `{"type": "string", "enum": [...]}`), et non une liste d'objets `{"id", "course"}` : le
+  décodage contraint respecte les propriétés obligatoires, donc le modèle répond pour chaque recette,
+  et écrit moins. Mesuré sur le Pixel 6 Pro, CPU, 25 recettes françaises (`PlanningPromptSample`) :
+
+  | Réponse | Jetons lus | Jetons écrits | Durée | Résultat |
+  |---|---|---|---|---|
+  | liste d'objets (avant) | 805 | 339 | 53,9 s | une recette oubliée (pad thaï) ; curry, chili, risotto et quiche classés « autre » |
+  | **une propriété typée par recette** | 1 586 | **202** | **50 s** | les 25 répondues, toutes justes |
+
+  Le **type** est indispensable : LiteRT-LM 0.14 ne tient une valeur à son `enum` que si son type est
+  donné. Sans lui, sur un lot de 3 ou 7 recettes, le modèle recopiait la ligne de chaque recette comme
+  valeur, et sur une seule, répondait en texte au lieu d'appeler l'outil (constaté en vrai : le second
+  lot d'un planning, 243 jetons perdus). Les formes plus courtes ne marchent pas : un seul
+  `additionalProperties` typé fait échouer la création de la contrainte, un `$ref` vers une définition
+  commune n'est pas tenu. Chaque `"type"` coûte une vingtaine de jetons lus (le modèle de conversation
+  le réécrit en long) : `LocalLanguageModel.estimatedTokens` les compte à part (`TYPE_TOKENS`).
+  Les anciennes réponses gardées sont redemandées une fois (`model_courses_v3`).
+- Un lot de 25 recettes est estimé à 1 877 jetons (1 788 comptés par le runtime) : il tient dans les
+  4 096 du TPU et du CPU, et va donc au **TPU** sur un Tensor G5 ou G6, au CPU ailleurs. Test
+  matériel, sur un lot plein et sur un lot de 3 : `thePlanningPromptAnswersEveryRecipeOnTheFirstBackend`
+  (`LiteRtLmBackendTest`).
+- Le modèle se **charge pendant la lecture des plats** sur Mealie (`DishPoolRepository`), dès que
+  l'échantillon compte une recette que rien ne situe : le chargement ne s'ajoute plus à l'attente.
+
+## Téléphones sans TPU : mesures sur un Pixel 6 Pro
+
+Pixel 6 Pro (Tensor G1, 12 Go, GPU Mali-G78), Android 17, Gemma 4 E2B, 26/09/2026 :
+
+| Mesure | CPU (4 096) | GPU (Mali-G78) |
+|---|---|---|
+| Chargement du modèle | **1,7 s** | **58 à 69 s**, cache compris ; Android ferme 5 à 16 autres applications pour faire de la place |
+| Prompt d'import d'une vidéo (1 403 jetons lus, ~550 écrits) | **84 s** (lecture 53,5 jetons/s, écriture 10,5 jetons/s) | 87 s (lecture 259 jetons/s, écriture 6,9 jetons/s) |
+| Planning, 25 recettes (réponse sans type, voir plus haut) | **41,8 s** | 35,5 s |
+| Mémoire anonyme après une réponse | 1,7 Go | 0,5 Go (+ 3 Go de fichier mappé) |
+| Une image décrite (768 px, 411 jetons lus, vision au GPU) | 20 s (30 s pour la première) | — |
+
+Chargement compris, le CPU fait un import en ~86 s et un planning en ~44 s, contre ~150 s et ~94 s
+au GPU : d'où l'ordre TPU → CPU → GPU. Le GPU reste utile pour un prompt de plus de 4 096 jetons,
+qu'il lit cinq fois plus vite. Regarder une vidéo sans parole prend donc jusqu'à 10 minutes (30 images)
+sur ce téléphone.
+
+**Gemma 4 E4B** n'y est pas utilisable : au CPU, le prompt d'import n'avait pas de réponse au bout de
+27 minutes, le swap plein (8 ko libres) et le processus à 2 cœurs sur 8, faute de mémoire. L'écran le
+signale comme « gros pour ce téléphone » dès que son fichier dépasse 30 % de la mémoire
+(`LocalAiUiState.isTight` : E2B fait 22 % des 12 Go, E4B 31 %), et sa description le dit.
+
+Whisper, 109 s de parole française (synthèse vocale, `speech_fr.pcm`), 2 fils :
+
+| Modèle | Durée | Français |
+|---|---|---|
+| Base | 34 s (4 fils : 46 s) | fautes (« petits pinfarci », « le vure-sèche ») |
+| **Small** | **117 s** (4 fils : 130 s) | presque sans faute |
+| Large v3 Turbo | **608 s** | juste, mais une phrase inventée (« Laisser cuillère à soupe de paprika ») |
+
+Deux fils restent les plus rapides sur le Tensor G1 (ses deux grands cœurs). Small y écoute à peu
+près en temps réel : une vidéo de 10 minutes s'écoute en 10 minutes environ. Turbo, 5,6 fois plus
+lent que la vidéo, n'est pas à conseiller sur un tel téléphone : sa description le dit.

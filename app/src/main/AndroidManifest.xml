@@ -19,9 +19,11 @@
     <!--
       Cooking timers work as in a timer app: they keep running once the cooking mode or the
       app is left, and must ring on time.
-       * POST_NOTIFICATIONS shows them outside the app; asked for when the first one starts.
+       * POST_NOTIFICATIONS shows them outside the app; asked for when the first one starts, and
+         when an import starts, whose progress and end it shows too.
        * FOREGROUND_SERVICE* keeps the app running while a timer exists (CookingTimerService),
-         and while the on-device language model works (LocalAiService).
+         while the on-device language model works (LocalAiService), and while a recipe import runs
+         (RecipeImportService).
        * USE_EXACT_ALARM wakes the device up when a timer ends, even in Doze: timers are a core
          feature, and this permission is granted at install, unlike SCHEDULE_EXACT_ALARM.
        * WAKE_LOCK keeps the device awake while the alarm rings, then lets it sleep again.
@@ -102,6 +104,16 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="On-device language model inference started by the user, such as rebuilding a recipe from a video, which takes minutes." />
+        </service>
+
+        <!-- Keeps a recipe import running when its screen or the app is left (SystemImportHost). -->
+        <service
+            android:name=".recipe.data.RecipeImportService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Recipe import started by the user, such as rebuilding a recipe from a video on the phone, which takes minutes, with its progress shown." />
         </service>
 
         <!-- The wake-up alarm of the next timer and the actions of the timer notifications. -->

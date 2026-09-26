@@ -45,6 +45,9 @@ import org.opensources.umai.provider.marmiton.MarmitonProvider
 import org.opensources.umai.provider.site750g.Site750gProvider
 import org.opensources.umai.recipe.data.CalorieTagRepository
 import org.opensources.umai.recipe.data.DeviceRecipeImageFiles
+import org.opensources.umai.recipe.data.ImportNotifications
+import org.opensources.umai.recipe.data.RecipeImportController
+import org.opensources.umai.recipe.data.SystemImportHost
 import org.opensources.umai.recipe.data.RecipeCommentRepository
 import org.opensources.umai.recipe.data.RecipeDraftStore
 import org.opensources.umai.recipe.data.RecipeEditRepository
@@ -163,8 +166,13 @@ class AppContainer(context: Context) {
     /** The chip of this phone, and whether its TPU is within the app's reach. */
     val aiDevice = DeviceAccelerators.profile(nativeLibraryDir, tpuGuard)
 
+    val importNotifications = ImportNotifications(appContext)
+    val importHost = SystemImportHost(appContext, importNotifications)
+
     val localAiSettings = LocalAiSettingsStore(appContext)
-    val localAiWork = LocalAiWork(appContext)
+
+    /** Quiet during an import, which keeps the app alive and tells what the model does itself. */
+    val localAiWork = LocalAiWork(appContext, heldElsewhere = { importHost.keepsAppAlive })
     val modelInstaller = ModelInstaller(appContext, localAiSettings, aiDevice.tensorChip, applicationScope)
         .also { it.resume() }
 
@@ -205,6 +213,18 @@ class AppContainer(context: Context) {
         edits = recipeEditRepository,
         media = recipeMediaRepository,
         language = localeController::appLanguage,
+    )
+
+    /** The recipe import, which outlives the import screen. */
+    val recipeImports = RecipeImportController(
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        repository = recipeEditRepository,
+        calorieTags = calorieTagRepository,
+        providers = providerRegistry,
+        providerSettings = providerSettings,
+        mediaImporter = providerMediaImporter,
+        videoImporter = videoRecipeImporter,
+        host = importHost,
     )
 
     val dishCourseStore = DishCourseStore(appContext)

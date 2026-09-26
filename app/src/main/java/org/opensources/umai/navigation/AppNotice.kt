@@ -2,7 +2,7 @@ package org.opensources.umai.navigation
 
 import androidx.annotation.StringRes
 import org.opensources.umai.R
-import org.opensources.umai.recipe.ui.ImportNotice
+import org.opensources.umai.recipe.domain.ImportNotice
 
 /**
  * Confirmations raised by a screen as it closes, shown by the navigation host

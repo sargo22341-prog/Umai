@@ -1,16 +1,22 @@
 package org.opensources.umai.planning.domain
 
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.opensources.umai.core.model.MealType
+import org.opensources.umai.llm.data.LocalLanguageModel
 import org.opensources.umai.llm.domain.LanguageModel
 import org.opensources.umai.llm.domain.LlmOutcome
 import org.opensources.umai.llm.domain.LlmProgress
 import org.opensources.umai.llm.domain.LlmRequest
+import org.opensources.umai.llm.domain.LocalModel
 import java.time.DayOfWeek
 import java.time.LocalDate
 import kotlin.random.Random
@@ -146,14 +152,44 @@ class ModelCourseClassifierTest {
 
     @Test
     fun `answers are matched back by the codes the model echoes`() = runBlocking {
-        val model = Answering("""{"items":[{"id":"r2","course":"dessert"},{"id":"r1","course":"main"},{"id":"r9","course":"main"}]}""")
+        val model = Answering("""{"r2":"dessert","r1":"main","r9":"main","r3":"soup"}""")
 
         val courses = ModelCourseClassifier(model).classify(
-            listOf(UnplacedRecipe("uuid-a", "Blanquette", listOf("veau")), UnplacedRecipe("uuid-b", "Riz au lait", listOf("riz", "lait"))),
+            listOf(
+                UnplacedRecipe("uuid-a", "Blanquette", listOf("veau")),
+                UnplacedRecipe("uuid-b", "Riz au lait", listOf("riz", "lait")),
+                UnplacedRecipe("uuid-c", "Velouté", emptyList()),
+            ),
         )
 
+        // A code the batch has not, or a course that does not exist, is left out.
         assertEquals(mapOf("uuid-a" to DishCourse.MAIN, "uuid-b" to DishCourse.DESSERT), courses)
         assertTrue(requireNotNull(model.asked).user.contains("r1: Blanquette — veau"))
+    }
+
+    @Test
+    fun `every recipe of a batch is a required answer`() = runBlocking {
+        val model = Answering("{}")
+
+        ModelCourseClassifier(model).classify(List(3) { UnplacedRecipe("id$it", "Plat $it", emptyList()) })
+
+        val schema = Json.parseToJsonElement(requireNotNull(model.asked).jsonSchema).jsonObject
+        assertEquals(setOf("r1", "r2", "r3"), schema.getValue("properties").jsonObject.keys)
+        assertEquals(listOf("r1", "r2", "r3"), schema.getValue("required").jsonArray.map { it.jsonPrimitive.content })
+        // The runtime holds a value to its enum only with its type.
+        val course = schema.getValue("properties").jsonObject.getValue("r2").jsonObject
+        assertEquals("string", course.getValue("type").jsonPrimitive.content)
+        assertEquals(listOf("main", "dessert", "drink", "other"), course.getValue("enum").jsonArray.map { it.jsonPrimitive.content })
+    }
+
+    @Test
+    fun `a batch of recipes fits the context of the TPU and of the CPU`() = runBlocking {
+        val model = Answering("{}")
+        val long = List(8) { "ingrédient au nom plutôt long $it" }
+
+        ModelCourseClassifier(model).classify(List(25) { UnplacedRecipe("id$it", "Recette de saison numéro $it au four", long) })
+
+        assertTrue(LocalLanguageModel.estimatedTokens(requireNotNull(model.asked)) < LocalModel.CPU_CONTEXT_SIZE)
     }
 
     @Test

@@ -18,7 +18,7 @@ import java.util.Locale
 /**
  * Writes down speech with whisper.cpp on the CPU. The model stays loaded
  * while pieces of a video come in, and is freed a minute after the last one;
- * meanwhile the app is kept running by [work], as the language model is.
+ * while it writes, the app is kept running by [work], as for the language model.
  */
 class WhisperTranscriber(
     private val modelPath: suspend () -> String?,
@@ -36,9 +36,11 @@ class WhisperTranscriber(
     override suspend fun transcribe(samples: ShortArray, language: String?): List<SpokenText>? = mutex.withLock {
         val path = modelPath() ?: return@withLock null
         unloadJob?.cancel()
+        work.begin()
         try {
             withContext(Dispatchers.Default) { run(path, samples, language) }
         } finally {
+            work.end()
             scheduleUnload()
         }
     }
@@ -71,7 +73,6 @@ class WhisperTranscriber(
             Log.w(TAG, "Whisper could not load $path")
             return null
         }
-        work.begin()
         context = handle
         loadedPath = path
         return handle
@@ -82,7 +83,6 @@ class WhisperTranscriber(
         WhisperNative.free(context)
         context = 0L
         loadedPath = null
-        work.end()
     }
 
     private fun scheduleUnload() {
@@ -102,7 +102,8 @@ class WhisperTranscriber(
          * Measured on a Pixel 10, on a minute of speech: Small took 43 s with
          * two threads, 62 to 68 s with four, 71 to 104 s with six. ggml's
          * threads wait for one another at every step, and the more there are,
-         * the more land on slower cores. Two is also the big cores of a Tensor G1.
+         * the more land on slower cores. Two is also the big cores of a Tensor G1:
+         * on a Pixel 6 Pro, 109 s of speech took 117 s with two, 130 s with four.
          */
         const val THREADS = 2
 

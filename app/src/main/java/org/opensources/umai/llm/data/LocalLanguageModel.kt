@@ -60,16 +60,15 @@ data class LlmBenchmark(
 
 /**
  * The installed model, run by an [AiEngine] on the fastest backend that
- * works: the TPU of a Tensor chip, then the GPU, then the CPU.
+ * works ([PREFERENCE]): the TPU of a Tensor chip, then the CPU, then the GPU.
  *
  * A backend is used only once loading the model there succeeded and proved it
  * runs there; one that fails is skipped until the app restarts. A prompt too
- * long for the fixed context of a TPU build goes to the GPU or the CPU.
+ * long for the context of the TPU build and of the CPU goes to the GPU.
  *
  * A request with a picture goes to the file that holds the vision part,
- * which a TPU build has not: on the CPU first, which writes a short answer
- * four times faster than the GPU (see docs/local-ai.md). A backend where that
- * part does not load still answers text.
+ * which a TPU build has not: on the CPU first, then the GPU. A backend where
+ * that part does not load still answers text.
  *
  * The model is loaded on first use and unloaded after a minute without use:
  * it takes gigabytes of memory, which the rest of the phone needs back. One
@@ -116,6 +115,19 @@ class LocalLanguageModel(
                 scheduleUnload()
             }
         }
+
+    /** Loads the model on the backend a short text request goes to first. */
+    override suspend fun prepare() {
+        mutex.withLock {
+            val model = currentModel() ?: return
+            unloadJob?.cancel()
+            try {
+                withContext(Dispatchers.Default) { routes(model).firstNotNullOfOrNull { load(model, it, sense = null) } }
+            } finally {
+                scheduleUnload()
+            }
+        }
+    }
 
     /** Loads the model on its best backend and times a fixed prompt, to tell the user how fast the phone is. */
     suspend fun benchmark(): LlmBenchmark? = mutex.withLock {
@@ -197,7 +209,7 @@ class LocalLanguageModel(
     private data class Route(val backend: AiBackend, val path: String, val contextSize: Int)
 
     /** The backends to try for [model], fastest first, each with the file it runs. */
-    private fun routes(model: InstalledModel): List<Route> = AiBackend.entries
+    private fun routes(model: InstalledModel): List<Route> = PREFERENCE
         .filter { it !in unavailable && (it != AiBackend.TPU || device.tpuReachable) }
         .mapNotNull { backend ->
             model.paths.entries.firstOrNull { (file, _) -> backend in file.backends }
@@ -210,7 +222,6 @@ class LocalLanguageModel(
      */
     private fun senseRoutes(model: InstalledModel, sense: AiSense): List<Route> =
         routes(model).filter { it.backend != AiBackend.TPU && (it.backend to sense) !in senseless }
-            .sortedByDescending { it.backend.ordinal }
 
     /**
      * The engine for [route], loaded if needed, with the part that gives it
@@ -269,6 +280,16 @@ class LocalLanguageModel(
         const val IDLE_UNLOAD_MS = 60_000L
 
         /**
+         * The TPU first, then the CPU for what fits its context, the GPU for the
+         * rest. Measured on the Pixel 6 Pro and the Pixel 10 Pro XL (see
+         * docs/local-ai.md): the CPU writes faster than the GPU, loads the model
+         * in two seconds where the GPU takes a minute, and does not push the
+         * phone to close other apps to make room. The GPU reads long prompts
+         * several times faster: it takes those the CPU context cannot hold.
+         */
+        val PREFERENCE = listOf(AiBackend.TPU, AiBackend.CPU, AiBackend.GPU)
+
+        /**
          * Gemma reads about 3.9 characters of a French import prompt per token
          * (LiteRtLmBackendTest): this errs on the long side, but not so far that
          * a prompt the TPU takes goes to the GPU, which writes three times slower.
@@ -282,11 +303,21 @@ class LocalLanguageModel(
         /** What a picture takes in the context, with room to spare. */
         private const val MEDIA_TOKENS = 1_000
 
+        /**
+         * The chat template writes the type of each property of the schema at
+         * length: measured on the planning prompt, 25 `"type": "string"` took
+         * 500 tokens, where their characters count for about 115.
+         */
+        private const val TYPE_TOKENS = 16
+
         /** The schema is read too: it is the definition of the tool the model answers with. */
         fun estimatedTokens(request: LlmRequest): Int =
             ((request.system.length + request.user.length + request.jsonSchema.length) / CHARS_PER_TOKEN).toInt() +
+                TYPE_TOKENS * TYPE_KEY.findAll(request.jsonSchema).count() +
                 TEMPLATE_TOKENS + request.maxTokens +
                 (if (request.media != null) MEDIA_TOKENS else 0)
+
+        private val TYPE_KEY = Regex(""""type"\s*:""")
 
         private val BENCH_REQUEST = LlmRequest(
             system = "You are a helpful cooking assistant. Answer in French.",

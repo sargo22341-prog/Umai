@@ -76,6 +76,6 @@ class DishCourseStore(context: Context) : DishCourses {
     private companion object {
         val KeyUser = stringPreferencesKey("user_courses")
         // Versioned with the prompt of ModelCourseClassifier: new questions, new answers.
-        val KeyModel = stringPreferencesKey("model_courses_v2")
+        val KeyModel = stringPreferencesKey("model_courses_v3")
     }
 }

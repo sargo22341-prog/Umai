@@ -58,7 +58,8 @@ Main features:
   rebuilt into a full recipe (ingredients, steps, the part of the video of each step) from its
   description, chapters and transcript — with the local AI, a video without captions is listened
   to by Whisper, and looked at when nothing is said — with the quantities of the recipe page the description
-  links to; the part of the video of each step corrected by hand in the editor's Video tab; write a recipe step by step with drafts kept on the phone,
+  links to; the import goes on when its screen or the app is left, with its progress in a
+  notification and another one when it is done; the part of the video of each step corrected by hand in the editor's Video tab; write a recipe step by step with drafts kept on the phone,
   crop the recipe photo;
 - optional **local AI**: a language model downloaded separately runs on the phone, with no online
   service, for the video import and the recognition of dishes, and a Whisper model in three sizes
@@ -150,7 +151,7 @@ They come from the Mealie API, not from the app:
 | Network | Retrofit, OkHttp, Kotlin Serialization |
 | Images | Coil |
 | Video | Media3 ExoPlayer (HLS) |
-| Local AI | LiteRT-LM (Tensor TPU → GPU → CPU), `.litertlm` models; whisper.cpp (CPU) for speech |
+| Local AI | LiteRT-LM (Tensor TPU → CPU → GPU), `.litertlm` models; whisper.cpp (CPU) for speech |
 | Storage | DataStore |
 | Security | Android Keystore (AES-GCM) |
 | Injection | Hand-written container |

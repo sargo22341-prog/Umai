@@ -38,7 +38,7 @@ Avant de coder : lire ce fichier, parcourir le dépôt, et consulter `.context/`
 | Images | Coil 3 (`coil-network-okhttp`) |
 | Vidéo | Media3 ExoPlayer (+ HLS) |
 | YouTube | NewPipeExtractor (JitPack), sur le client OkHttp « sites externes » |
-| IA locale | LiteRT-LM (TPU Tensor → GPU → CPU, derrière `AiEngine`), modèles `.litertlm` téléchargés à part |
+| IA locale | LiteRT-LM (TPU Tensor → CPU → GPU, derrière `AiEngine`), modèles `.litertlm` téléchargés à part |
 | Transcription | whisper.cpp (CPU, JNI, compilé depuis ses sources par CMake), modèles `ggml` téléchargés à part |
 | Stockage | DataStore Preferences + Android Keystore |
 | Injection | `AppContainer` écrit à la main (§4) |
@@ -127,7 +127,7 @@ org.opensources.umai
 ├── llm/         data · domain · ui
 ├── speech/      data · domain
 ├── navigation/
-└── core/        di · download · format · image · markdown · model · network(api, dto) · session · settings · ui(component, theme)
+└── core/        di · download · format · image · markdown · model · network(api, dto) · service · session · settings · ui(component, theme)
 ```
 
 * Une nouvelle fonctionnalité crée son propre paquet racine, avec ses sous-paquets

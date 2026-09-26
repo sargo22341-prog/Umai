@@ -11,6 +11,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -80,6 +81,50 @@ class LiteRtLmBackendTest {
                     "${SystemClock.elapsedRealtime() - started} ms",
             )
             assertTrue(speed.promptTokens + speed.generatedTokens <= estimated)
+        } finally {
+            engine.close()
+        }
+    }
+
+    /**
+     * The prompt of the automatic planning, on the backend a short request
+     * goes to first: the TPU of a Tensor G5 or G6, the CPU elsewhere. The
+     * schema makes the model answer every recipe with one of the courses,
+     * for a full batch and for the few recipes left over after one, and the
+     * tokens the runtime counts stay within what the app estimates, so the
+     * prompt is not sent to a slower backend.
+     */
+    @Test
+    fun thePlanningPromptAnswersEveryRecipeOnTheFirstBackend() = runBlocking {
+        val onTpu = device.tpuReachable
+        val file = if (onTpu) model.filesFor(device.tensorChip).first { AiBackend.TPU in it.backends } else universalFile()
+        val backend = if (onTpu) AiBackend.TPU else AiBackend.CPU
+        val path = context.getExternalFilesDir("models")?.resolve(file.fileName)
+        assumeTrue("${file.fileName} is not on the phone", path?.isFile == true)
+        val started = SystemClock.elapsedRealtime()
+        val engine = loader.load(checkNotNull(path).path, backend, file.contextSizeOn(backend), sense = null)
+        val loaded = SystemClock.elapsedRealtime() - started
+        try {
+            for (size in listOf(PlanningPromptSample.recipes.size, 3)) {
+                val request = PlanningPromptSample.request(size)
+                val estimated = LocalLanguageModel.estimatedTokens(request)
+                assertTrue(estimated <= file.contextSizeOn(backend))
+                val asked = SystemClock.elapsedRealtime()
+                val answer = engine.generate(request).toList().joinToString("")
+                val speed = checkNotNull(engine.lastSpeed) { "The runtime did not time the answer" }
+                Log.i(
+                    TAG,
+                    "Planning prompt, $size recipes: $backend | SoC: ${device.socName} | load $loaded ms | " +
+                        "estimated $estimated tokens | prompt ${speed.promptTokens} tokens | " +
+                        "answer ${speed.generatedTokens} tokens | ${SystemClock.elapsedRealtime() - asked} ms | $answer",
+                )
+                val courses = (Json.parseToJsonElement(answer) as JsonObject).mapValues { it.value.jsonPrimitive.content }
+                assertEquals((1..size).map { "r$it" }.toSet(), courses.keys)
+                assertTrue("Not a course: $courses", courses.values.all { it in setOf("main", "dessert", "drink", "other") })
+                val wrong = PlanningPromptSample.expected.filter { (code, course) -> code in courses && courses[code] != course }
+                assertTrue("Wrong courses: $wrong", wrong.size <= 1)
+                assertTrue(speed.promptTokens + speed.generatedTokens <= estimated)
+            }
         } finally {
             engine.close()
         }

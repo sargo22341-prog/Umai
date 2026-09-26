@@ -1,5 +1,6 @@
 package org.opensources.umai.recipe
 
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.SideEffect
@@ -103,7 +104,8 @@ class RecipeVideoSectionTest {
     @Test
     fun theVideoTabOnlyExistsForARecipeWithAVideo() {
         render(state(draft).copy(section = RecipeFormSection.BASICS))
-        rule.onNodeWithText(string(R.string.edit_section_video)).assertIsDisplayed()
+        // The tabs scroll: on a narrow phone the last one starts out of sight.
+        rule.onNodeWithText(string(R.string.edit_section_video)).performScrollTo().assertIsDisplayed()
     }
 
     @Test

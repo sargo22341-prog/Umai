@@ -631,25 +631,25 @@
     <string name="local_ai_failure_corrupted">The file of %1$s is damaged and was deleted. Try again.</string>
     <string name="local_ai_failure_not_model">%1$s is not a LiteRT-LM model file (.litertlm).</string>
     <string name="local_ai_recommended">Recommended</string>
-    <string name="local_ai_model_tight">Large for this phone: it may not load while other apps take memory.</string>
+    <string name="local_ai_model_tight">Large for this phone: it may not load, or run very slowly, while other apps take memory.</string>
     <string name="local_ai_model_installed">Installed</string>
     <string name="local_ai_download">Download</string>
     <string name="speech_section">Speech transcription</string>
     <string name="speech_intro">Whisper writes down, on this phone, what is said in a video without captions, so that its steps can be placed. Without it, such a video is not listened to. The model is chosen apart from the language model above.</string>
-    <string name="speech_model_base">The quickest: a minute of speech in about 12 seconds on a Pixel 10, with a few words misheard in French.</string>
-    <string name="speech_model_small">French almost without a mistake: a minute of speech in about 40 seconds on a Pixel 10.</string>
-    <string name="speech_model_turbo">The most accurate, but slow: a minute of speech takes about 3 minutes on a Pixel 10.</string>
+    <string name="speech_model_base">The quickest: a minute of speech in about 12 seconds on a Pixel 10, 20 on a Pixel 6 Pro, with a few words misheard in French.</string>
+    <string name="speech_model_small">French almost without a mistake: a minute of speech in about 40 seconds on a Pixel 10, a minute on a Pixel 6 Pro.</string>
+    <string name="speech_model_turbo">The most accurate, but slow: a minute of speech takes about 3 minutes on a Pixel 10, and more than 5 on a Pixel 6 Pro. For recent phones.</string>
     <string name="speech_model_meta">%1$s MB · %2$s</string>
     <string name="speech_download_progress">%1$s of %2$s MB</string>
     <string name="speech_download_description">Speech model for umai</string>
-    <string name="local_ai_custom_hint">Any instruction model in the LiteRT-LM format, by the address of its file, such as a Hugging Face download link. It runs on the GPU or the processor, and replaces the installed model.</string>
+    <string name="local_ai_custom_hint">Any instruction model in the LiteRT-LM format, by the address of its file, such as a Hugging Face download link. It runs on the processor or the GPU, and replaces the installed model.</string>
     <string name="local_ai_custom_label">Address of a .litertlm file</string>
     <string name="local_ai_custom_invalid">An https address ending with the .litertlm file name</string>
     <string name="local_ai_model_gemma4_e2b">Google\'s model for phones, good at recipes in French and English. On a Pixel with a Tensor G5 or G6 chip, its build for the TPU comes with it.</string>
-    <string name="local_ai_model_gemma4_e4b">Larger and finer, for the best results, but slower. It runs on the GPU or the processor.</string>
+    <string name="local_ai_model_gemma4_e4b">Larger and finer, but much slower, and for phones with a lot of memory: on a Pixel 6 Pro (12 GB), it had not rebuilt a video after 27 minutes. It runs on the processor or the GPU.</string>
     <string name="local_ai_model_tpu">Includes the build for the TPU of the %1$s.</string>
-    <string name="local_ai_device_tpu">This phone has a %1$s chip: the model runs on its TPU when it can, otherwise on its GPU, and on its processor as a last resort.</string>
-    <string name="local_ai_device_no_tpu">This phone (%1$s) has no TPU the app can use: the model runs on its GPU, or on its processor when the GPU cannot.</string>
+    <string name="local_ai_device_tpu">This phone has a %1$s chip: the model runs on its TPU when it can, otherwise on its processor, and on its GPU for the longest texts, such as the transcript of a long video.</string>
+    <string name="local_ai_device_no_tpu">This phone (%1$s) has no TPU the app can use: the model runs on its processor, and on its GPU for the longest texts, such as the transcript of a long video.</string>
     <string name="local_ai_running_on">Running on the %1$s</string>
     <!-- The names of the processors, the same in every language. -->
     <string name="local_ai_backend_tpu" translatable="false">TPU</string>
@@ -680,7 +680,16 @@
         <item quantity="one">Writing the recipe: %d token</item>
         <item quantity="other">Writing the recipe: %d tokens</item>
     </plurals>
-    <string name="import_model_background">You can switch to another app meanwhile: the import goes on.</string>
+    <string name="import_model_background">You can leave this screen or the app: the import goes on, and a notification tells when it is done.</string>
+    <string name="import_notification_running">Importing a recipe</string>
+    <string name="import_notification_done">Recipe imported</string>
+    <string name="import_notification_open">Tap to open it.</string>
+    <string name="import_notification_failed">The import did not go through</string>
+    <string name="import_notification_failed_open">Tap to see why and try again.</string>
+    <string name="import_channel_running">Recipe imports</string>
+    <string name="import_channel_running_description">Shows how far an import is, while it runs.</string>
+    <string name="import_channel_ended">Finished imports</string>
+    <string name="import_channel_ended_description">Tells when an import ends while the app shows something else.</string>
     <string name="import_video_empty">This video has no ingredient list, no chapters and no captions: there is nothing to rebuild a recipe from.</string>
     <string name="import_video_not_video">This address is not a YouTube video.</string>
     <string name="import_video_unavailable">This video is private, removed or not available here.</string>

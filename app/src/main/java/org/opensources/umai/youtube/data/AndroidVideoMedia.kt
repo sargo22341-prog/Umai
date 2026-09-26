@@ -29,6 +29,7 @@ class AndroidVideoMedia : VideoMedia {
     override fun sound(url: String, pieceSeconds: Int, maxSeconds: Int): Flow<SoundPiece> = flow {
         val extractor = MediaExtractor()
         var codec: MediaCodec? = null
+        var started = false
         try {
             extractor.setDataSource(url)
             val track = (0 until extractor.trackCount).firstOrNull { index ->
@@ -36,14 +37,16 @@ class AndroidVideoMedia : VideoMedia {
             } ?: return@flow
             extractor.selectTrack(track)
             val format = extractor.getTrackFormat(track)
+            // Released even when the phone cannot configure it for this track.
             val decoder = MediaCodec.createDecoderByType(checkNotNull(format.getString(MediaFormat.KEY_MIME)))
+            codec = decoder
             decoder.configure(format, null, null, 0)
             decoder.start()
-            codec = decoder
+            started = true
             Decoding(extractor, decoder, format, pieceSeconds, maxSeconds).run(this)
         } finally {
             codec?.run {
-                stop()
+                if (started) stop()
                 release()
             }
             extractor.release()

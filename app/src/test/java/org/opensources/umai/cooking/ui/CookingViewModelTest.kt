@@ -162,9 +162,16 @@ class CookingViewModelTest {
 
     @After
     fun tearDown() {
+        // A running timer keeps a view model ticking on the main dispatcher: it
+        // must stop before the dispatcher is reset, or its next tick fails a later test.
+        viewModels.clear()
         Dispatchers.resetMain()
         fake.shutdown()
     }
+
+    /** Every view model of a test, cleared once it ends, as leaving the screen would. */
+    private val viewModels = ViewModelStore()
+    private var created = 0
 
     private var now = 0L
 
@@ -184,6 +191,16 @@ class CookingViewModelTest {
     )
 
     private fun viewModel(
+        keepScreenOn: Boolean = true,
+        servings: Int = 0,
+        step: Int = 0,
+        timerOptions: CookingTimerOptions = CookingTimerOptions(),
+    ): CookingViewModel {
+        val built = newViewModel(keepScreenOn, servings, step, timerOptions)
+        return ViewModelProvider.create(viewModels, viewModelFactory { initializer { built } })["vm${created++}", CookingViewModel::class]
+    }
+
+    private fun newViewModel(
         keepScreenOn: Boolean = true,
         servings: Int = 0,
         step: Int = 0,
@@ -306,7 +323,7 @@ class CookingViewModelTest {
     fun `leaving the cooking mode leaves its timers running`() = runBlocking {
         fake.enqueueJson(RECIPE)
         val store = ViewModelStore()
-        val vm = ViewModelProvider.create(store, viewModelFactory { initializer { viewModel() } })[
+        val vm = ViewModelProvider.create(store, viewModelFactory { initializer { newViewModel() } })[
             CookingViewModel::class,
         ]
         vm.awaitSettled()

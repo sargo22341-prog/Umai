@@ -2,7 +2,7 @@ package org.opensources.umai.llm.domain
 
 import kotlinx.coroutines.flow.Flow
 
-/** The processor a model runs on, from the fastest to the one every phone has. */
+/** A processor a model runs on. */
 enum class AiBackend { TPU, GPU, CPU }
 
 /** A part of the model beyond text, loaded only when a request needs it. */

@@ -1,5 +1,9 @@
 package org.opensources.umai.recipe.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,11 +37,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.opensources.umai.R
@@ -45,6 +51,8 @@ import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
 import org.opensources.umai.llm.domain.LlmProgress
+import org.opensources.umai.recipe.domain.ImportPhase
+import org.opensources.umai.recipe.domain.ImportedRecipe
 import org.opensources.umai.youtube.domain.WatchProgress
 import org.opensources.umai.youtube.domain.YouTubeFailure
 
@@ -52,6 +60,9 @@ import org.opensources.umai.youtube.domain.YouTubeFailure
  * [initialUrl] fills the address in, as when a page is shared to the app.
  * [onImported] receives the new recipe, and whether the media of its provider
  * could not be fetched; [onOpenRecipe] opens a recipe already on the instance.
+ *
+ * The import goes on when the screen is left, shown by a notification: the
+ * permission to post it is asked for when an import starts.
  */
 @Composable
 fun RecipeImportScreen(
@@ -68,6 +79,20 @@ fun RecipeImportScreen(
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    // The end of an import is shown here only while the screen is seen; otherwise a notification tells it.
+    LifecycleStartEffect(viewModel) {
+        viewModel.onDisplayed(true)
+        onStopOrDispose { viewModel.onDisplayed(false) }
+    }
+
+    val context = LocalContext.current
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    val askNotifications = {
+        if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     val imported = state.imported
     LaunchedEffect(imported) {
         if (imported != null) {
@@ -82,8 +107,14 @@ fun RecipeImportScreen(
         onUrlChange = viewModel::onUrlChange,
         onIncludeTagsChange = viewModel::onIncludeTagsChange,
         onIncludeCategoriesChange = viewModel::onIncludeCategoriesChange,
-        onImport = { viewModel.import() },
-        onImportAnyway = { viewModel.import(evenIfPresent = true) },
+        onImport = {
+            viewModel.import()
+            askNotifications()
+        },
+        onImportAnyway = {
+            viewModel.import(evenIfPresent = true)
+            askNotifications()
+        },
         onOpenExisting = onOpenRecipe,
         modifier = modifier,
         onCancel = viewModel::cancel,

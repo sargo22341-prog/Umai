@@ -153,6 +153,17 @@ class LocalAiViewModelTest {
     }
 
     @Test
+    fun `Gemma 4 E4B is flagged as large on a Pixel 6 Pro, where it swapped, E2B is not`() {
+        // The total memory Android reports on a Pixel 6 Pro.
+        val state = viewModel(memory = 11_822_308_000L).state.value
+        val e2b = LocalModelCatalog.models.first { it.id == "gemma-4-e2b-litertlm" }
+        val e4b = LocalModelCatalog.models.first { it.id == "gemma-4-e4b-litertlm" }
+
+        assertFalse(state.isTight(e2b))
+        assertTrue(state.isTight(e4b))
+    }
+
+    @Test
     fun `a phone that cannot run the model says so`() {
         assertFalse(viewModel(supported = false).state.value.supported)
     }

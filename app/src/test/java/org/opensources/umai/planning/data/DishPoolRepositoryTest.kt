@@ -131,7 +131,7 @@ class DishPoolRepositoryTest {
     @Test
     fun `the model settles the recipes nothing places, and its answers are kept`() = runTest {
         val model = ScriptedModel(
-            listOf(org.opensources.umai.llm.domain.LlmOutcome.Success("""{"items":[{"id":"r1","course":"main"},{"id":"r2","course":"dessert"},{"id":"r3","course":"other"}]}""")),
+            listOf(org.opensources.umai.llm.domain.LlmOutcome.Success("""{"r1":"main","r2":"dessert","r3":"other"}""")),
         )
         val courses = MemoryDishCourses()
 
@@ -143,6 +143,19 @@ class DishPoolRepositoryTest {
         assertTrue(model.requests.single().user.contains("Carré gourmand"))
         val mains = courses.model.filterValues { it == DishCourse.MAIN }.keys
         assertEquals(setOf("lasagnes", "blanquette") + mains, ids)
+        // Loaded while the dishes were read, before it was asked.
+        assertEquals(1, model.prepared)
+    }
+
+    @Test
+    fun `the model is not loaded when every dish is placed already`() = runTest {
+        val model = ScriptedModel(listOf(org.opensources.umai.llm.domain.LlmOutcome.Success("{}")))
+        val courses = MemoryDishCourses()
+        courses.model += mapOf("moelleux" to DishCourse.DESSERT, "gratin" to DishCourse.MAIN, "tofu" to DishCourse.MAIN)
+
+        assertEquals(setOf("lasagnes", "blanquette", "gratin", "tofu"), repository(courses, model).ids())
+        assertEquals(0, model.prepared)
+        assertTrue(model.requests.isEmpty())
     }
 
     @Test

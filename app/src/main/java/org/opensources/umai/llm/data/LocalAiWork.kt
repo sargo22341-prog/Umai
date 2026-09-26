@@ -12,6 +12,7 @@ import android.os.IBinder
 import org.opensources.umai.MainActivity
 import org.opensources.umai.R
 import org.opensources.umai.UmaiApplication
+import org.opensources.umai.core.service.ForegroundKeeper
 import org.opensources.umai.llm.domain.LlmProgress
 
 /**
@@ -19,13 +20,18 @@ import org.opensources.umai.llm.domain.LlmProgress
  * transcript takes minutes on a phone: without a foreground service, leaving
  * the app would freeze it half way. The service runs from the first token to
  * the last, and its notification shows how far the model is.
+ *
+ * Work may overlap (Whisper and the language model, the planning during an
+ * import): the service runs until the last one ends. None runs while
+ * [heldElsewhere], when an import keeps the app alive with a notification of
+ * its own that already says what the model does.
  */
-class LocalAiWork(context: Context) : ModelWork {
+class LocalAiWork(context: Context, private val heldElsewhere: () -> Boolean) : ModelWork {
 
     private val context = context.applicationContext
     private val manager = this.context.getSystemService(NotificationManager::class.java)
-    private val serviceIntent = Intent(this.context, LocalAiService::class.java)
-    private var running = false
+    private val keeper = ForegroundKeeper(this.context, LocalAiService::class.java)
+    private var working = 0
     private var lastWritten = -1
 
     init {
@@ -41,19 +47,15 @@ class LocalAiWork(context: Context) : ModelWork {
         )
     }
 
-    /** Called from a screen on display: the app is in the foreground and may start the service. */
     @Synchronized
     override fun begin() {
         lastWritten = -1
-        if (!running) {
-            context.startForegroundService(serviceIntent)
-            running = true
-        }
+        if (working++ == 0 && !heldElsewhere()) keeper.keep()
     }
 
     @Synchronized
     override fun progress(progress: LlmProgress) {
-        if (!running) return
+        if (!keeper.isKeeping) return
         // Once when the answer starts, then every few pieces written.
         val step = progress.generated / TOKEN_STEP
         if (step == lastWritten && progress.generated != 1) return
@@ -63,10 +65,12 @@ class LocalAiWork(context: Context) : ModelWork {
 
     @Synchronized
     override fun end() {
-        if (!running) return
-        context.stopService(serviceIntent)
-        running = false
+        working = (working - 1).coerceAtLeast(0)
+        if (working == 0) keeper.release()
     }
+
+    /** Called by the service once in the foreground. */
+    internal fun onForeground(service: Service) = keeper.onForeground(service)
 
     fun notification(progress: LlmProgress? = null): Notification {
         val builder = Notification.Builder(context, CHANNEL)
@@ -115,6 +119,8 @@ class LocalAiService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val work = (application as UmaiApplication).container.localAiWork
         startForeground(LocalAiWork.NOTIFICATION_ID, work.notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        // Stops at once when the work ended before the service started.
+        work.onForeground(this)
         // A generation does not survive the process: nothing to restart.
         return START_NOT_STICKY
     }
