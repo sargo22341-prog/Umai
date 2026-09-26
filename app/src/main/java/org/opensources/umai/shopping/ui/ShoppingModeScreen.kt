@@ -63,7 +63,7 @@ import org.opensources.umai.core.ui.component.title
  * at the bottom, and the screen kept awake.
  */
 @Composable
-fun ShoppingModeScreen(
+fun ShoppingModeRoute(
     listId: String,
     onExit: () -> Unit,
     modifier: Modifier = Modifier,

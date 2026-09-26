@@ -45,7 +45,7 @@ class PlanningViewModelTest {
 
     private fun viewModel(photos: FakePlanPhotos = FakePlanPhotos()) = PlanningViewModel(
         mealPlanRepository = MealPlanRepository { fake.api() },
-        recipeCalories = RecipeCaloriesRepository { fake.api() },
+        recipeCalories = RecipeCaloriesRepository(apiProvider = { fake.api() }, instanceKey = { "instance" }),
         photos = photos,
         clock = { today },
     )

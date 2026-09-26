@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import org.opensources.umai.BuildConfig
 import org.opensources.umai.cooking.data.CookingTimerController
@@ -16,8 +17,9 @@ import org.opensources.umai.cooking.data.SystemTimerHost
 import org.opensources.umai.cooking.data.TimerNotifications
 import org.opensources.umai.core.image.DeviceImageCropper
 import org.opensources.umai.core.image.HttpPhotoDownloader
+import org.opensources.umai.core.network.ImageUrlResolver
 import org.opensources.umai.core.network.LocalNetworkAccess
-import org.opensources.umai.core.network.MealieMedia
+import org.opensources.umai.core.network.api.MealieApi
 import org.opensources.umai.core.session.AuthRepository
 import org.opensources.umai.core.session.SessionManager
 import org.opensources.umai.core.session.SessionStore
@@ -42,7 +44,7 @@ import org.opensources.umai.planning.data.OpenFoodFactsRepository
 import org.opensources.umai.planning.data.RecipeCaloriesRepository
 import org.opensources.umai.planning.domain.ModelCourseClassifier
 import org.opensources.umai.profile.data.ProfileRepository
-import org.opensources.umai.provider.ProviderRegistry
+import org.opensources.umai.provider.domain.ProviderRegistry
 import org.opensources.umai.provider.data.ProviderMediaImporter
 import org.opensources.umai.provider.data.ProviderSettingsStore
 import org.opensources.umai.provider.jow.JowProvider
@@ -96,10 +98,10 @@ class AppContainer(context: Context) {
 
     val authRepository = AuthRepository(sessionManager)
 
-    private val apiProvider: () -> org.opensources.umai.core.network.api.MealieApi? =
-        { sessionManager.api() }
+    private val apiProvider: () -> MealieApi? = { sessionManager.api() }
+    private val instanceKey: () -> String? = { sessionManager.instanceKey() }
 
-    val calorieTagRepository = CalorieTagRepository(apiProvider)
+    val calorieTagRepository = CalorieTagRepository(apiProvider, instanceKey)
     val recipeRepository = RecipeRepository(
         apiProvider = apiProvider,
         currentUserId = { sessionManager.activeSession()?.userId },
@@ -108,7 +110,7 @@ class AppContainer(context: Context) {
     val recipeCommentRepository = RecipeCommentRepository(apiProvider)
     val recipeMediaRepository = RecipeMediaRepository(apiProvider)
     val recipeEditRepository = RecipeEditRepository(apiProvider, recipeMediaRepository)
-    val organizerRepository = OrganizerRepository(apiProvider)
+    val organizerRepository = OrganizerRepository(apiProvider, instanceKey)
     val mealPlanRepository = MealPlanRepository(apiProvider)
     val shoppingRepository = ShoppingRepository(apiProvider)
     private val imageCropper = DeviceImageCropper(appContext)
@@ -116,11 +118,11 @@ class AppContainer(context: Context) {
     val recentRecipesStore = RecentRecipesStore(appContext)
     val recipeImageFiles = DeviceRecipeImageFiles(appContext, imageCropper)
     val recipeDraftStore = RecipeDraftStore(appContext, recipeImageFiles)
-    val recipeCaloriesRepository = RecipeCaloriesRepository(apiProvider)
+    val recipeCaloriesRepository = RecipeCaloriesRepository(apiProvider, instanceKey)
     val planPhotos = DevicePlanPhotos(appContext, imageCropper)
     val labelPictures = DeviceLabelPictures(appContext, imageCropper)
 
-    val imageUrls = ImageUrlResolver(sessionManager)
+    val imageUrls = ImageUrlResolver(sessionManager::baseUrl)
 
     /**
      * For requests to other websites (a recipe provider, a video host): no
@@ -169,124 +171,123 @@ class AppContainer(context: Context) {
         clock = timerClock,
     )
 
+    val importNotifications = ImportNotifications(appContext)
+    val importHost = SystemImportHost(appContext, importNotifications)
+
+    // The on-device AI, the speech recognition and YouTube: built on first use,
+    // as most sessions never reach them and the device profile reads files.
+
     /** The phone's memory, which bounds the language models it can run. */
-    val deviceMemoryBytes: Long = ActivityManager.MemoryInfo()
-        .also { appContext.getSystemService(ActivityManager::class.java).getMemoryInfo(it) }
-        .totalMem
+    val deviceMemoryBytes: Long by lazy {
+        ActivityManager.MemoryInfo()
+            .also { appContext.getSystemService(ActivityManager::class.java).getMemoryInfo(it) }
+            .totalMem
+    }
 
     private val nativeLibraryDir = appContext.applicationInfo.nativeLibraryDir
 
-    private val tpuGuard = TpuCrashGuard(
-        marker = appContext.noBackupFilesDir.resolve("tpu-loading"),
-        build = "${BuildConfig.VERSION_CODE} ${Build.FINGERPRINT}",
-    )
+    private val tpuGuard by lazy {
+        TpuCrashGuard(
+            marker = appContext.noBackupFilesDir.resolve("tpu-loading"),
+            build = "${BuildConfig.VERSION_CODE} ${Build.FINGERPRINT}",
+        )
+    }
 
     /** The chip of this phone, and whether its TPU is within the app's reach. */
-    val aiDevice = DeviceAccelerators.profile(nativeLibraryDir, tpuGuard)
-
-    val importNotifications = ImportNotifications(appContext)
-    val importHost = SystemImportHost(appContext, importNotifications)
+    val aiDevice by lazy { DeviceAccelerators.profile(nativeLibraryDir, tpuGuard) }
 
     val localAiSettings = LocalAiSettingsStore(appContext)
 
     /** Quiet during an import, which keeps the app alive and tells what the model does itself. */
     val localAiWork = LocalAiWork(appContext, heldElsewhere = { importHost.keepsAppAlive })
-    val modelInstaller = ModelInstaller(appContext, localAiSettings, aiDevice.tensorChip, applicationScope)
-        .also { it.resume() }
 
-    private val liteRtLm = LiteRtLmLoader(nativeLibraryDir, appContext.cacheDir.resolve("litertlm"), tpuGuard)
+    /** Picks up a download that ended while the app was away, as soon as the model is needed. */
+    val modelInstaller by lazy {
+        ModelInstaller(appContext, localAiSettings, aiDevice.tensorChip, applicationScope).also { it.resume() }
+    }
+
+    private val liteRtLm by lazy {
+        LiteRtLmLoader(nativeLibraryDir, appContext.cacheDir.resolve("litertlm"), tpuGuard)
+    }
 
     /** The on-device language model; every feature using it also works without it. */
-    val localLanguageModel = LocalLanguageModel(
-        installed = modelInstaller::installedModel,
-        device = aiDevice,
-        loader = liteRtLm,
-        isSupported = liteRtLm.isAvailable,
-        work = localAiWork,
-        scope = applicationScope,
-    )
+    val localLanguageModel by lazy {
+        LocalLanguageModel(
+            installed = modelInstaller::installedModel,
+            device = aiDevice,
+            loader = liteRtLm,
+            isSupported = liteRtLm.isAvailable,
+            work = localAiWork,
+            scope = applicationScope,
+        )
+    }
 
     val speechSettings = SpeechSettingsStore(appContext)
-    val speechModelInstaller = SpeechModelInstaller(appContext, speechSettings, applicationScope)
-        .also { it.resume() }
+    val speechModelInstaller by lazy {
+        SpeechModelInstaller(appContext, speechSettings, applicationScope).also { it.resume() }
+    }
 
     /** Writes down the speech of a video without captions, when a Whisper model is installed. */
-    val speechTranscriber = WhisperTranscriber(
-        modelPath = speechModelInstaller::installedPath,
-        work = localAiWork,
-        scope = applicationScope,
-    )
+    private val speechTranscriber by lazy {
+        WhisperTranscriber(
+            modelPath = speechModelInstaller::installedPath,
+            work = localAiWork,
+            scope = applicationScope,
+        )
+    }
 
     /** Reads YouTube videos without an account, for the import and the cooking mode. */
-    val youTubeClient = YouTubeClient(externalHttpClient, language = localeController::appLanguage)
+    private val youTubeClient by lazy { YouTubeClient(externalHttpClient, language = localeController::appLanguage) }
 
-    val videoStreams = VideoStreams(youTubeClient)
+    val videoStreams by lazy { VideoStreams(youTubeClient) }
 
-    val videoRecipeImporter = VideoRecipeImporter(
-        youTube = youTubeClient,
-        pages = MealieRecipePages(apiProvider, externalHttpClient),
-        model = localLanguageModel,
-        watcher = VideoWatcher(localLanguageModel, speechTranscriber, AndroidVideoMedia()),
-        apiProvider = apiProvider,
-        edits = recipeEditRepository,
-        media = recipeMediaRepository,
-        language = localeController::appLanguage,
-    )
+    private val videoRecipeImporter by lazy {
+        VideoRecipeImporter(
+            youTube = youTubeClient,
+            pages = MealieRecipePages(apiProvider, externalHttpClient),
+            model = localLanguageModel,
+            watcher = VideoWatcher(localLanguageModel, speechTranscriber, AndroidVideoMedia()),
+            apiProvider = apiProvider,
+            edits = recipeEditRepository,
+            media = recipeMediaRepository,
+            language = localeController::appLanguage,
+        )
+    }
 
     /** The recipe import, which outlives the import screen. */
-    val recipeImports = RecipeImportController(
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
-        repository = recipeEditRepository,
-        calorieTags = calorieTagRepository,
-        providers = providerRegistry,
-        providerSettings = providerSettings,
-        mediaImporter = providerMediaImporter,
-        videoImporter = videoRecipeImporter,
-        host = importHost,
-    )
+    val recipeImports by lazy {
+        RecipeImportController(
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+            repository = recipeEditRepository,
+            calorieTags = calorieTagRepository,
+            providers = providerRegistry,
+            providerSettings = providerSettings,
+            mediaImporter = providerMediaImporter,
+            videoImporter = videoRecipeImporter,
+            host = importHost,
+        )
+    }
 
     val dishCourseStore = DishCourseStore(appContext)
-    val dishPoolRepository = DishPoolRepository(
-        apiProvider = apiProvider,
-        courses = dishCourseStore,
-        modelClassifier = ModelCourseClassifier(localLanguageModel),
-    )
+    val dishPoolRepository by lazy {
+        DishPoolRepository(
+            apiProvider = apiProvider,
+            courses = dishCourseStore,
+            modelClassifier = ModelCourseClassifier(localLanguageModel),
+        )
+    }
 
     /** Re-read on every call: the user can revoke the grant from Settings. */
     val localNetworkPermission: () -> Boolean = { LocalNetworkAccess.isGranted(appContext) }
-}
 
-/**
- * Builds media URLs for the instance that is currently configured, so screens
- * never have to know the server address.
- */
-class ImageUrlResolver(private val sessionManager: SessionManager) {
-
-    fun thumbnail(recipeId: String, imageToken: String?): String? =
-        url(recipeId, imageToken, MealieMedia.ImageSize.SMALL)
-
-    fun medium(recipeId: String, imageToken: String?): String? =
-        url(recipeId, imageToken, MealieMedia.ImageSize.MEDIUM)
-
-    fun original(recipeId: String, imageToken: String?): String? =
-        url(recipeId, imageToken, MealieMedia.ImageSize.ORIGINAL)
-
-    fun recipeAsset(recipeId: String, fileName: String, version: String?): String? =
-        sessionManager.baseUrl()?.let { MealieMedia.recipeAsset(it, recipeId, fileName, version) }
-
-    fun stepImage(recipeId: String, source: String): String? =
-        sessionManager.baseUrl()?.let { MealieMedia.resolveStepImage(it, recipeId, source) }
-
-    fun userAvatar(userId: String, cacheKey: String?): String? =
-        sessionManager.baseUrl()?.let { MealieMedia.userImage(it, userId, cacheKey) }
-
-    private fun url(
-        recipeId: String,
-        imageToken: String?,
-        size: MealieMedia.ImageSize,
-    ): String? {
-        if (imageToken == null) return null
-        val base = sessionManager.baseUrl() ?: return null
-        return MealieMedia.recipeImage(base, recipeId, size, imageToken)
+    init {
+        // What the device keeps of an instance — history, courses — is only
+        // good there: it goes when the app is signed in somewhere else.
+        applicationScope.launch {
+            sessionManager.watchInstanceChanges {
+                recentRecipesStore.clear()
+                dishCourseStore.clear()
+            }
+        }
     }
 }

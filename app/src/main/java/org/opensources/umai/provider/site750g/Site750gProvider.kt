@@ -2,10 +2,10 @@ package org.opensources.umai.provider.site750g
 
 import kotlinx.serialization.json.JsonElement
 import org.opensources.umai.R
-import org.opensources.umai.provider.ProviderMedia
-import org.opensources.umai.provider.RecipeProvider
+import org.opensources.umai.provider.domain.ProviderMedia
+import org.opensources.umai.provider.domain.RecipeProvider
+import org.opensources.umai.provider.domain.isPageOf
 import org.opensources.umai.provider.schema.SchemaOrgRecipe
-import java.net.URI
 
 /**
  * 750g (750g.com). Its step-by-step recipes ("pas à pas") give a photo for
@@ -22,11 +22,7 @@ object Site750gProvider : RecipeProvider {
     /** Recipe pages end with their number: `/pavlova-aux-fruits-rouges-r204378.htm`. */
     private val recipePath = Regex("""-r\d+\.htm$""")
 
-    override fun handles(url: String): Boolean = runCatching {
-        val uri = URI(url.trim())
-        val host = uri.host?.lowercase() ?: return false
-        (host == "750g.com" || host.endsWith(".750g.com")) && recipePath.containsMatchIn(uri.path.orEmpty())
-    }.getOrDefault(false)
+    override fun handles(url: String): Boolean = isPageOf(url, domain = "750g.com", path = recipePath)
 
     override fun media(schema: JsonElement, sourceUrl: String): ProviderMedia? {
         val recipe = SchemaOrgRecipe.find(schema) ?: return null

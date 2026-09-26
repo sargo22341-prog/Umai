@@ -1,6 +1,7 @@
 package org.opensources.umai.core.session
 
-import okhttp3.OkHttpClient
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.MealieClientFactory
 import org.opensources.umai.core.network.MealieUrl
@@ -18,8 +19,14 @@ import org.opensources.umai.core.network.api.MealieApi
  */
 class AuthRepository(
     private val session: SessionHolder,
-    private val clientBuilder: (String?) -> Pair<OkHttpClient, (String) -> MealieApi> = ::defaultClient,
+    /** The API of the instance at `baseUrl`, sending `token` when there is one. */
+    private val apiFor: (baseUrl: String, token: String?) -> MealieApi = ::defaultApi,
+    /** Monotonic milliseconds, which space out the token refreshes. */
+    private val clock: () -> Long = { System.nanoTime() / NANOS_PER_MILLI },
 ) {
+
+    private val refreshing = Mutex()
+    private var lastRefresh: Long? = null
 
     sealed interface ConnectResult {
         data class Success(val session: ServerSession) : ConnectResult
@@ -29,26 +36,12 @@ class AuthRepository(
         data object PasswordLoginDisabled : ConnectResult
     }
 
-    /** Checks that the address really is a Mealie instance and returns its version. */
-    suspend fun probe(baseUrl: String): ApiResult<String> {
-        val (_, apiFor) = clientBuilder(null)
-        return apiCall { apiFor(baseUrl).appInfo() }.let { result ->
-            when (result) {
-                is ApiResult.Success ->
-                    if (result.value.version.isBlank()) ApiResult.Failure(NetworkError.NotMealie)
-                    else ApiResult.Success(result.value.version)
-                is ApiResult.Failure -> result
-            }
-        }
-    }
-
     suspend fun connectWithPassword(
         baseUrl: String,
         username: String,
         password: String,
     ): ConnectResult {
-        val (_, apiFor) = clientBuilder(null)
-        val anonymous = apiFor(baseUrl)
+        val anonymous = apiFor(baseUrl, null)
 
         val info = apiCall { anonymous.appInfo() }
         if (info is ApiResult.Failure) return ConnectResult.Failure(info.error)
@@ -69,8 +62,7 @@ class AuthRepository(
     }
 
     suspend fun connectWithApiToken(baseUrl: String, apiToken: String): ConnectResult {
-        val (_, apiFor) = clientBuilder(null)
-        val info = apiCall { apiFor(baseUrl).appInfo() }
+        val info = apiCall { apiFor(baseUrl, null).appInfo() }
         if (info is ApiResult.Failure) return ConnectResult.Failure(info.error)
         val appInfo = (info as ApiResult.Success).value
         if (appInfo.version.isBlank()) return ConnectResult.Failure(NetworkError.NotMealie)
@@ -93,17 +85,25 @@ class AuthRepository(
         session.signOut()
     }
 
-    /** Exchanges a still-valid token for a fresh one; used when the app resumes. */
-    suspend fun refreshIfPossible(): Boolean {
+    /**
+     * Exchanges the token of a password session for a fresh one, at most once
+     * every [REFRESH_INTERVAL_MS]. Asked each time the app comes to the
+     * foreground, it keeps a session in use from ever expiring; Mealie carries
+     * the remember-me choice over to the new token. An API token has no expiry
+     * the app could push back. Answers whether the token was replaced.
+     */
+    suspend fun refreshIfDue(): Boolean = refreshing.withLock {
+        val now = clock()
+        if (lastRefresh?.let { now - it < REFRESH_INTERVAL_MS } == true) return false
         val current = session.activeSession() ?: return false
         if (current.authMode != AuthMode.PASSWORD) return false
         val api = session.api() ?: return false
-        return when (val result = apiCall { api.refreshToken() }) {
-            is ApiResult.Success -> {
-                session.updateToken(result.value.accessToken)
-                true
-            }
+        when (val result = apiCall { api.refreshToken() }) {
             is ApiResult.Failure -> false
+            is ApiResult.Success -> {
+                lastRefresh = now
+                session.replaceToken(previous = current.token, token = result.value.accessToken)
+            }
         }
     }
 
@@ -114,8 +114,7 @@ class AuthRepository(
         username: String?,
         serverVersion: String,
     ): ConnectResult {
-        val (_, apiFor) = clientBuilder(token)
-        return when (val user = apiCall { apiFor(baseUrl).currentUser() }) {
+        return when (val user = apiCall { apiFor(baseUrl, token).currentUser() }) {
             is ApiResult.Failure -> ConnectResult.Failure(user.error)
             is ApiResult.Success -> ConnectResult.Success(
                 ServerSession(
@@ -138,9 +137,11 @@ class AuthRepository(
         fun normalize(rawUrl: String): String? =
             (MealieUrl.parse(rawUrl) as? MealieUrl.Result.Valid)?.let { MealieUrl.canonical(it.url) }
 
-        private fun defaultClient(token: String?): Pair<OkHttpClient, (String) -> MealieApi> {
-            val client = MealieClientFactory.okHttpClient(TokenProvider { token })
-            return client to { baseUrl -> MealieClientFactory.api(baseUrl, client) }
-        }
+        /** Well within the shortest token Mealie hands out (`TOKEN_TIME`, 48 hours by default). */
+        private const val REFRESH_INTERVAL_MS = 12 * 60 * 60 * 1000L
+        private const val NANOS_PER_MILLI = 1_000_000L
+
+        private fun defaultApi(baseUrl: String, token: String?): MealieApi =
+            MealieClientFactory.api(baseUrl, MealieClientFactory.okHttpClient(TokenProvider { token }))
     }
 }

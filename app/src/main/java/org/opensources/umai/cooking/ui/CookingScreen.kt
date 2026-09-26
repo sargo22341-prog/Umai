@@ -1,6 +1,7 @@
 package org.opensources.umai.cooking.ui
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -89,7 +90,7 @@ import java.time.Duration
  * timer started from another recipe; this recipe's timers open their step here.
  */
 @Composable
-fun CookingScreen(
+fun CookingRoute(
     slug: String,
     servings: Int,
     step: Int,
@@ -173,13 +174,13 @@ fun CookingScreen(
     stepImageUrl: (String) -> String?,
     stepPhotoUrl: (String) -> String?,
     modifier: Modifier = Modifier,
-    videoContent: @Composable (StepClip, Int) -> Unit = { stepClip, number -> StepVideoPlayer(stepClip, number) },
     onStartTimer: (Duration) -> Unit = {},
     onPauseTimer: (Int) -> Unit = {},
     onResumeTimer: (Int) -> Unit = {},
     onDismissTimer: (Int) -> Unit = {},
     onOpenTimer: (CookingTimer) -> Unit = {},
     notificationsAllowed: Boolean = true,
+    videoContent: @Composable (StepClip, Int) -> Unit = { stepClip, number -> StepVideoPlayer(stepClip, number) },
 ) {
     var stepListVisible by remember { mutableStateOf(false) }
     var finishing by remember { mutableStateOf(false) }
@@ -315,18 +316,20 @@ fun CookingScreen(
     }
 }
 
+// `media` is the slot of the step's video and pictures, which come above its text: not the content.
+@SuppressLint("ComposableLambdaParameterNaming")
 @Composable
 private fun StepContent(
     stepIndex: Int,
     stepCount: Int,
     title: String?,
     text: String,
-    media: @Composable () -> Unit,
     ingredients: List<RecipeIngredient>,
     scale: Double,
     durations: List<Duration>,
     onStartTimer: (Duration) -> Unit,
     modifier: Modifier = Modifier,
+    media: @Composable () -> Unit,
 ) {
     Column(
         modifier = modifier

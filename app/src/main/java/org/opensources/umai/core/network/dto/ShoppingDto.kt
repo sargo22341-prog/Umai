@@ -8,11 +8,6 @@ import kotlinx.serialization.Serializable
 data class ShoppingListSummaryDto(
     val id: String = "",
     val name: String? = null,
-    val groupId: String? = null,
-    val userId: String? = null,
-    val householdId: String? = null,
-    val createdAt: String? = null,
-    val updatedAt: String? = null,
     val recipeReferences: List<ShoppingListRecipeRefDto> = emptyList(),
 )
 
@@ -20,9 +15,6 @@ data class ShoppingListSummaryDto(
 data class ShoppingListDto(
     val id: String = "",
     val name: String? = null,
-    val groupId: String? = null,
-    val userId: String? = null,
-    val householdId: String? = null,
     val listItems: List<ShoppingListItemDto> = emptyList(),
     val recipeReferences: List<ShoppingListRecipeRefDto> = emptyList(),
 )
@@ -51,8 +43,6 @@ data class ShoppingListItemDto(
     val labelId: String? = null,
     val unitId: String? = null,
     val label: LabelDto? = null,
-    val groupId: String? = null,
-    val householdId: String? = null,
 )
 
 /**
@@ -100,11 +90,4 @@ data class ShoppingListCreateDto(val name: String)
 data class ShoppingListAddRecipeDto(
     @EncodeDefault(EncodeDefault.Mode.ALWAYS) val recipeIncrementQuantity: Double = 1.0,
     val recipeIngredients: List<RecipeIngredientDto>? = null,
-)
-
-@Serializable
-data class ShoppingListItemsCollectionDto(
-    val createdItems: List<ShoppingListItemDto> = emptyList(),
-    val updatedItems: List<ShoppingListItemDto> = emptyList(),
-    val deletedItems: List<ShoppingListItemDto> = emptyList(),
 )

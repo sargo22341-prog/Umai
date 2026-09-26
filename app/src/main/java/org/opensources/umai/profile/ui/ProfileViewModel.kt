@@ -18,12 +18,14 @@ import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.session.SessionManager
 import org.opensources.umai.profile.data.ProfileRepository
+import org.opensources.umai.profile.data.ProfileRepository.AvatarUpdate
 import org.opensources.umai.recipe.domain.RecipeDraft
 
 /** One-shot messages shown as a snackbar. */
 sealed interface ProfileEvent {
     data object AvatarUpdated : ProfileEvent
     data object CameraUnavailable : ProfileEvent
+    data object PictureUnreadable : ProfileEvent
     data class Failed(val error: NetworkError) : ProfileEvent
 }
 
@@ -67,14 +69,15 @@ class ProfileViewModel(
         _state.update { it.copy(uploadingAvatar = true) }
         viewModelScope.launch {
             when (val result = profileRepository.updateAvatar(user.id, imageUri, region)) {
-                is ApiResult.Failure -> _state.update {
-                    it.copy(uploadingAvatar = false, event = ProfileEvent.Failed(result.error))
+                is AvatarUpdate.Updated -> {
+                    adopt(result.user)
+                    _state.update { it.copy(uploadingAvatar = false, event = ProfileEvent.AvatarUpdated) }
                 }
-                is ApiResult.Success -> {
-                    adopt(result.value)
-                    _state.update {
-                        it.copy(uploadingAvatar = false, event = ProfileEvent.AvatarUpdated)
-                    }
+                AvatarUpdate.PictureUnreadable -> _state.update {
+                    it.copy(uploadingAvatar = false, event = ProfileEvent.PictureUnreadable)
+                }
+                is AvatarUpdate.Failed -> _state.update {
+                    it.copy(uploadingAvatar = false, event = ProfileEvent.Failed(result.error))
                 }
             }
         }

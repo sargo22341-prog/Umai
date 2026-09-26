@@ -3,69 +3,79 @@ package org.opensources.umai.core.network.dto
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+/** What a recipe of a list and a whole recipe both carry, mapped the same way. */
+interface RecipeSummaryFields {
+    val id: String?
+    val name: String?
+    val slug: String
+    val image: String?
+    val recipeServings: Double
+    val recipeYield: String?
+    val totalTime: String?
+    val prepTime: String?
+    val cookTime: String?
+    val performTime: String?
+    val description: String?
+    val categories: List<RecipeCategoryDto>?
+    val tags: List<RecipeTagDto>?
+    val tools: List<RecipeToolDto>
+    val rating: Double?
+    val orgURL: String?
+    val dateAdded: String?
+    val lastMade: String?
+}
+
 @Serializable
 data class RecipeSummaryDto(
-    val id: String? = null,
-    val userId: String? = null,
-    val householdId: String? = null,
-    val groupId: String? = null,
-    val name: String? = null,
-    val slug: String = "",
-    @Serializable(with = ScalarAsStringSerializer::class) val image: String? = null,
-    val recipeServings: Double = 0.0,
-    val recipeYieldQuantity: Double = 0.0,
-    val recipeYield: String? = null,
-    val totalTime: String? = null,
-    val prepTime: String? = null,
-    val cookTime: String? = null,
-    val performTime: String? = null,
-    val description: String? = "",
-    @SerialName("recipeCategory") val categories: List<RecipeCategoryDto>? = emptyList(),
-    val tags: List<RecipeTagDto>? = emptyList(),
-    val tools: List<RecipeToolDto> = emptyList(),
-    val rating: Double? = null,
-    val orgURL: String? = null,
-    val dateAdded: String? = null,
-    val dateUpdated: String? = null,
-    val createdAt: String? = null,
-    val updatedAt: String? = null,
-    val lastMade: String? = null,
-)
+    override val id: String? = null,
+    override val name: String? = null,
+    override val slug: String = "",
+    @Serializable(with = ScalarAsStringSerializer::class) override val image: String? = null,
+    override val recipeServings: Double = 0.0,
+    override val recipeYield: String? = null,
+    override val totalTime: String? = null,
+    override val prepTime: String? = null,
+    override val cookTime: String? = null,
+    override val performTime: String? = null,
+    override val description: String? = "",
+    @SerialName("recipeCategory") override val categories: List<RecipeCategoryDto>? = emptyList(),
+    override val tags: List<RecipeTagDto>? = emptyList(),
+    override val tools: List<RecipeToolDto> = emptyList(),
+    override val rating: Double? = null,
+    override val orgURL: String? = null,
+    override val dateAdded: String? = null,
+    override val lastMade: String? = null,
+) : RecipeSummaryFields
 
 @Serializable
 data class RecipeDetailDto(
-    val id: String? = null,
-    val userId: String? = null,
-    val householdId: String? = null,
-    val groupId: String? = null,
-    val name: String? = null,
-    val slug: String = "",
-    @Serializable(with = ScalarAsStringSerializer::class) val image: String? = null,
-    val recipeServings: Double = 0.0,
-    val recipeYieldQuantity: Double = 0.0,
-    val recipeYield: String? = null,
-    val totalTime: String? = null,
-    val prepTime: String? = null,
-    val cookTime: String? = null,
-    val performTime: String? = null,
-    val description: String? = "",
-    @SerialName("recipeCategory") val categories: List<RecipeCategoryDto>? = emptyList(),
-    val tags: List<RecipeTagDto>? = emptyList(),
-    val tools: List<RecipeToolDto> = emptyList(),
-    val rating: Double? = null,
-    val orgURL: String? = null,
-    val dateAdded: String? = null,
+    override val id: String? = null,
+    override val name: String? = null,
+    override val slug: String = "",
+    @Serializable(with = ScalarAsStringSerializer::class) override val image: String? = null,
+    override val recipeServings: Double = 0.0,
+    override val recipeYield: String? = null,
+    override val totalTime: String? = null,
+    override val prepTime: String? = null,
+    override val cookTime: String? = null,
+    override val performTime: String? = null,
+    override val description: String? = "",
+    @SerialName("recipeCategory") override val categories: List<RecipeCategoryDto>? = emptyList(),
+    override val tags: List<RecipeTagDto>? = emptyList(),
+    override val tools: List<RecipeToolDto> = emptyList(),
+    override val rating: Double? = null,
+    override val orgURL: String? = null,
+    override val dateAdded: String? = null,
+    override val lastMade: String? = null,
     val dateUpdated: String? = null,
-    val createdAt: String? = null,
     val updatedAt: String? = null,
-    val lastMade: String? = null,
     val recipeIngredient: List<RecipeIngredientDto> = emptyList(),
     val recipeInstructions: List<RecipeStepDto>? = emptyList(),
     val nutrition: NutritionDto? = null,
     val settings: RecipeSettingsDto? = null,
     val assets: List<RecipeAssetDto> = emptyList(),
     val notes: List<RecipeNoteDto> = emptyList(),
-)
+) : RecipeSummaryFields
 
 @Serializable
 data class RecipeStepDto(
@@ -129,12 +139,9 @@ data class NutritionDto(
 
 @Serializable
 data class RecipeSettingsDto(
-    val public: Boolean = false,
     val showNutrition: Boolean = false,
     val showAssets: Boolean = false,
-    val landscapeView: Boolean = false,
     val disableComments: Boolean = true,
-    val locked: Boolean = false,
 )
 
 @Serializable

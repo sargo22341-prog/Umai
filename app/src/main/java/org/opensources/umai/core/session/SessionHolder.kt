@@ -11,6 +11,13 @@ interface SessionHolder {
     fun activeSession(): ServerSession?
     fun api(): MealieApi?
     suspend fun activate(session: ServerSession)
-    suspend fun updateToken(token: String)
+
+    /**
+     * Swaps [previous] for [token] after a refresh, unless the session changed
+     * meanwhile (signed out, another instance): a token must never land on a
+     * session it was not issued for. Answers whether the token was replaced.
+     */
+    suspend fun replaceToken(previous: String, token: String): Boolean
+
     suspend fun signOut()
 }

@@ -1,5 +1,6 @@
 package org.opensources.umai.navigation
 
+import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
 import androidx.compose.animation.EnterTransition
@@ -32,6 +33,16 @@ internal fun AnimatedContentTransitionScope<NavBackStackEntry>.screenPopEnter():
 
 internal fun AnimatedContentTransitionScope<NavBackStackEntry>.screenPopExit(): ExitTransition =
     slideOutOfContainer(SlideDirection.End, slideSpec())
+
+/**
+ * Keeps the screen below in place while the one above rises over it. Lint takes
+ * this for a clash with a member of `ExitTransition.Companion`, but that member is
+ * internal to Compose: the one reached is the public extension that
+ * [AnimatedContentTransitionScope] declares.
+ */
+@SuppressLint("MemberExtensionConflict")
+internal fun AnimatedContentTransitionScope<NavBackStackEntry>.stayUnderneath(): ExitTransition =
+    ExitTransition.KeepUntilTransitionsFinished
 
 /** The same curve on both screens keeps them edge to edge for the whole slide. */
 private fun slideSpec() = tween<IntOffset>(SCREEN_TRANSITION_MILLIS, easing = FastOutSlowInEasing)

@@ -2,6 +2,7 @@ package org.opensources.umai.llm.domain
 
 import androidx.annotation.StringRes
 import org.opensources.umai.R
+import org.opensources.umai.core.download.DownloadableFile
 
 /**
  * One `.litertlm` file of a model. A file compiled for the TPU of one Tensor
@@ -12,15 +13,15 @@ import org.opensources.umai.R
  * has none, and is only checked to be a LiteRT-LM file.
  */
 data class ModelFile(
-    val url: String,
-    val fileName: String,
-    val sizeBytes: Long,
-    val sha256: String?,
+    override val url: String,
+    override val fileName: String,
+    override val sizeBytes: Long,
+    override val sha256: String?,
     val backends: Set<AiBackend>,
     /** The context the file runs with: fixed when the model was compiled for a TPU. */
     val contextSize: Int,
     val chip: TensorChip? = null,
-) {
+) : DownloadableFile {
     /**
      * The context [backend] runs this file with. The CPU keeps its cache in the
      * app's own memory, which Android caps (4 GiB on a Pixel 10 Pro XL): the

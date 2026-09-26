@@ -17,8 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.opensources.umai.R
+import org.opensources.umai.core.download.DownloadState
 import org.opensources.umai.settings.ui.SettingsSectionHeader
-import org.opensources.umai.speech.data.SpeechInstallState
 import org.opensources.umai.speech.domain.SpeechModel
 
 /** The callbacks of the Whisper section of [LocalAiScreen]. */
@@ -37,8 +37,8 @@ internal fun LazyListScope.speechModelItems(state: LocalAiUiState, actions: Spee
     item { SettingsSectionHeader(stringResource(R.string.speech_section)) }
     item { Paragraph(stringResource(R.string.speech_intro)) }
     when (val install = state.speechInstall) {
-        is SpeechInstallState.Downloading, is SpeechInstallState.Verifying -> item { SpeechProgressCard(install, actions) }
-        is SpeechInstallState.Failed -> item {
+        is DownloadState.Downloading, is DownloadState.Verifying -> item { SpeechProgressCard(install, actions) }
+        is DownloadState.Failed -> item {
             ModelCard {
                 Text(
                     text = stringResource(failureMessage(install.failure), install.model.name),
@@ -48,7 +48,7 @@ internal fun LazyListScope.speechModelItems(state: LocalAiUiState, actions: Spee
                 TextButton(onClick = actions.onDismissFailure) { Text(stringResource(R.string.action_close)) }
             }
         }
-        SpeechInstallState.Idle -> Unit
+        DownloadState.Idle -> Unit
     }
     items(state.speechModels, key = { it.id }) { model ->
         SpeechModelCard(
@@ -99,10 +99,10 @@ private fun SpeechModelCard(
 }
 
 @Composable
-private fun SpeechProgressCard(install: SpeechInstallState, actions: SpeechScreenActions) {
+private fun SpeechProgressCard(install: DownloadState<SpeechModel>, actions: SpeechScreenActions) {
     ModelCard {
         when (install) {
-            is SpeechInstallState.Downloading -> {
+            is DownloadState.Downloading -> {
                 Text(stringResource(R.string.local_ai_downloading, install.model.name), style = MaterialTheme.typography.titleSmall)
                 val fraction = if (install.total > 0) install.downloaded.toFloat() / install.total else 0f
                 LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
@@ -117,7 +117,7 @@ private fun SpeechProgressCard(install: SpeechInstallState, actions: SpeechScree
                 )
                 TextButton(onClick = actions.onCancelDownload) { Text(stringResource(R.string.action_cancel)) }
             }
-            is SpeechInstallState.Verifying -> {
+            is DownloadState.Verifying -> {
                 Text(stringResource(R.string.local_ai_verifying, install.model.name), style = MaterialTheme.typography.titleSmall)
                 LinearProgressIndicator(progress = { install.fraction }, modifier = Modifier.fillMaxWidth())
             }

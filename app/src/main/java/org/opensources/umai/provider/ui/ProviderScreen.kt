@@ -26,7 +26,7 @@ import org.opensources.umai.settings.ui.SettingsSectionHeader
 import org.opensources.umai.settings.ui.SettingsSwitchRow
 
 @Composable
-fun ProviderScreen(
+fun ProviderRoute(
     providerId: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,

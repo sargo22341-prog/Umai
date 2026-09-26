@@ -67,7 +67,7 @@ import org.opensources.umai.core.ui.component.title
  * settings and the ways of adding a recipe.
  */
 @Composable
-fun ProfileScreen(
+fun ProfileRoute(
     onOpenAppSettings: () -> Unit,
     onOpenMealieSettings: () -> Unit,
     onOpenProviders: () -> Unit,
@@ -95,6 +95,7 @@ fun ProfileScreen(
         null -> null
         ProfileEvent.AvatarUpdated -> stringResource(R.string.profile_avatar_updated)
         ProfileEvent.CameraUnavailable -> stringResource(R.string.image_camera_unavailable)
+        ProfileEvent.PictureUnreadable -> stringResource(R.string.crop_unreadable)
         is ProfileEvent.Failed -> "${event.error.title()}\n${event.error.message()}"
     }
     LaunchedEffect(event) {

@@ -316,20 +316,12 @@ class RecipeDetailViewModel(
                                 ?: recipe.baseServings ?: 0,
                         )
                     }
-                    recentRecipesStore.remember(slug)
-                    refreshFavorite(recipe.id)
-                    refreshOwnRating(recipe.id)
-                    loadComments()
+                    // Independent requests: none waits for another.
+                    launch { recentRecipesStore.remember(slug) }
+                    launch { refreshOwnRating(recipe.id) }
+                    launch { loadComments() }
                 }
             }
-        }
-    }
-
-    private suspend fun refreshFavorite(recipeId: String) {
-        if (!_state.value.favoritesSupported) return
-        when (val result = recipeRepository.favoriteIds()) {
-            is ApiResult.Failure -> Unit
-            is ApiResult.Success -> _state.update { it.copy(isFavorite = recipeId in result.value) }
         }
     }
 
@@ -338,7 +330,9 @@ class RecipeDetailViewModel(
         when (val result = recipeRepository.ownRating(recipeId)) {
             // The average stays on screen: a missing personal rating is no error.
             is ApiResult.Failure -> Unit
-            is ApiResult.Success -> _state.update { it.copy(ownRating = result.value) }
+            is ApiResult.Success -> _state.update {
+                it.copy(ownRating = result.value.stars, isFavorite = result.value.isFavorite)
+            }
         }
     }
 

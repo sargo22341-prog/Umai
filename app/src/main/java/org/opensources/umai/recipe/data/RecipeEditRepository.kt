@@ -3,25 +3,24 @@ package org.opensources.umai.recipe.data
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
+import kotlinx.serialization.json.JsonObject
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.opensources.umai.core.image.EncodedImage
 import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.MealieClientFactory
+import org.opensources.umai.core.network.MediaTypes
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.network.api.MealieApi
 import org.opensources.umai.core.network.apiCall
+import org.opensources.umai.core.network.call
 import org.opensources.umai.core.network.dto.CreateRecipeDto
-import org.opensources.umai.core.network.dto.IngredientReferenceDto
-import org.opensources.umai.core.network.dto.RecipeCategoryDto
 import org.opensources.umai.core.network.dto.RecipeDetailDto
-import org.opensources.umai.core.network.dto.RecipeIngredientDto
-import org.opensources.umai.core.network.dto.RecipeStepDto
-import org.opensources.umai.core.network.dto.RecipeTagDto
 import org.opensources.umai.core.network.dto.ScrapeRecipeDto
+import org.opensources.umai.core.network.formPart
+import org.opensources.umai.core.network.map
+import org.opensources.umai.core.network.orInvalid
+import org.opensources.umai.core.network.valueOr
 import org.opensources.umai.recipe.domain.EditableRecipe
 import org.opensources.umai.recipe.domain.RecipeDraft
 import org.opensources.umai.recipe.domain.RecipeLinks
@@ -51,10 +50,9 @@ class RecipeEditRepository(
      * exactly, so `http`, `www.` or a query string make no difference.
      */
     suspend fun findBySource(url: String): ApiResult<RecipeSummary?> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
         val fragment = RecipeLinks.searchFragment(url) ?: return ApiResult.Success(null)
-        return apiCall {
-            api.recipes(perPage = DUPLICATE_CANDIDATES, queryFilter = "orgURL LIKE \"%$fragment%\"")
+        return apiProvider.call {
+            recipes(perPage = DUPLICATE_CANDIDATES, queryFilter = "orgURL LIKE \"%$fragment%\"")
                 .items
                 .mapNotNull { it.toDomain() }
                 .firstOrNull { candidate -> candidate.sourceUrl?.let { RecipeLinks.sameSource(it, url) } == true }
@@ -66,44 +64,23 @@ class RecipeEditRepository(
         includeTags: Boolean,
         includeCategories: Boolean,
     ): ApiResult<String> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
         val address = url.trim()
-        if (address.isEmpty()) return ApiResult.Failure(NetworkError.InvalidResponse)
-        return apiCall {
-            api.createRecipeFromUrl(
-                ScrapeRecipeDto(
-                    url = address,
-                    includeTags = includeTags,
-                    includeCategories = includeCategories,
-                ),
-            )
-        }.validSlug()
+        require(address.isNotEmpty()) { "An import needs the address of a page" }
+        return apiProvider.call {
+            createRecipeFromUrl(ScrapeRecipeDto(url = address, includeTags = includeTags, includeCategories = includeCategories))
+        }.asSlug()
     }
 
     /**
      * Mealie creates a recipe from a name alone, then accepts the rest through
-     * an update. The freshly created recipe is read back first so the payload
-     * keeps the identifiers and settings the server chose.
+     * an update — the same one as an edit, so every field Mealie chose for the
+     * new recipe is kept. The example ingredient and step Mealie writes into
+     * it count as changed by the draft, which replaces them.
      */
     suspend fun create(draft: RecipeDraft): ApiResult<String> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        if (!draft.canBeCreated) return ApiResult.Failure(NetworkError.InvalidResponse)
-
-        val slug = when (val created = apiCall { api.createRecipe(CreateRecipeDto(draft.name.trim())) }) {
-            is ApiResult.Failure -> return created
-            is ApiResult.Success -> created.value.trim().trim('"')
-                .ifBlank { return ApiResult.Failure(NetworkError.InvalidResponse) }
-        }
-
-        val existing = when (val result = apiCall { api.recipe(slug) }) {
-            is ApiResult.Failure -> return result
-            is ApiResult.Success -> result.value
-        }
-
-        return when (val updated = apiCall { api.updateRecipe(slug, existing.merge(draft)) }) {
-            is ApiResult.Failure -> updated
-            is ApiResult.Success -> ApiResult.Success(updated.value.slug.ifBlank { slug })
-        }
+        require(draft.canBeCreated) { "A recipe is created with a name" }
+        val slug = apiProvider.call { createRecipe(CreateRecipeDto(draft.name.trim())) }.asSlug().valueOr { return it }
+        return write(slug) { document -> document.withEdits(document.toDetail().toEditableDraft(), draft, json) }
     }
 
     /**
@@ -136,16 +113,9 @@ class RecipeEditRepository(
      * write the chapters again from nothing.
      */
     suspend fun loadForEdit(slug: String): ApiResult<EditableRecipe> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        val dto = when (val result = apiCall { api.recipe(slug) }) {
-            is ApiResult.Failure -> return result
-            is ApiResult.Success -> result.value
-        }
+        val dto = apiProvider.call { recipe(slug) }.valueOr { return it }
         val recipe = dto.toDomain() ?: return ApiResult.Failure(NetworkError.InvalidResponse)
-        val video = when (val result = media.videoManifest(recipe.id, recipe.assets)) {
-            is ApiResult.Failure -> return result
-            is ApiResult.Success -> result.value
-        }
+        val video = media.videoManifest(recipe.id, recipe.assets).valueOr { return it }
         return ApiResult.Success(
             EditableRecipe(
                 recipeId = recipe.id,
@@ -166,10 +136,8 @@ class RecipeEditRepository(
     suspend fun saveVideoChapters(slug: String, recipe: EditableRecipe, edited: RecipeDraft): ApiResult<EditableRecipe> {
         if (!VideoChapters.changed(edited, recipe.video)) return ApiResult.Success(recipe)
         val manifest = VideoChapters.manifest(edited, recipe.video) ?: return ApiResult.Success(recipe)
-        return when (val saved = media.saveVideoManifest(slug, manifest, recipe.videoFile)) {
-            is ApiResult.Failure -> saved
-            is ApiResult.Success -> ApiResult.Success(recipe.copy(video = manifest, videoFile = saved.value))
-        }
+        return media.saveVideoManifest(slug, manifest, recipe.videoFile)
+            .map { file -> recipe.copy(video = manifest, videoFile = file) }
     }
 
     /**
@@ -179,23 +147,25 @@ class RecipeEditRepository(
      * derives from the name and so changes along with it.
      */
     suspend fun update(slug: String, original: RecipeDraft, edited: RecipeDraft): ApiResult<String> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        if (!edited.canBeCreated) return ApiResult.Failure(NetworkError.InvalidResponse)
+        require(edited.canBeCreated) { "A recipe keeps a name" }
         if (edited == original) return ApiResult.Success(slug)
-
-        val document = when (val result = apiCall { api.recipeDocument(slug) }) {
-            is ApiResult.Failure -> return result
-            is ApiResult.Success -> result.value
-        }
-
-        val edits = document.withEdits(original, edited, MealieClientFactory.json)
-        // Only photos changed: they are assets, and the document stays as it is.
-        if (edits == document) return ApiResult.Success(slug)
-        return when (val updated = apiCall { api.replaceRecipe(slug, edits) }) {
-            is ApiResult.Failure -> updated
-            is ApiResult.Success -> ApiResult.Success(updated.value.slug.ifBlank { slug })
-        }
+        return write(slug) { document -> document.withEdits(original, edited, json) }
     }
+
+    /**
+     * Reads the recipe document, has [edit] change it, and sends it back whole.
+     * Answers with the slug, which Mealie derives from the name.
+     */
+    private suspend fun write(slug: String, edit: (JsonObject) -> JsonObject): ApiResult<String> {
+        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
+        val document = apiCall { api.recipeDocument(slug) }.valueOr { return it }
+        val edited = edit(document)
+        // Only photos changed: they are assets, and the document stays as it is.
+        if (edited == document) return ApiResult.Success(slug)
+        return apiCall { api.replaceRecipe(slug, edited) }.map { it.slug.ifBlank { slug } }
+    }
+
+    private fun JsonObject.toDetail(): RecipeDetailDto = json.decodeFromJsonElement(RecipeDetailDto.serializer(), this)
 
     /**
      * Brings the step photos on Mealie in line with the edited steps.
@@ -218,10 +188,8 @@ class RecipeEditRepository(
 
         // Every moved photo is read before anything is written over it.
         val copies = plan.moves.mapValues { (_, file) ->
-            when (val result = media.assetBytes(recipeId, file)) {
-                is ApiResult.Failure -> return result
-                is ApiResult.Success -> EncodedImage(result.value, imageMediaType(file), file.substringAfterLast('.'))
-            }
+            val bytes = media.assetBytes(recipeId, file).valueOr { return it }
+            EncodedImage(bytes, EncodedImage.mediaTypeOf(file), file.substringAfterLast('.'))
         }
         (copies + newPhotos).forEach { (number, photo) ->
             val result = media.saveStepPhoto(slug, number, photo)
@@ -231,38 +199,24 @@ class RecipeEditRepository(
     }
 
     /** Replaces the picture of the recipe; Mealie builds its smaller sizes itself. */
-    suspend fun uploadImage(slug: String, image: EncodedImage): ApiResult<Unit> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        val part = MultipartBody.Part.createFormData(
-            name = "image",
-            filename = "recipe.${image.extension}",
-            body = image.bytes.toRequestBody(image.mediaType.toMediaTypeOrNull()),
-        )
-        val extension = image.extension.toRequestBody(TEXT_PLAIN)
-        return apiCall { api.updateRecipeImage(slug, part, extension) }.let { result ->
-            when (result) {
-                is ApiResult.Failure -> result
-                is ApiResult.Success -> ApiResult.Success(Unit)
-            }
-        }
-    }
+    suspend fun uploadImage(slug: String, image: EncodedImage): ApiResult<Unit> = apiProvider.call {
+        updateRecipeImage(slug, image.formPart("image", fileName = "recipe"), image.extension.toRequestBody(MediaTypes.TextPlain))
+    }.map { }
 
     /** Deletes the recipe from the instance, for every user of it. */
-    suspend fun delete(slug: String): ApiResult<Unit> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return apiCall { api.deleteRecipe(slug) }.also { result ->
+    suspend fun delete(slug: String): ApiResult<Unit> =
+        apiProvider.call { deleteRecipe(slug) }.also { result ->
             if (result is ApiResult.Success) _deletedRecipes.emit(slug)
         }
-    }
 
-    private fun ApiResult<String>.validSlug(): ApiResult<String> = when (this) {
-        is ApiResult.Failure -> this
-        is ApiResult.Success -> value.trim().trim('"')
-            .takeIf { it.isNotBlank() }
-            ?.let { ApiResult.Success(it) }
-            ?: ApiResult.Failure(NetworkError.InvalidResponse)
+    private companion object {
+        val json = MealieClientFactory.json
     }
 }
+
+/** Mealie answers the creation of a recipe with its slug, as a JSON string. */
+internal fun ApiResult<String>.asSlug(): ApiResult<String> =
+    map { answer -> answer.trim().trim('"').takeIf { it.isNotBlank() } }.orInvalid()
 
 /** A recipe just created; [imageSaved] is false when Mealie refused one of its pictures. */
 data class CreatedRecipe(val slug: String, val imageSaved: Boolean)
@@ -305,50 +259,8 @@ internal data class StepPhotoPlan(
     }
 }
 
-private fun imageMediaType(fileName: String): String =
-    when (val extension = fileName.substringAfterLast('.').lowercase()) {
-        "jpg" -> "image/jpeg"
-        else -> "image/$extension"
-    }
-
-private val TEXT_PLAIN = "text/plain".toMediaType()
-
 /** Enough to recognise the recipe among the few that share its address fragment. */
 private const val DUPLICATE_CANDIDATES = 20
 
 /** Lets a deletion be announced without waiting for a list busy with something else. */
 private const val DELETION_BUFFER = 8
-
-/**
- * Copies what the user wrote onto the recipe Mealie just created, leaving every
- * other field of the server payload untouched.
- *
- * Times are free text on the Mealie side; `performTime` is the field its own
- * web UI labels "cook time", so that is where the cooking time goes.
- */
-private fun RecipeDetailDto.merge(draft: RecipeDraft): RecipeDetailDto {
-    val written = draft.ingredients.filter { it.text.isNotBlank() }
-    val known = written.map { it.referenceId }.toSet()
-    return copy(
-        name = draft.name.trim(),
-        description = draft.description.trim(),
-        recipeServings = draft.servings.coerceAtLeast(0).toDouble(),
-        prepTime = draft.prepTime.trim().ifBlank { null },
-        performTime = draft.cookTime.trim().ifBlank { null },
-        totalTime = draft.totalTime.trim().ifBlank { null },
-        recipeIngredient = written.map { line ->
-            val text = line.text.trim()
-            RecipeIngredientDto(note = text, display = text, originalText = text, referenceId = line.referenceId)
-        },
-        recipeInstructions = draft.writtenSteps.map { step ->
-            RecipeStepDto(
-                title = step.title.trim(),
-                text = step.text.trim(),
-                ingredientReferences = step.ingredientReferences.filter { it in known }.distinct()
-                    .map { IngredientReferenceDto(it) },
-            )
-        },
-        categories = draft.categories.map { RecipeCategoryDto(id = it.id, name = it.name, slug = it.slug) },
-        tags = draft.tags.map { RecipeTagDto(id = it.id, name = it.name, slug = it.slug) },
-    )
-}

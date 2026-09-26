@@ -1,7 +1,7 @@
 package org.opensources.umai.youtube.domain
 
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -11,6 +11,7 @@ import org.opensources.umai.llm.domain.LlmFailure
 import org.opensources.umai.llm.domain.LlmOutcome
 import org.opensources.umai.llm.domain.LlmProgress
 import org.opensources.umai.llm.domain.LlmRequest
+import org.opensources.umai.llm.domain.ModelAnswer
 import kotlin.math.roundToInt
 
 /**
@@ -132,7 +133,7 @@ class ModelRecipeBuilder(private val model: LanguageModel) {
     }
 
     internal fun parse(text: String, video: YouTubeVideo, page: RecipePage? = null): RecipeBlueprint? {
-        val root = runCatching { json.parseToJsonElement(text) }.getOrNull() as? JsonObject ?: return null
+        val root = ModelAnswer.objectOrNull(text) ?: return null
         val fallback by lazy { RuleRecipeBuilder.build(video, page) }
 
         val ingredients = RecipeIngredients.of(
@@ -180,7 +181,7 @@ class ModelRecipeBuilder(private val model: LanguageModel) {
         return steps.mapIndexed { index, step -> step.copy(start = starts[index]) }.withOrderedStarts(video.durationSeconds)
     }
 
-    private fun JsonObject.array(key: String): List<kotlinx.serialization.json.JsonElement> =
+    private fun JsonObject.array(key: String): List<JsonElement> =
         (get(key) as? JsonArray).orEmpty()
 
     private fun JsonObject.text(key: String): String? = (get(key) as? JsonPrimitive)?.string()?.trim()?.takeIf { it.isNotEmpty() }
@@ -193,11 +194,10 @@ class ModelRecipeBuilder(private val model: LanguageModel) {
     private fun JsonObject.count(key: String): Int? =
         number(key)?.takeIf { it >= 1 && it <= Int.MAX_VALUE }?.roundToInt()
 
-    private fun kotlinx.serialization.json.JsonElement.string(): String? =
+    private fun JsonElement.string(): String? =
         (this as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
 
     companion object {
-        private val json = Json { ignoreUnknownKeys = true }
 
         private const val ATTEMPTS = 3
         /**

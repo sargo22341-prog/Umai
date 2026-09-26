@@ -6,20 +6,12 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class TokenResponseDto(
     @SerialName("access_token") val accessToken: String,
-    @SerialName("token_type") val tokenType: String = "bearer",
 )
 
 @Serializable
 data class AppInfoDto(
-    val production: Boolean = true,
     val version: String = "",
-    val demoStatus: Boolean = false,
-    val allowSignup: Boolean = false,
     val allowPasswordLogin: Boolean = true,
-    val enableOidc: Boolean = false,
-    val oidcProviderName: String = "",
-    val defaultGroupSlug: String? = null,
-    val defaultHouseholdSlug: String? = null,
 )
 
 @Serializable
@@ -31,47 +23,9 @@ data class UserDto(
     val admin: Boolean = false,
     val group: String = "",
     val household: String = "",
-    val groupId: String = "",
-    val groupSlug: String = "",
-    val householdId: String = "",
-    val householdSlug: String = "",
-    val canInvite: Boolean = false,
-    val canManage: Boolean = false,
     val canManageHousehold: Boolean = false,
-    val canOrganize: Boolean = false,
     /** Changes whenever Mealie rewrites the profile picture; used to bust caches. */
     val cacheKey: String = "",
-)
-
-/** Payload of `PUT /api/users/{item_id}`; only the editable identity fields. */
-@Serializable
-data class UserUpdateDto(
-    val id: String,
-    val username: String?,
-    val fullName: String?,
-    val email: String,
-    val admin: Boolean,
-    val group: String?,
-    val household: String?,
-)
-
-@Serializable
-data class UserRatingSummaryDto(
-    val recipeId: String = "",
-    val rating: Double? = null,
-    val isFavorite: Boolean = false,
-)
-
-@Serializable
-data class UserRatingsDto(
-    val ratings: List<UserRatingSummaryDto> = emptyList(),
-)
-
-/** Mirrors `UserRatingUpdate`; both fields are always sent. */
-@Serializable
-data class UserRatingUpdateDto(
-    val rating: Double?,
-    val isFavorite: Boolean?,
 )
 
 /**

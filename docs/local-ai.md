@@ -389,8 +389,8 @@ couleurs, souvent en plusieurs langues, et il faudrait en plus reconnaître les 
   (l'autre colonne, en g, ml ou cl) et chaque nutriment par des mots-clés en français, anglais,
   néerlandais et allemand (« saturés » avant « matières grasses », « sucres » avant « glucides »).
   Une énergie en kJ seulement est convertie, une valeur non imprimée reste inconnue.
-- Mesuré sur le **Pixel 6 Pro**, CPU, Gemma 4 E2B, photos de `images test/` (`NutritionLabelDeviceTest`,
-  photos poussées par adb, jamais dans le dépôt) : environ **45 s** par étiquette, chargement compris,
+- Mesuré sur le **Pixel 6 Pro**, CPU, Gemma 4 E2B, photos de `app/src/sharedTest/pictures/` (`NutritionLabelDeviceTest`,
+  livrées avec l'APK de test) : environ **45 s** par étiquette, chargement compris,
   et toutes les valeurs justes, sur la canette (deux colonnes, énergie sur deux lignes) comme sur le
   sandwich (une colonne, bilingue français-néerlandais, texte clair sur fond orange).
 - Le formulaire sert aussi sans modèle, ou quand la lecture échoue : les valeurs se saisissent, et la

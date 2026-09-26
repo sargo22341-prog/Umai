@@ -54,7 +54,7 @@ class OpenFoodFactsRepository(
             is ApiResult.Failure -> return FoodLookup.Failed(answer.error)
             is ApiResult.Success -> answer.value
         }
-        val root = runCatching { json.parseToJsonElement(body) }.getOrNull() as? JsonObject
+        val root = runCatching { Json.parseToJsonElement(body) }.getOrNull() as? JsonObject
         // An unknown barcode is answered 404, with a status of 0.
         if (code == HTTP_NOT_FOUND || (root?.get("status") as? JsonPrimitive)?.intOrNull == 0) return FoodLookup.NotFound
         if (code !in 200..299) {
@@ -71,8 +71,6 @@ class OpenFoodFactsRepository(
 
         /** One kilocalorie is 4.184 kilojoules. */
         private const val KJ_PER_KCAL = 4.184
-
-        private val json = Json { ignoreUnknownKeys = true }
 
         private val NUTRIMENTS = mapOf(
             Nutrient.FAT to "fat_100g",

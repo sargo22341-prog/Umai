@@ -9,13 +9,16 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
-import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import org.opensources.umai.cooking.data.CookingStepRequest
 import org.opensources.umai.cooking.data.TimerIntents
 import org.opensources.umai.core.di.LocalAppContainer
+import org.opensources.umai.core.session.SessionState
 import org.opensources.umai.core.settings.AppPreferences
 import org.opensources.umai.core.ui.theme.UmaiTheme
 import org.opensources.umai.navigation.UmaiApp
@@ -70,6 +73,17 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // A password session in use is renewed before it can expire. On a cold
+        // start the session is still being read: the refresh waits for it.
+        val container = (application as UmaiApplication).container
+        container.applicationScope.launch {
+            container.sessionManager.state.first { it !is SessionState.Loading }
+            container.authRepository.refreshIfDue()
         }
     }
 

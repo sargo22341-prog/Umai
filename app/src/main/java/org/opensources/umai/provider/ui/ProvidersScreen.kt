@@ -23,10 +23,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.opensources.umai.R
 import org.opensources.umai.core.di.LocalAppContainer
-import org.opensources.umai.provider.RecipeProvider
+import org.opensources.umai.provider.domain.RecipeProvider
 
 @Composable
-fun ProvidersScreen(onBack: () -> Unit, onOpenProvider: (String) -> Unit, modifier: Modifier = Modifier) {
+fun ProvidersRoute(onBack: () -> Unit, onOpenProvider: (String) -> Unit, modifier: Modifier = Modifier) {
     ProvidersScreen(
         providers = LocalAppContainer.current.providerRegistry.providers,
         onBack = onBack,

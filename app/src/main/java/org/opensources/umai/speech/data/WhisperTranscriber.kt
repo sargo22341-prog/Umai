@@ -50,7 +50,10 @@ class WhisperTranscriber(
         val started = SystemClock.elapsedRealtime()
         val sound = FloatArray(samples.size) { samples[it] / SAMPLE_SCALE }
         val count = WhisperNative.transcribe(handle, sound, language ?: AUTO_LANGUAGE, THREADS)
-        Log.i(TAG, "Whisper: %.1f s heard in %d ms, %d segments".format(Locale.ROOT, samples.size / RATE, SystemClock.elapsedRealtime() - started, count))
+        if (Log.isLoggable(TAG, Log.INFO)) {
+            val elapsed = SystemClock.elapsedRealtime() - started
+            Log.i(TAG, "Whisper: %.1f s heard in %d ms, %d segments".format(Locale.ROOT, samples.size / RATE, elapsed, count))
+        }
         if (count < 0) return null
         return (0 until count).mapNotNull { index ->
             if (WhisperNative.segmentNoSpeech(handle, index) > MAX_NO_SPEECH) return@mapNotNull null

@@ -11,9 +11,7 @@ data class ShoppingList(
     val name: String,
     val items: List<ShoppingItem>,
     val linkedRecipes: List<LinkedRecipe>,
-) {
-    val checkedCount: Int get() = items.count { it.checked }
-}
+)
 
 data class LinkedRecipe(
     val recipeId: String,

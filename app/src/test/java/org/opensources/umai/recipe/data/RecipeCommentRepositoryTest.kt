@@ -79,10 +79,10 @@ class RecipeCommentRepositoryTest {
     }
 
     @Test
-    fun `an empty comment never reaches the server`() = runTest {
-        val result = repository.add("r1", "   ")
+    fun `an empty comment is refused as a mistake and never reaches the server`() = runTest {
+        val failure = runCatching { repository.add("r1", "   ") }.exceptionOrNull()
 
-        assertEquals(NetworkError.InvalidResponse, (result as ApiResult.Failure).error)
+        assertTrue(failure is IllegalArgumentException)
         assertEquals(0, fake.server.requestCount)
     }
 

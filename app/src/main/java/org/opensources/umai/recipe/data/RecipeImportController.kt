@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.opensources.umai.core.network.ApiResult
-import org.opensources.umai.provider.ProviderRegistry
+import org.opensources.umai.provider.domain.ProviderRegistry
 import org.opensources.umai.provider.data.ProviderMediaImporter
 import org.opensources.umai.provider.data.ProviderSettings
 import org.opensources.umai.provider.data.importsMediaNow

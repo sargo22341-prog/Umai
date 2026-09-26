@@ -12,7 +12,6 @@ data class MealPlanEntryDto(
     val recipeId: String? = null,
     val groupId: String? = null,
     val userId: String? = null,
-    val householdId: String? = null,
     val recipe: RecipeSummaryDto? = null,
 )
 

@@ -12,14 +12,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.opensources.umai.core.di.AppContainer
+import org.opensources.umai.core.download.DownloadState
 import org.opensources.umai.llm.data.ActiveBackend
-import org.opensources.umai.llm.data.InstallState
 import org.opensources.umai.llm.data.LlmBenchmark
 import org.opensources.umai.llm.data.LocalAiSettings
 import org.opensources.umai.llm.domain.DeviceProfile
 import org.opensources.umai.llm.domain.LocalModel
 import org.opensources.umai.llm.domain.LocalModelCatalog
-import org.opensources.umai.speech.data.SpeechInstallState
 import org.opensources.umai.speech.data.SpeechSettings
 import org.opensources.umai.speech.domain.SpeechModel
 import org.opensources.umai.speech.domain.SpeechModelCatalog
@@ -31,7 +30,7 @@ data class LocalAiUiState(
     /** Where the model is loaded now, as proven when it was loaded. */
     val active: ActiveBackend? = null,
     val settings: LocalAiSettings = LocalAiSettings(),
-    val install: InstallState = InstallState.Idle,
+    val install: DownloadState<LocalModel> = DownloadState.Idle,
     val models: List<LocalModel> = LocalModelCatalog.models,
     val recommended: LocalModel = LocalModelCatalog.recommended,
     val customUrl: String = "",
@@ -42,17 +41,17 @@ data class LocalAiUiState(
     /** Memory of the phone, to judge which models fit. */
     val deviceMemoryBytes: Long = 0L,
     val speech: SpeechSettings = SpeechSettings(),
-    val speechInstall: SpeechInstallState = SpeechInstallState.Idle,
+    val speechInstall: DownloadState<SpeechModel> = DownloadState.Idle,
     val speechModels: List<SpeechModel> = SpeechModelCatalog.models,
 ) {
     val installed: LocalModel? get() = settings.installed
-    val busy: Boolean get() = install is InstallState.Downloading || install is InstallState.Verifying
+    val busy: Boolean get() = install is DownloadState.Downloading || install is DownloadState.Verifying
     val ready: Boolean get() = supported && settings.enabled && installed != null
 
     /** What this phone downloads for [model]: its TPU build too, on a Tensor chip that has one. */
     val speechRecommended: SpeechModel get() = SpeechModelCatalog.recommendedFor(deviceMemoryBytes)
     val speechBusy: Boolean
-        get() = speechInstall is SpeechInstallState.Downloading || speechInstall is SpeechInstallState.Verifying
+        get() = speechInstall is DownloadState.Downloading || speechInstall is DownloadState.Verifying
 
     fun downloadSize(model: LocalModel): Long = model.sizeFor(device.tensorChip)
 
@@ -97,10 +96,10 @@ class LocalAiViewModel(
     device: DeviceProfile,
     deviceMemoryBytes: Long,
     settings: Flow<LocalAiSettings>,
-    install: Flow<InstallState>,
+    install: Flow<DownloadState<LocalModel>>,
     active: Flow<ActiveBackend?>,
     speech: Flow<SpeechSettings>,
-    speechInstall: Flow<SpeechInstallState>,
+    speechInstall: Flow<DownloadState<SpeechModel>>,
     private val actions: LocalAiActions,
 ) : ViewModel() {
 

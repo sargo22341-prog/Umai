@@ -16,7 +16,7 @@ Mealie est le **seul** backend. L'application n'a pas de base de données propre
 pas de serveur, pas de synchronisation maison.
 
 Avant de coder : lire ce fichier, parcourir le dépôt, et consulter `.context/`.
-`.context/openapi.json` (et `.context/Mealie/`) est la **source de vérité de l'API**.
+`.context/Mealie/openapi.json` est la **source de vérité de l'API**.
 
 * Ne jamais inventer un endpoint, un champ ou un comportement absent de l'OpenAPI.
 * Si une fonctionnalité demandée n'existe pas dans Mealie, ne pas la simuler
@@ -117,13 +117,13 @@ org.opensources.umai
 ├── home/        data · ui
 ├── search/      domain · ui
 ├── recipe/      data · domain · ui
-├── cooking/     ui
-├── planning/    data · ui
+├── cooking/     data · domain · ui
+├── planning/    data · domain · ui
 ├── shopping/    data · ui
 ├── settings/    ui
 ├── profile/     data · ui
 ├── organizer/   data
-├── provider/    data · ui · (un paquet par site)
+├── provider/    data · domain · ui · (un paquet par site)
 ├── youtube/     data · domain
 ├── llm/         data · domain · ui
 ├── speech/      data · domain
@@ -159,7 +159,8 @@ fun RecipeDetailScreen(             // publique, sans état, testable directemen
 
 La version sans état ne connaît ni ViewModel, ni `Context`, ni repository : elle
 reçoit son `UiState` et remonte les intentions par lambdas. C'est elle que testent
-les tests instrumentés.
+les tests instrumentés. Les destinations de navigation (`navigation/Destinations.kt`)
+s'appellent `XxxDestination`, ce qui laisse le nom `XxxRoute` au composable avec état.
 
 **État.** Un `data class ...UiState` par écran, exposé en `StateFlow` depuis le
 ViewModel. Les états `loading`, contenu, **vide** et `error` sont explicites et
@@ -174,7 +175,16 @@ testables sur JVM.
 **Repositories.** Ils reçoivent un fournisseur d'API — `apiProvider: () -> MealieApi?`
 — et non la session entière : l'instance peut changer à chaud, et un test injecte un
 faux serveur en une ligne. Ils retournent un `ApiResult<T>` (`core/network/ApiCall.kt`)
-et ne lèvent pas d'exception réseau.
+et ne lèvent pas d'exception réseau. Un appel s'écrit `apiProvider.call { recipe(slug) }`,
+un échec intermédiaire se rend par `valueOr { return it }`, une réponse attendue mais
+absente devient `InvalidResponse` par `orInvalid()` ; pas de `when` recopié.
+Une précondition que le ViewModel garantit (champ non vide…) se vérifie par `require` :
+c'est une erreur de programmation, jamais un `NetworkError`.
+
+**Caches.** Une donnée lue sur Mealie et gardée en mémoire est liée à l'instance et à
+l'utilisateur (`InstanceCache`, `SessionManager.instanceKey()`) : connecté ailleurs,
+elle est relue. Les données locales d'une instance (historique, plats) sont vidées
+quand l'app se connecte ailleurs (`SessionManager.watchInstanceChanges`).
 
 **Erreurs.** Toute panne devient un `NetworkError` (`Unreachable`, `Timeout`, `Tls`,
 `Unauthorized`, `NotFound`, `Server`, `Http`, `InvalidResponse`, `NotMealie`, `Unknown`).
@@ -213,7 +223,7 @@ filtres, images, planning, listes de courses, préférences, organizers
 * Les seules données locales admises sont celles que Mealie **ne stocke pas** :
   préférences d'affichage, langue, session, historique de consultation.
 * `core/network/api/MealieApi.kt` est écrit d'après l'OpenAPI. Toute signature
-  ajoutée doit être vérifiable dans `.context/openapi.json`.
+  ajoutée doit être vérifiable dans `.context/Mealie/openapi.json`.
 
 ### Limitations connues de Mealie
 
@@ -319,6 +329,8 @@ Outils et pièges déjà réglés :
   `withTimeout { state.first { … } }`. `StandardTestDispatcher` + `advanceUntilIdle()`
   ne voit jamais la fin de la requête.
 * Tests Compose : `createComposeRule` **v2**, un seul `setContent` par test.
+* Les photos de produits et d'étiquettes des tests sont dans `app/src/sharedTest/pictures/` :
+  ressources des tests JVM, assets des tests instrumentés (`TestPictures`). Pas d'`adb push`.
 * Quand un test échoue, corriger le **code**, pas l'attente du test — sauf si
   l'attente est elle-même fausse, et le dire.
 
@@ -333,7 +345,11 @@ Dans cet ordre, et tout doit passer :
 .\gradlew.bat :app:connectedDebugAndroidTest    # appareil branché requis
 ```
 
-* Zéro erreur, zéro avertissement de compilation, zéro erreur lint.
+* Zéro erreur, zéro avertissement de compilation, zéro erreur lint. Le build le garantit :
+  le compilateur Kotlin a ses contrôles supplémentaires (`extraWarnings`) et traite tout
+  avertissement en erreur ; lint active **tous** ses contrôles (`checkAllWarnings`) et
+  traite ses avertissements en erreurs. Les rares exclusions sont justifiées dans
+  `app/build.gradle.kts` et `app/lint.xml`.
 * Ne jamais déclarer terminé avec un build cassé, un test rouge ou un problème
   important connu.
 * Corriger proprement la cause ; ne pas empiler un workaround. Désactiver une règle

@@ -11,7 +11,19 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 /** A picture ready to be uploaded to Mealie. */
-class EncodedImage(val bytes: ByteArray, val mediaType: String, val extension: String)
+class EncodedImage(val bytes: ByteArray, val mediaType: String, val extension: String) {
+    companion object {
+        /** What the device frames pictures as. */
+        const val JPEG = "image/jpeg"
+
+        /** The media type of the picture file [fileName], from its extension. */
+        fun mediaTypeOf(fileName: String): String =
+            when (val extension = fileName.substringAfterLast('.').lowercase()) {
+                "jpg" -> JPEG
+                else -> "image/$extension"
+            }
+    }
+}
 
 /**
  * Turns the picture the user picked, and the region they kept in the crop
@@ -51,7 +63,7 @@ class DeviceImageCropper(context: Context) : ImageCropper {
             cropped.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, output)
             if (cropped !== decoded) cropped.recycle()
             decoded.recycle()
-            EncodedImage(output.toByteArray(), mediaType = "image/jpeg", extension = "jpg")
+            EncodedImage(output.toByteArray(), mediaType = EncodedImage.JPEG, extension = "jpg")
         }
 
     /**

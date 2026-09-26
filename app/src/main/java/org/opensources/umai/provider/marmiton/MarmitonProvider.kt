@@ -2,8 +2,9 @@ package org.opensources.umai.provider.marmiton
 
 import kotlinx.serialization.json.JsonElement
 import org.opensources.umai.R
-import org.opensources.umai.provider.ProviderMedia
-import org.opensources.umai.provider.RecipeProvider
+import org.opensources.umai.provider.domain.ProviderMedia
+import org.opensources.umai.provider.domain.RecipeProvider
+import org.opensources.umai.provider.domain.isPageOf
 import org.opensources.umai.provider.schema.SchemaOrgRecipe
 import java.net.URI
 
@@ -26,11 +27,7 @@ object MarmitonProvider : RecipeProvider {
     private val recipePath = Regex("""^/recettes/recette_[^/]+\.aspx$""", RegexOption.IGNORE_CASE)
     private val sizedPicture = Regex("""^(/recipe/\d+/\d+)_[^/.]+\.(jpe?g|webp)$""", RegexOption.IGNORE_CASE)
 
-    override fun handles(url: String): Boolean = runCatching {
-        val uri = URI(url.trim())
-        val host = uri.host?.lowercase() ?: return false
-        (host == "marmiton.org" || host.endsWith(".marmiton.org")) && recipePath.matches(uri.path.orEmpty())
-    }.getOrDefault(false)
+    override fun handles(url: String): Boolean = isPageOf(url, domain = "marmiton.org", path = recipePath)
 
     override fun media(schema: JsonElement, sourceUrl: String): ProviderMedia? {
         val recipe = SchemaOrgRecipe.find(schema) ?: return null

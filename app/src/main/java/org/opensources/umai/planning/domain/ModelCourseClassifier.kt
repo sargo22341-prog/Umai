@@ -1,12 +1,11 @@
 package org.opensources.umai.planning.domain
 
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import org.opensources.umai.llm.domain.LanguageModel
 import org.opensources.umai.llm.domain.LlmOutcome
 import org.opensources.umai.llm.domain.LlmRequest
+import org.opensources.umai.llm.domain.ModelAnswer
 
 /** A recipe no category, tag, name or past meal places, described for the model. */
 data class UnplacedRecipe(val id: String, val name: String, val ingredients: List<String>)
@@ -48,7 +47,7 @@ class ModelCourseClassifier(private val model: LanguageModel) {
     }
 
     internal fun parse(text: String): Map<String, DishCourse> {
-        val root = runCatching { json.parseToJsonElement(text) }.getOrNull() as? JsonObject ?: return emptyMap()
+        val root = ModelAnswer.objectOrNull(text) ?: return emptyMap()
         return root.mapNotNull { (code, value) ->
             val course = when ((value as? JsonPrimitive)?.contentOrNull) {
                 "main" -> DishCourse.MAIN
@@ -74,7 +73,6 @@ class ModelCourseClassifier(private val model: LanguageModel) {
     }
 
     private companion object {
-        val json = Json { ignoreUnknownKeys = true }
         const val BATCH = 25
         const val MAX_INGREDIENTS = 8
 

@@ -152,7 +152,7 @@ class SearchViewModel(
                 is ApiResult.Failure ->
                     _state.update { it.copy(loadingMore = false, error = result.error) }
                 is ApiResult.Success ->
-                    _state.update { it.copy(results = it.results.append(result.value), loadingMore = false) }
+                    _state.update { it.copy(results = it.results.append(result.value, RecipeSummary::id), loadingMore = false) }
             }
         }
     }
@@ -225,7 +225,7 @@ class SearchViewModel(
                 }
                 is ApiResult.Success -> _state.update {
                     it.copy(
-                        results = PagedItems<RecipeSummary>().append(result.value),
+                        results = PagedItems<RecipeSummary>().append(result.value, RecipeSummary::id),
                         loading = false,
                         refreshing = false,
                         error = null,

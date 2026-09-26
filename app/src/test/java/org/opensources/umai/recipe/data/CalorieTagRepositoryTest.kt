@@ -20,7 +20,7 @@ class CalorieTagRepositoryTest {
     @Before
     fun setUp() {
         fake = FakeMealieServer()
-        repository = CalorieTagRepository { fake.api() }
+        repository = CalorieTagRepository(apiProvider = { fake.api() }, instanceKey = { "instance" })
     }
 
     @After

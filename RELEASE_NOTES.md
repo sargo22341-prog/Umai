@@ -20,3 +20,9 @@ liste des commits. Détails : [docs/release.md](docs/release.md).
 - Planning automatique : la reconnaissance des plats par l'IA locale est plus rapide et plus juste (plus aucune recette oubliée), et le modèle se charge pendant la lecture des recettes.
 - Planning : total des calories de chaque jour (une portion par recette), et bouton « Ajouter un snack, une boisson… » : nom, photo facultative, étiquette nutritionnelle photographiée et lue par l'IA locale (la photo est supprimée ensuite), puis quantité consommée.
 - Ajout d'un produit au planning : mode automatique par défaut, qui scanne le code-barres et remplit le nom, les valeurs nutritionnelles, la portion et la photo depuis Open Food Facts ; un produit inconnu passe en mode manuel.
+- Changer d'instance ou de compte : les filtres, l'historique « vus récemment », les plats du planning et les images ne reprennent plus rien de l'instance précédente.
+- Connexion par identifiant : la session se renouvelle d'elle-même quand l'application revient au premier plan, au lieu d'expirer.
+- Fiche recette : la note et le favori arrivent en une seule requête, en même temps que les commentaires ; l'ouverture est plus rapide.
+- Accueil : revenir sur l'onglet garde les recettes déjà chargées en faisant défiler, les « vus récemment » arrivent en une requête, et une recette ajoutée pendant le défilement n'est plus affichée deux fois.
+- Photo de profil illisible : le message le dit, au lieu d'évoquer une incompatibilité avec Mealie.
+- Textes : apostrophes typographiques (’) partout.

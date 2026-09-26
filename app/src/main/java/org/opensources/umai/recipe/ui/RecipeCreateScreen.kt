@@ -52,7 +52,7 @@ import java.io.File
  * button all write the draft, then close the form.
  */
 @Composable
-fun RecipeCreateScreen(
+fun RecipeCreateRoute(
     draftId: String?,
     onLeft: (draftSaved: Boolean) -> Unit,
     onCreated: (slug: String, imageSaved: Boolean) -> Unit,

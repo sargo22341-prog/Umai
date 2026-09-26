@@ -69,7 +69,7 @@ import java.io.File
  * called once the recipe no longer exists on Mealie.
  */
 @Composable
-fun RecipeEditScreen(
+fun RecipeEditRoute(
     slug: String,
     onBack: () -> Unit,
     onSaved: (String) -> Unit,

@@ -2,10 +2,11 @@ package org.opensources.umai.recipe.data
 
 import org.opensources.umai.core.model.RecipeComment
 import org.opensources.umai.core.network.ApiResult
-import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.network.api.MealieApi
-import org.opensources.umai.core.network.apiCall
+import org.opensources.umai.core.network.call
 import org.opensources.umai.core.network.dto.RecipeCommentCreateDto
+import org.opensources.umai.core.network.map
+import org.opensources.umai.core.network.orInvalid
 
 /**
  * Comments on a recipe, backed by `/api/recipes/{slug}/comments` for reading
@@ -17,33 +18,17 @@ import org.opensources.umai.core.network.dto.RecipeCommentCreateDto
 class RecipeCommentRepository(private val apiProvider: () -> MealieApi?) {
 
     /** Oldest first: the conversation reads top to bottom, towards the field. */
-    suspend fun comments(slug: String): ApiResult<List<RecipeComment>> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return apiCall {
-            api.recipeComments(slug)
-                .mapNotNull { it.toDomain() }
-                .sortedBy { it.createdAt }
-        }
+    suspend fun comments(slug: String): ApiResult<List<RecipeComment>> = apiProvider.call {
+        recipeComments(slug).mapNotNull { it.toDomain() }.sortedBy { it.createdAt }
     }
 
     suspend fun add(recipeId: String, text: String): ApiResult<RecipeComment> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
         val body = text.trim()
-        if (body.isEmpty()) return ApiResult.Failure(NetworkError.InvalidResponse)
-        return when (
-            val result = apiCall {
-                api.createComment(RecipeCommentCreateDto(recipeId = recipeId, text = body))
-            }
-        ) {
-            is ApiResult.Failure -> result
-            is ApiResult.Success -> result.value.toDomain()
-                ?.let { ApiResult.Success(it) }
-                ?: ApiResult.Failure(NetworkError.InvalidResponse)
-        }
+        require(body.isNotEmpty()) { "A comment has some text" }
+        return apiProvider.call { createComment(RecipeCommentCreateDto(recipeId = recipeId, text = body)) }
+            .map { it.toDomain() }
+            .orInvalid()
     }
 
-    suspend fun delete(commentId: String): ApiResult<Unit> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return apiCall { api.deleteComment(commentId) }
-    }
+    suspend fun delete(commentId: String): ApiResult<Unit> = apiProvider.call { deleteComment(commentId) }
 }

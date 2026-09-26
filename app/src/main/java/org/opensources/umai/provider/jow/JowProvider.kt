@@ -5,13 +5,13 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.opensources.umai.R
-import org.opensources.umai.provider.ProviderMedia
-import org.opensources.umai.provider.RecipeProvider
+import org.opensources.umai.provider.domain.ProviderMedia
+import org.opensources.umai.provider.domain.RecipeProvider
+import org.opensources.umai.provider.domain.isPageOf
 import org.opensources.umai.provider.schema.SchemaOrgRecipe
 import org.opensources.umai.recipe.domain.RecipeMediaFiles
 import org.opensources.umai.recipe.domain.VideoChapter
 import org.opensources.umai.recipe.domain.VideoManifest
-import java.net.URI
 import kotlin.math.max
 import kotlin.math.roundToLong
 
@@ -37,11 +37,7 @@ object JowProvider : RecipeProvider {
     /** A chapter ends slightly before the next one starts, as the source cuts them. */
     private const val CHAPTER_GAP = 0.3
 
-    override fun handles(url: String): Boolean = runCatching {
-        val uri = URI(url.trim())
-        val host = uri.host?.lowercase() ?: return false
-        (host == "jow.fr" || host.endsWith(".jow.fr")) && recipePath.containsMatchIn(uri.path.orEmpty())
-    }.getOrDefault(false)
+    override fun handles(url: String): Boolean = isPageOf(url, domain = "jow.fr", path = recipePath)
 
     override fun media(schema: JsonElement, sourceUrl: String): ProviderMedia? {
         val recipe = SchemaOrgRecipe.find(schema) ?: return null

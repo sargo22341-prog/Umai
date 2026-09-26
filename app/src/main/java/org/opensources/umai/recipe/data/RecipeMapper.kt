@@ -3,13 +3,9 @@ package org.opensources.umai.recipe.data
 import org.opensources.umai.core.format.ApiDates
 import org.opensources.umai.core.format.IngredientText
 import org.opensources.umai.core.markdown.StepContent
-import org.opensources.umai.core.model.Food
 import org.opensources.umai.core.model.IngredientFood
 import org.opensources.umai.core.model.IngredientUnit
-import org.opensources.umai.core.model.Label
 import org.opensources.umai.core.model.Nutrition
-import org.opensources.umai.core.model.Organizer
-import org.opensources.umai.core.model.Paged
 import org.opensources.umai.core.model.Recipe
 import org.opensources.umai.core.model.RecipeAsset
 import org.opensources.umai.core.model.RecipeComment
@@ -18,26 +14,25 @@ import org.opensources.umai.core.model.RecipeNote
 import org.opensources.umai.core.model.RecipeStep
 import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.network.dto.IngredientFoodDto
-import org.opensources.umai.core.network.dto.IngredientFoodListDto
 import org.opensources.umai.core.network.dto.IngredientUnitDto
-import org.opensources.umai.core.network.dto.LabelDto
 import org.opensources.umai.core.network.dto.NutritionDto
-import org.opensources.umai.core.network.dto.PaginationDto
-import org.opensources.umai.core.network.dto.RecipeCategoryDto
+import org.opensources.umai.core.network.dto.RecipeAssetDto
 import org.opensources.umai.core.network.dto.RecipeCommentDto
 import org.opensources.umai.core.network.dto.RecipeDetailDto
 import org.opensources.umai.core.network.dto.RecipeIngredientDto
 import org.opensources.umai.core.network.dto.RecipeStepDto
 import org.opensources.umai.core.network.dto.RecipeSummaryDto
-import org.opensources.umai.core.network.dto.RecipeTagDto
-import org.opensources.umai.core.network.dto.RecipeToolDto
+import org.opensources.umai.core.network.dto.RecipeSummaryFields
+import org.opensources.umai.organizer.data.toDomain
 import org.opensources.umai.recipe.domain.RecipeMediaFiles
 
 /**
  * DTO to domain conversion. Anything the UI should never have to reason about
  * (nullable names, empty ids, markup embedded in step text) is resolved here.
  */
-fun RecipeSummaryDto.toDomain(): RecipeSummary? {
+fun RecipeSummaryDto.toDomain(): RecipeSummary? = toSummary()
+
+private fun RecipeSummaryFields.toSummary(): RecipeSummary? {
     val identifier = id?.takeIf { it.isNotBlank() } ?: return null
     return RecipeSummary(
         id = identifier,
@@ -62,35 +57,9 @@ fun RecipeSummaryDto.toDomain(): RecipeSummary? {
 }
 
 fun RecipeDetailDto.toDomain(): Recipe? {
-    val summary = RecipeSummaryDto(
-        id = id,
-        userId = userId,
-        householdId = householdId,
-        groupId = groupId,
-        name = name,
-        slug = slug,
-        image = image,
-        recipeServings = recipeServings,
-        recipeYieldQuantity = recipeYieldQuantity,
-        recipeYield = recipeYield,
-        totalTime = totalTime,
-        prepTime = prepTime,
-        cookTime = cookTime,
-        performTime = performTime,
-        description = description,
-        categories = categories,
-        tags = tags,
-        tools = tools,
-        rating = rating,
-        orgURL = orgURL,
-        dateAdded = dateAdded,
-        dateUpdated = dateUpdated,
-        createdAt = createdAt,
-        updatedAt = updatedAt,
-        lastMade = lastMade,
-    ).toDomain() ?: return null
-
-    val stepPhotos = RecipeMediaFiles.stepPhotos(assets.map { RecipeAsset(it.name, it.icon, it.fileName) })
+    val summary = toSummary() ?: return null
+    val recipeAssets = assets.map { it.toDomain() }
+    val stepPhotos = RecipeMediaFiles.stepPhotos(recipeAssets)
     return Recipe(
         summary = summary,
         ingredients = recipeIngredient.map { it.toDomain() },
@@ -102,7 +71,7 @@ fun RecipeDetailDto.toDomain(): Recipe? {
         notes = notes.map { RecipeNote(it.title, it.text) },
         showNutrition = settings?.showNutrition ?: false,
         showAssets = settings?.showAssets ?: false,
-        assets = assets.map { RecipeAsset(it.name, it.icon, it.fileName) },
+        assets = recipeAssets,
         // Only an explicit `true` hides the comments: an instance that omits
         // the settings block should still let the user read and write them.
         commentsDisabled = settings?.disableComments == true,
@@ -110,6 +79,8 @@ fun RecipeDetailDto.toDomain(): Recipe? {
         mediaVersion = (updatedAt ?: dateUpdated)?.takeIf { it.isNotBlank() },
     )
 }
+
+fun RecipeAssetDto.toDomain() = RecipeAsset(name, icon, fileName)
 
 private fun RecipeStepDto.toDomain(index: Int): RecipeStep {
     val content = StepContent.parse(text)
@@ -208,26 +179,4 @@ private fun NutritionDto.toDomain() = Nutrition(
     saturatedFat = saturatedFatContent,
     transFat = transFatContent,
     unsaturatedFat = unsaturatedFatContent,
-)
-
-fun RecipeCategoryDto.toDomain(): Organizer? =
-    id?.takeIf { it.isNotBlank() }?.let { Organizer(it, name, slug, recipeCount) }
-
-fun RecipeTagDto.toDomain(): Organizer? =
-    id?.takeIf { it.isNotBlank() }?.let { Organizer(it, name, slug, recipeCount) }
-
-fun RecipeToolDto.toDomain(): Organizer? =
-    id.takeIf { it.isNotBlank() }?.let { Organizer(it, name, slug, recipeCount) }
-
-fun IngredientFoodListDto.toDomain(): Food? =
-    id.takeIf { it.isNotBlank() }?.let { Food(it, name, label?.name, label?.color) }
-
-fun LabelDto.toDomain(): Label? =
-    id.takeIf { it.isNotBlank() }?.let { Label(it, name, color) }
-
-fun <D, T> PaginationDto<D>.toPaged(transform: (D) -> T?): Paged<T> = Paged(
-    items = items.mapNotNull(transform),
-    page = page,
-    totalPages = totalPages,
-    total = total,
 )

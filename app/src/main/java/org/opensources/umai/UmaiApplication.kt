@@ -10,7 +10,7 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
+import okhttp3.Call
 import okio.Path.Companion.toOkioPath
 import org.opensources.umai.core.di.AppContainer
 import org.opensources.umai.core.network.MealieClientFactory
@@ -35,19 +35,18 @@ class UmaiApplication : Application(), SingletonImageLoader.Factory {
     /**
      * Coil shares the session's OkHttp client so recipe pictures are fetched
      * with the same authentication, TLS configuration and connection pool as
-     * the API calls. Coil itself has no Google Play Services dependency.
+     * the API calls. Coil asks for its client only once: the one of the
+     * instance is looked up on every request instead, so pictures follow a
+     * sign-in or a change of instance. Coil itself has no Google Play Services
+     * dependency.
      */
-    override fun newImageLoader(context: PlatformContext): ImageLoader =
-        ImageLoader.Builder(context)
-            .components {
-                add(
-                    OkHttpNetworkFetcherFactory(
-                        callFactory = {
-                            container.sessionManager.imageClient() ?: fallbackHttpClient()
-                        },
-                    ),
-                )
-            }
+    override fun newImageLoader(context: PlatformContext): ImageLoader {
+        val anonymous by lazy { MealieClientFactory.okHttpClient(TokenProvider { null }) }
+        val calls = Call.Factory { request ->
+            (container.sessionManager.imageClient() ?: anonymous).newCall(request)
+        }
+        return ImageLoader.Builder(context)
+            .components { add(OkHttpNetworkFetcherFactory(callFactory = { calls })) }
             .memoryCache {
                 MemoryCache.Builder()
                     .maxSizePercent(context, 0.20)
@@ -61,7 +60,5 @@ class UmaiApplication : Application(), SingletonImageLoader.Factory {
             }
             .crossfade(true)
             .build()
-
-    private fun fallbackHttpClient(): OkHttpClient =
-        MealieClientFactory.okHttpClient(TokenProvider { null })
+    }
 }

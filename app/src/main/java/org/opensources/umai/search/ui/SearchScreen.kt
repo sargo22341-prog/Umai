@@ -15,7 +15,7 @@ import org.opensources.umai.search.domain.SortField
 
 /** [initialFilters] opens the search on a tag, a category or a tool of a recipe. */
 @Composable
-fun SearchScreen(
+fun SearchRoute(
     onRecipeClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     initialFilters: RecipeFilters = RecipeFilters.None,

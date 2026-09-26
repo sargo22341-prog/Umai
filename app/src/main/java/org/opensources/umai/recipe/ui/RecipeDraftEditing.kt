@@ -88,7 +88,7 @@ interface RecipeDraftEditing {
     fun removeIngredient(index: Int) = editDraft { draft ->
         val removed = draft.ingredients.getOrNull(index) ?: return@editDraft draft
         draft.copy(
-            ingredients = draft.ingredients.removeAt(index),
+            ingredients = draft.ingredients.withoutItemAt(index),
             steps = draft.steps.map { step ->
                 step.copy(ingredientReferences = step.ingredientReferences - removed.referenceId)
             },
@@ -105,7 +105,7 @@ interface RecipeDraftEditing {
 
     fun addStep() = editDraft { it.copy(steps = it.steps + DraftStep()) }
 
-    fun removeStep(index: Int) = editDraft { it.copy(steps = it.steps.removeAt(index)) }
+    fun removeStep(index: Int) = editDraft { it.copy(steps = it.steps.withoutItemAt(index)) }
 
     /** Adds the links the steps' wording suggests to the ones they already have. */
     fun linkIngredients() {
@@ -142,7 +142,7 @@ interface RecipeDraftEditing {
 internal fun <T> List<T>.updateAt(index: Int, change: (T) -> T): List<T> =
     if (index !in indices) this else toMutableList().also { it[index] = change(it[index]) }
 
-private fun <T> List<T>.removeAt(index: Int): List<T> =
+private fun <T> List<T>.withoutItemAt(index: Int): List<T> =
     if (index !in indices) this else toMutableList().also { it.removeAt(index) }
 
 private fun List<DraftOrganizer>.toggle(organizer: Organizer): List<DraftOrganizer> =

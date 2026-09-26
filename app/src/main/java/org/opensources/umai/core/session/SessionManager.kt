@@ -4,7 +4,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -56,14 +58,34 @@ class SessionManager(
 
     fun baseUrl(): String? = current.value?.baseUrl
 
+    /**
+     * Where the app is signed in, and as whom: what was read from Mealie holds
+     * only under the same key. `null` while no session is active.
+     */
+    fun instanceKey(): String? = current.value?.let { instanceKeyOf(it.baseUrl, it.userId) }
+
+    /**
+     * Calls [onChange] whenever the app gets signed in somewhere other than
+     * where the data it keeps on the device came from: another instance, or
+     * another user. Signing out and back in to the same place keeps that data.
+     */
+    suspend fun watchInstanceChanges(onChange: suspend () -> Unit) {
+        store.instanceKeys
+            .filterNotNull()
+            .distinctUntilChanged()
+            .collect { key -> if (store.claimLocalData(key)) onChange() }
+    }
+
     override suspend fun activate(session: ServerSession) {
         current.value = session
         store.save(session)
     }
 
-    override suspend fun updateToken(token: String) {
-        current.value = current.value?.copy(token = token)
-        store.updateToken(token)
+    override suspend fun replaceToken(previous: String, token: String): Boolean {
+        val before = current.value?.takeIf { it.token == previous } ?: return false
+        if (!current.compareAndSet(before, before.copy(token = token))) return false
+        store.updateToken(before.baseUrl, token)
+        return true
     }
 
     /**

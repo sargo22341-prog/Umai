@@ -4,18 +4,16 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+import org.opensources.umai.core.settings.safeData
 import org.opensources.umai.planning.domain.DishCourse
-import java.io.IOException
 
 private val Context.dishCourseDataStore: DataStore<Preferences> by preferencesDataStore(name = "umai_dish_courses")
 
@@ -42,10 +40,8 @@ class DishCourseStore(context: Context) : DishCourses {
 
     private val dataStore = context.applicationContext.dishCourseDataStore
     private val serializer = MapSerializer(String.serializer(), String.serializer())
-    private val json = Json { ignoreUnknownKeys = true }
 
-    override val userCourses: Flow<Map<String, DishCourse>> = dataStore.data
-        .catch { cause -> if (cause is IOException) emit(emptyPreferences()) else throw cause }
+    override val userCourses: Flow<Map<String, DishCourse>> = dataStore.safeData
         .map { decode(it[KeyUser]) }
 
     override suspend fun setUserCourse(organizerId: String, course: DishCourse?) {
@@ -57,21 +53,26 @@ class DishCourseStore(context: Context) : DishCourses {
     }
 
     override suspend fun modelCourses(): Map<String, DishCourse> =
-        decode(dataStore.data.catch { emit(emptyPreferences()) }.first()[KeyModel])
+        decode(dataStore.safeData.first()[KeyModel])
 
     override suspend fun rememberModelCourses(courses: Map<String, DishCourse>) {
         if (courses.isEmpty()) return
         dataStore.edit { prefs -> prefs[KeyModel] = encode(decode(prefs[KeyModel]) + courses) }
     }
 
+    /** Both maps are keyed by ids of the instance they were written for. */
+    suspend fun clear() {
+        dataStore.edit { it.clear() }
+    }
+
     private fun decode(text: String?): Map<String, DishCourse> {
         if (text == null) return emptyMap()
-        val raw = runCatching { json.decodeFromString(serializer, text) }.getOrDefault(emptyMap())
+        val raw = runCatching { Json.decodeFromString(serializer, text) }.getOrDefault(emptyMap())
         return raw.mapNotNull { (id, name) -> DishCourse.entries.firstOrNull { it.name == name }?.let { id to it } }.toMap()
     }
 
     private fun encode(courses: Map<String, DishCourse>): String =
-        json.encodeToString(serializer, courses.mapValues { it.value.name })
+        Json.encodeToString(serializer, courses.mapValues { it.value.name })
 
     private companion object {
         val KeyUser = stringPreferencesKey("user_courses")

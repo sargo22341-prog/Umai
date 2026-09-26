@@ -3,73 +3,45 @@ package org.opensources.umai.organizer.data
 import org.opensources.umai.core.model.Food
 import org.opensources.umai.core.model.Organizer
 import org.opensources.umai.core.network.ApiResult
-import org.opensources.umai.core.network.NetworkError
-import org.opensources.umai.core.network.apiCall
 import org.opensources.umai.core.network.api.MealieApi
-import org.opensources.umai.recipe.data.toDomain
-import org.opensources.umai.recipe.data.toPaged
+import org.opensources.umai.core.network.call
+import org.opensources.umai.core.network.fetchAllPages
+import org.opensources.umai.core.network.toPaged
+import org.opensources.umai.core.session.InstanceCache
 
 /**
  * Sources for the search filters: categories, tags, tools and foods.
  *
  * Instances can hold hundreds of tags, so every collection is fetched page by
- * page and the results are memoised for the lifetime of the process.
+ * page and kept for as long as the app stays signed in to the same place.
  */
-class OrganizerRepository(private val apiProvider: () -> MealieApi?) {
+class OrganizerRepository(
+    private val apiProvider: () -> MealieApi?,
+    instanceKey: () -> String?,
+) {
 
-    private var cachedCategories: List<Organizer>? = null
-    private var cachedTags: List<Organizer>? = null
-    private var cachedTools: List<Organizer>? = null
+    private val categoryCache = InstanceCache<List<Organizer>>(instanceKey)
+    private val tagCache = InstanceCache<List<Organizer>>(instanceKey)
+    private val toolCache = InstanceCache<List<Organizer>>(instanceKey)
 
-    suspend fun categories(forceRefresh: Boolean = false): ApiResult<List<Organizer>> {
-        cachedCategories?.takeUnless { forceRefresh }?.let { return ApiResult.Success(it) }
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return fetchAll { page -> api.categories(page = page).toPaged { dto -> dto.toDomain() } }
-            .also { if (it is ApiResult.Success) cachedCategories = it.value }
-    }
+    suspend fun categories(forceRefresh: Boolean = false): ApiResult<List<Organizer>> =
+        categoryCache.get(forceRefresh) {
+            apiProvider.call { fetchAllPages(MAX_PAGES) { page -> categories(page = page).toPaged { it.toDomain() } } }
+        }
 
-    suspend fun tags(forceRefresh: Boolean = false): ApiResult<List<Organizer>> {
-        cachedTags?.takeUnless { forceRefresh }?.let { return ApiResult.Success(it) }
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return fetchAll { page -> api.tags(page = page).toPaged { dto -> dto.toDomain() } }
-            .also { if (it is ApiResult.Success) cachedTags = it.value }
-    }
+    suspend fun tags(forceRefresh: Boolean = false): ApiResult<List<Organizer>> =
+        tagCache.get(forceRefresh) {
+            apiProvider.call { fetchAllPages(MAX_PAGES) { page -> tags(page = page).toPaged { it.toDomain() } } }
+        }
 
-    suspend fun tools(forceRefresh: Boolean = false): ApiResult<List<Organizer>> {
-        cachedTools?.takeUnless { forceRefresh }?.let { return ApiResult.Success(it) }
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return fetchAll { page -> api.tools(page = page).toPaged { dto -> dto.toDomain() } }
-            .also { if (it is ApiResult.Success) cachedTools = it.value }
-    }
+    suspend fun tools(forceRefresh: Boolean = false): ApiResult<List<Organizer>> =
+        toolCache.get(forceRefresh) {
+            apiProvider.call { fetchAllPages(MAX_PAGES) { page -> tools(page = page).toPaged { it.toDomain() } } }
+        }
 
     /** Foods are searched on demand: an instance can hold thousands of them. */
-    suspend fun searchFoods(query: String): ApiResult<List<Food>> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return apiCall {
-            api.foods(search = query.trim().takeIf { it.isNotEmpty() }, perPage = 40)
-                .toPaged { it.toDomain() }
-                .items
-        }
-    }
-
-    fun invalidate() {
-        cachedCategories = null
-        cachedTags = null
-        cachedTools = null
-    }
-
-    private suspend fun <T> fetchAll(
-        loadPage: suspend (Int) -> org.opensources.umai.core.model.Paged<T>,
-    ): ApiResult<List<T>> = apiCall {
-        val all = mutableListOf<T>()
-        var page = 1
-        while (page <= MAX_PAGES) {
-            val result = loadPage(page)
-            all += result.items
-            if (!result.hasNext) break
-            page++
-        }
-        all
+    suspend fun searchFoods(query: String): ApiResult<List<Food>> = apiProvider.call {
+        foods(search = query.trim().takeIf { it.isNotEmpty() }, perPage = 40).toPaged { it.toDomain() }.items
     }
 
     private companion object {

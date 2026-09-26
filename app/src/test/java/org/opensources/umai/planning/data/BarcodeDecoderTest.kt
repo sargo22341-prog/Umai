@@ -4,9 +4,7 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.oned.EAN13Writer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assume.assumeTrue
 import org.junit.Test
-import java.io.File
 import javax.imageio.ImageIO
 
 class BarcodeDecoderTest {
@@ -60,12 +58,10 @@ class BarcodeDecoderTest {
         assertNull(BarcodeDecoder.decode(IntArray(300 * 200) { WHITE }, 300, 200))
     }
 
-    /** The screenshot of a product page given as test data, at the root of the repository. */
+    /** The screenshot of a real product page, among the shared test pictures. */
     @Test
     fun `the barcode of the test picture is read`() {
-        val file = File("..").listFiles().orEmpty().firstOrNull { it.name.startsWith("CLASSIC") && it.extension == "png" }
-        assumeTrue("The test picture is not at the root of the repository", file != null)
-        val image = ImageIO.read(file)
+        val image = ImageIO.read(checkNotNull(javaClass.getResource("/barcode_jambon_beurre.png")))
         val pixels = image.getRGB(0, 0, image.width, image.height, null, 0, image.width)
 
         assertEquals("3560070565313", BarcodeDecoder.decode(pixels, image.width, image.height))

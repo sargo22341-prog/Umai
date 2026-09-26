@@ -55,7 +55,7 @@ class ShoppingRepositoryTest {
         assertEquals(listOf("2 citrons", "Huile d'olive", "Sel"), list.items.map { it.label })
         assertEquals("Fruits", list.items[0].labelName)
         assertEquals("#e11a1f", list.items[0].labelColor)
-        assertEquals(1, list.checkedCount)
+        assertEquals(1, list.items.count { it.checked })
     }
 
     @Test
@@ -63,7 +63,7 @@ class ShoppingRepositoryTest {
         fake.enqueueJson("""{"id":"l1","name":"Vide","listItems":[],"recipeReferences":[]}""")
         val list = (repository.list("l1") as ApiResult.Success).value
         assertTrue(list.items.isEmpty())
-        assertEquals(0, list.checkedCount)
+        assertEquals(0, list.items.count { it.checked })
     }
 
     @Test

@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.opensources.umai.cooking.data.CookingTimerController
-import org.opensources.umai.cooking.domain.CookingTimer
 import org.opensources.umai.cooking.domain.CookingTimers
 import org.opensources.umai.cooking.domain.StepDurations
 import org.opensources.umai.cooking.domain.TimerRecipe
@@ -63,23 +62,19 @@ data class CookingUiState(
     val isLastStep: Boolean get() = stepCount > 0 && currentStep == stepCount - 1
 
     /**
-     * Mealie links steps to ingredients through `ingredientReferences`; when a
-     * step declares none, the whole ingredient list stays available instead.
+     * Mealie links steps to ingredients through `ingredientReferences`; a step
+     * that declares none shows none, rather than the whole list again.
      */
     val ingredientsForStep: List<RecipeIngredient>
         get() {
             val references = step?.ingredientReferenceIds.orEmpty()
-            val all = recipe?.ingredients.orEmpty()
             if (references.isEmpty()) return emptyList()
-            return all.filter { it.referenceId != null && it.referenceId in references }
+            return recipe?.ingredients.orEmpty().filter { it.referenceId != null && it.referenceId in references }
         }
 
     /** The durations written in the current step, each offered as a timer. */
     val stepDurations: List<Duration>
         get() = if (timerOptions.detectTimers) StepDurations.find(step?.text.orEmpty()) else emptyList()
-
-    /** Timers that reached zero and ring until dismissed. */
-    val ringingTimers: List<CookingTimer> get() = timers.finished(now)
 
     /** Where the current step starts and ends in the video, `null` when it is not in it. */
     val chapter: VideoChapter? get() = video?.chapterFor(currentStep)

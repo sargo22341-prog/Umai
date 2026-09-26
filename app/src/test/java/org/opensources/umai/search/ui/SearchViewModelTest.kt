@@ -48,7 +48,7 @@ class SearchViewModelTest {
 
     private fun viewModel(initialFilters: RecipeFilters = RecipeFilters.None) = SearchViewModel(
         recipeRepository = RecipeRepository({ fake.api() }),
-        organizerRepository = OrganizerRepository { fake.api() },
+        organizerRepository = OrganizerRepository(apiProvider = { fake.api() }, instanceKey = { "instance" }),
         layout = flowOf(RecipeLayout.GRID),
         initialFilters = initialFilters,
         deletedRecipes = deletions,

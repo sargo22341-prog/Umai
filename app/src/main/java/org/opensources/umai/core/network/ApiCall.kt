@@ -5,6 +5,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.opensources.umai.core.network.api.MealieApi
 import retrofit2.HttpException
 import java.io.EOFException
 import java.io.IOException
@@ -26,7 +27,34 @@ inline fun <T, R> ApiResult<T>.map(transform: (T) -> R): ApiResult<R> = when (th
     is ApiResult.Failure -> this
 }
 
+inline fun <T, R> ApiResult<T>.flatMap(transform: (T) -> ApiResult<R>): ApiResult<R> = when (this) {
+    is ApiResult.Success -> transform(value)
+    is ApiResult.Failure -> this
+}
+
 fun <T> ApiResult<T>.valueOrNull(): T? = (this as? ApiResult.Success)?.value
+
+/**
+ * The value, or what [onFailure] makes of the failure: `valueOr { return it }`
+ * hands it straight back to the caller.
+ */
+inline fun <T> ApiResult<T>.valueOr(onFailure: (ApiResult.Failure) -> Nothing): T = when (this) {
+    is ApiResult.Success -> value
+    is ApiResult.Failure -> onFailure(this)
+}
+
+/** A value Mealie should have sent and did not: the answer is off the OpenAPI contract. */
+fun <T : Any> ApiResult<T?>.orInvalid(): ApiResult<T> =
+    flatMap { value -> value?.let { ApiResult.Success(it) } ?: ApiResult.Failure(NetworkError.InvalidResponse) }
+
+/**
+ * Runs [block] on the API of the configured instance, through [apiCall]; with
+ * no instance set up, the call fails as [NetworkError.Unauthorized].
+ */
+suspend inline fun <T> (() -> MealieApi?).call(crossinline block: suspend MealieApi.() -> T): ApiResult<T> {
+    val api = this() ?: return ApiResult.Failure(NetworkError.Unauthorized)
+    return apiCall { api.block() }
+}
 
 /**
  * Runs a suspending Retrofit call and turns every failure mode into a

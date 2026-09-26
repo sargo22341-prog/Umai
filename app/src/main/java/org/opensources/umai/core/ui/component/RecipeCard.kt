@@ -78,14 +78,13 @@ fun RecipeCard(
     }
 }
 
-/** Compact row used by the list layout and by pickers. */
+/** Compact row of the list layout. */
 @Composable
 fun RecipeRow(
     recipe: RecipeSummary,
     imageUrl: String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    trailing: @Composable (() -> Unit)? = null,
 ) {
     Card(
         onClick = onClick,
@@ -118,7 +117,6 @@ fun RecipeRow(
                 )
                 RecipeMetaRow(recipe)
             }
-            trailing?.invoke()
         }
     }
 }

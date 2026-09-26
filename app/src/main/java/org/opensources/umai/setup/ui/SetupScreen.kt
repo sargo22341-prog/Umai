@@ -61,7 +61,7 @@ import org.opensources.umai.core.ui.component.title
  * instance pre-filled, so the user never lands on an empty Home.
  */
 @Composable
-fun SetupScreen(modifier: Modifier = Modifier) {
+fun SetupRoute(modifier: Modifier = Modifier) {
     val container = LocalAppContainer.current
     val viewModel: SetupViewModel = viewModel(factory = SetupViewModel.factory(container))
     val state by viewModel.state.collectAsStateWithLifecycle()

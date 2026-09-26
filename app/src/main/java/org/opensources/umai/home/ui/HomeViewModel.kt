@@ -6,8 +6,6 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -78,22 +76,23 @@ class HomeViewModel(
     /**
      * Called every time the tab comes back into view: the recipe just read has
      * to appear among the recently viewed ones, and the instance may have
-     * gained recipes meanwhile.
+     * gained recipes meanwhile. The pages already scrolled through stay.
      */
     fun onScreenShown() {
-        if (hasLoadedOnce) load(initial = false, reshuffle = false)
+        if (hasLoadedOnce) load(initial = false, reshuffle = false, keepPages = true)
     }
 
-    /** An explicit refresh also draws new recipes to discover. */
-    fun refresh(initial: Boolean = false) = load(initial, reshuffle = true)
+    /** An explicit refresh starts the list over and draws new recipes to discover. */
+    fun refresh(initial: Boolean = false) = load(initial, reshuffle = true, keepPages = false)
 
     /**
      * Coming back to the tab keeps the discovery draw: recipes moving under
      * the reader's eyes for no reason would feel like a glitch.
      */
-    private fun load(initial: Boolean, reshuffle: Boolean) {
+    private fun load(initial: Boolean, reshuffle: Boolean, keepPages: Boolean) {
         loadJob?.cancel()
-        _state.update { it.copy(loading = initial, refreshing = !initial, error = null) }
+        // Coming back to the tab refreshes quietly, under what is already shown.
+        _state.update { it.copy(loading = initial, refreshing = !initial && !keepPages, error = null) }
         loadJob = viewModelScope.launch {
             val discovery = if (reshuffle || _state.value.discovery.isEmpty()) {
                 async { loadDiscovery() }
@@ -112,7 +111,11 @@ class HomeViewModel(
                     hasLoadedOnce = true
                     _state.update {
                         it.copy(
-                            latest = PagedItems<RecipeSummary>().append(latest.value),
+                            latest = if (keepPages) {
+                                it.latest.withFirstPage(latest.value, RecipeSummary::id)
+                            } else {
+                                PagedItems<RecipeSummary>().append(latest.value, RecipeSummary::id)
+                            },
                             loading = false,
                             refreshing = false,
                             error = null,
@@ -143,7 +146,7 @@ class HomeViewModel(
             when (val next = recipeRepository.latest(page = current.latest.page + 1)) {
                 is ApiResult.Failure -> _state.update { it.copy(loadingMore = false, error = next.error) }
                 is ApiResult.Success -> _state.update {
-                    it.copy(latest = it.latest.append(next.value), loadingMore = false)
+                    it.copy(latest = it.latest.append(next.value, RecipeSummary::id), loadingMore = false)
                 }
             }
         }
@@ -151,19 +154,11 @@ class HomeViewModel(
 
     /**
      * Mealie exposes no "recently viewed" collection, so the slugs kept on the
-     * device are resolved one by one; entries that no longer exist are dropped.
+     * device are read back, in one request; entries that no longer exist are
+     * dropped. A failure keeps what is shown: the latest recipes carry errors.
      */
     private suspend fun loadRecentlyViewed() {
-        val slugs = recentSlugs.first().take(MAX_RECENT)
-        if (slugs.isEmpty()) {
-            _state.update { it.copy(recentlyViewed = emptyList()) }
-            return
-        }
-        val recipes = coroutineScope {
-            slugs.map { slug -> async { recipeRepository.recipe(slug) } }
-                .awaitAll()
-                .mapNotNull { (it as? ApiResult.Success)?.value?.summary }
-        }
+        val recipes = recipeRepository.bySlugs(recentSlugs.first().take(MAX_RECENT)).valueOrNull() ?: return
         _state.update { it.copy(recentlyViewed = recipes) }
     }
 

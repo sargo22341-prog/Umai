@@ -47,7 +47,7 @@ class RecipeEditViewModelTest {
     private fun viewModel() = RecipeEditViewModel(
         slug = SLUG,
         editRepository = RecipeEditRepository({ fake.api() }),
-        organizerRepository = OrganizerRepository { fake.api() },
+        organizerRepository = OrganizerRepository(apiProvider = { fake.api() }, instanceKey = { "instance" }),
         imageFiles = NoImageFiles,
         recentRecipes = history,
         streamFor = { url -> streamsAsked += url; VideoStream("https://stream/$SLUG.m3u8", isHls = true) },

@@ -38,9 +38,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.opensources.umai.R
 import org.opensources.umai.core.di.LocalAppContainer
-import org.opensources.umai.core.format.currentLocale
+import org.opensources.umai.core.download.DownloadState
 import org.opensources.umai.core.download.InstallFailure
-import org.opensources.umai.llm.data.InstallState
+import org.opensources.umai.core.format.currentLocale
 import org.opensources.umai.llm.data.LlmBenchmark
 import org.opensources.umai.llm.domain.AiBackend
 import org.opensources.umai.llm.domain.LocalModel
@@ -142,9 +142,9 @@ fun LocalAiScreen(state: LocalAiUiState, actions: LocalAiScreenActions, modifier
             }
 
             when (val install = state.install) {
-                is InstallState.Downloading, is InstallState.Verifying -> item { InstallProgressCard(install, actions) }
-                is InstallState.Failed -> item { InstallFailureCard(install, actions) }
-                InstallState.Idle -> Unit
+                is DownloadState.Downloading, is DownloadState.Verifying -> item { InstallProgressCard(install, actions) }
+                is DownloadState.Failed -> item { InstallFailureCard(install, actions) }
+                DownloadState.Idle -> Unit
             }
 
             item { SettingsSectionHeader(stringResource(R.string.local_ai_section_models)) }
@@ -244,10 +244,10 @@ private fun BenchmarkResult(benchmark: LlmBenchmark) {
 }
 
 @Composable
-private fun InstallProgressCard(install: InstallState, actions: LocalAiScreenActions) {
+private fun InstallProgressCard(install: DownloadState<LocalModel>, actions: LocalAiScreenActions) {
     ModelCard {
         when (install) {
-            is InstallState.Downloading -> {
+            is DownloadState.Downloading -> {
                 Text(
                     text = stringResource(R.string.local_ai_downloading, install.model.name),
                     style = MaterialTheme.typography.titleSmall,
@@ -269,7 +269,7 @@ private fun InstallProgressCard(install: InstallState, actions: LocalAiScreenAct
                 )
                 TextButton(onClick = actions.onCancelDownload) { Text(stringResource(R.string.action_cancel)) }
             }
-            is InstallState.Verifying -> {
+            is DownloadState.Verifying -> {
                 Text(
                     text = stringResource(R.string.local_ai_verifying, install.model.name),
                     style = MaterialTheme.typography.titleSmall,
@@ -282,7 +282,7 @@ private fun InstallProgressCard(install: InstallState, actions: LocalAiScreenAct
 }
 
 @Composable
-private fun InstallFailureCard(install: InstallState.Failed, actions: LocalAiScreenActions) {
+private fun InstallFailureCard(install: DownloadState.Failed<LocalModel>, actions: LocalAiScreenActions) {
     ModelCard {
         Text(
             text = stringResource(failureMessage(install.failure), install.model.name),

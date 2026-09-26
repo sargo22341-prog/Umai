@@ -5,13 +5,10 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
-import java.io.IOException
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
@@ -65,8 +62,7 @@ class AppPreferencesRepository(context: Context) {
 
     private val dataStore = context.applicationContext.settingsDataStore
 
-    val preferences: Flow<AppPreferences> = dataStore.data
-        .catch { cause -> if (cause is IOException) emit(emptyPreferences()) else throw cause }
+    val preferences: Flow<AppPreferences> = dataStore.safeData
         .map { prefs ->
             AppPreferences(
                 themeMode = prefs[KeyTheme].toEnum(ThemeMode.SYSTEM),

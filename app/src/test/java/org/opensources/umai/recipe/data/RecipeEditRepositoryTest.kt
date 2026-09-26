@@ -3,10 +3,11 @@ package org.opensources.umai.recipe.data
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -54,18 +55,18 @@ class RecipeEditRepositoryTest {
     }
 
     @Test
-    fun `an empty address never reaches the server`() = runTest {
-        val result = repository.importFromUrl("  ", includeTags = false, includeCategories = false)
+    fun `an empty address is refused as a mistake and never reaches the server`() = runTest {
+        val failure = runCatching { repository.importFromUrl("  ", includeTags = false, includeCategories = false) }
 
-        assertEquals(NetworkError.InvalidResponse, (result as ApiResult.Failure).error)
+        assertTrue(failure.exceptionOrNull() is IllegalArgumentException)
         assertEquals(0, fake.server.requestCount)
     }
 
     @Test
     fun `a draft without a name is refused before any request`() = runTest {
-        val result = repository.create(RecipeDraft(id = "d1", name = "   "))
+        val failure = runCatching { repository.create(RecipeDraft(id = "d1", name = "   ")) }
 
-        assertEquals(NetworkError.InvalidResponse, (result as ApiResult.Failure).error)
+        assertTrue(failure.exceptionOrNull() is IllegalArgumentException)
         assertEquals(0, fake.server.requestCount)
     }
 
@@ -136,6 +137,25 @@ class RecipeEditRepositoryTest {
 
         assertEquals(1, Regex(""""note":""").findAll(body).count())
         assertEquals(1, Regex(""""text":"Melanger\.""").findAll(body).count())
+    }
+
+    @Test
+    fun `the example Mealie writes into a new recipe is replaced, and its settings kept`() = runTest {
+        fake.enqueueJson(""""gratin-de-courgettes"""")
+        fake.enqueueJson(CREATED_RECIPE)
+        fake.enqueueJson(CREATED_RECIPE)
+
+        repository.create(RecipeDraft(id = "d1", name = "Gratin de courgettes", description = "Sans rien"))
+
+        fake.takeRequest()
+        fake.takeRequest()
+        val body = fake.takeRequest().body?.utf8().orEmpty()
+        assertFalse(body.contains("1 Cup Flour"))
+        assertFalse(body.contains("Recipe steps"))
+        assertTrue(body.contains(""""recipeIngredient":[]"""))
+        assertTrue(body.contains(""""recipeInstructions":[]"""))
+        assertTrue(body.contains(""""description":"Sans rien""""))
+        assertTrue(body.contains(""""settings":{"public":true"""))
     }
 
     @Test
@@ -260,9 +280,9 @@ class RecipeEditRepositoryTest {
     fun `a recipe cannot be saved without a name`() = runTest {
         val original = RecipeDraft(id = "tarte", name = "Tarte")
 
-        val result = repository.update("tarte", original, original.copy(name = "  "))
+        val failure = runCatching { repository.update("tarte", original, original.copy(name = "  ")) }
 
-        assertEquals(NetworkError.InvalidResponse, (result as ApiResult.Failure).error)
+        assertTrue(failure.exceptionOrNull() is IllegalArgumentException)
         assertEquals(0, fake.server.requestCount)
     }
 
@@ -314,9 +334,12 @@ class RecipeEditRepositoryTest {
              "tags":[]}
         """.trimIndent()
 
+        /** As Mealie creates a recipe from a name: with an example ingredient and step. */
         val CREATED_RECIPE = """
             {"id":"r1","name":"Gratin de courgettes","slug":"gratin-de-courgettes",
-             "recipeIngredient":[],"recipeInstructions":[]}
+             "settings":{"public":true,"showNutrition":false,"disableComments":false},
+             "recipeIngredient":[{"note":"1 Cup Flour","display":"1 Cup Flour","referenceId":"example"}],
+             "recipeInstructions":[{"id":"s0","title":"","text":"Recipe steps"}]}
         """.trimIndent()
     }
 }

@@ -1,13 +1,12 @@
 package org.opensources.umai.youtube.domain
 
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
 import org.opensources.umai.llm.domain.LanguageModel
 import org.opensources.umai.llm.domain.LlmOutcome
 import org.opensources.umai.llm.domain.LlmProgress
 import org.opensources.umai.llm.domain.LlmRequest
+import org.opensources.umai.llm.domain.ModelAnswer
 
 /**
  * Places the steps of a recipe in a video where nothing is said, from what
@@ -46,8 +45,6 @@ class PicturePlacement(private val model: LanguageModel) {
     internal companion object {
         private const val MAX_ANSWER_TOKENS = 256
 
-        private val json = Json { ignoreUnknownKeys = true }
-
         private val SYSTEM = """
             You place the steps of a recipe in its cooking video. You receive the steps in order, and what pictures of the video show at given seconds. For each step, give the second of the first picture that shows it being done. The steps come in order, so their starts do too.
         """.trimIndent()
@@ -67,7 +64,7 @@ class PicturePlacement(private val model: LanguageModel) {
 
         /** The start of each of the [steps], `null` when the answer lacks one. */
         fun starts(answer: String, steps: Int): List<Double>? {
-            val root = runCatching { json.parseToJsonElement(answer) }.getOrNull() as? JsonObject ?: return null
+            val root = ModelAnswer.objectOrNull(answer) ?: return null
             return (0 until steps).map { index ->
                 (root[key(index)] as? JsonPrimitive)?.takeIf { !it.isString }?.doubleOrNull ?: return null
             }

@@ -6,14 +6,19 @@ import org.opensources.umai.core.model.Recipe
 import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
-import org.opensources.umai.core.network.apiCall
-import org.opensources.umai.core.network.map
 import org.opensources.umai.core.network.api.MealieApi
+import org.opensources.umai.core.network.call
+import org.opensources.umai.core.network.flatMap
+import org.opensources.umai.core.network.map
+import org.opensources.umai.core.network.orInvalid
+import org.opensources.umai.core.network.toPaged
+import org.opensources.umai.core.network.valueOr
 import org.opensources.umai.core.network.dto.RecipeLastMadeDto
 import org.opensources.umai.core.network.dto.TimelineEventInDto
 import org.opensources.umai.core.network.dto.UserRatingUpdateDto
 import org.opensources.umai.recipe.domain.CalorieFilter
 import org.opensources.umai.recipe.domain.CalorieTag
+import org.opensources.umai.recipe.domain.OwnRating
 import org.opensources.umai.search.domain.RecipeFilters
 import org.opensources.umai.search.domain.RecipeSort
 import org.opensources.umai.search.domain.SortField
@@ -42,28 +47,16 @@ class RecipeRepository(
         perPage: Int = DEFAULT_PAGE_SIZE,
         paginationSeed: String? = null,
     ): ApiResult<Paged<RecipeSummary>> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-
         val favorites = if (filters.favoritesOnly) {
-            when (val result = apiCall { api.favorites() }) {
-                is ApiResult.Failure -> return result
-                is ApiResult.Success -> result.value.ratings.map { it.recipeId }
-            }
+            apiProvider.call { favorites().ratings.map { it.recipeId } }.valueOr { return it }
         } else {
             emptyList()
         }
 
-        val calories = if (filters.calories != CalorieFilter.ANY) {
-            when (val result = calorieTags()) {
-                is ApiResult.Failure -> return result
-                is ApiResult.Success -> result.value
-            }
-        } else {
-            emptyList()
-        }
+        val calories = if (filters.calories != CalorieFilter.ANY) calorieTags().valueOr { return it } else emptyList()
 
-        return apiCall {
-            api.recipes(
+        return apiProvider.call {
+            recipes(
                 page = page,
                 perPage = perPage,
                 search = query?.trim()?.takeIf { it.isNotEmpty() },
@@ -105,41 +98,39 @@ class RecipeRepository(
             paginationSeed = seed,
         ).map { it.items }
 
-    suspend fun recipe(slug: String): ApiResult<Recipe> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return when (val result = apiCall { api.recipe(slug) }) {
-            is ApiResult.Failure -> result
-            is ApiResult.Success -> result.value.toDomain()
-                ?.let { ApiResult.Success(it) }
-                ?: ApiResult.Failure(NetworkError.InvalidResponse)
-        }
+    /**
+     * The recipes of [slugs], in that order, read in one request; a slug the
+     * instance no longer has is left out.
+     */
+    suspend fun bySlugs(slugs: List<String>): ApiResult<List<RecipeSummary>> {
+        // Slugs are made of letters, digits and dashes: anything else could not be quoted in the filter.
+        val wanted = slugs.filter { it.isNotBlank() && '"' !in it && '\\' !in it }.distinct()
+        if (wanted.isEmpty()) return ApiResult.Success(emptyList())
+        val filter = wanted.joinToString(separator = ",", prefix = "slug IN [", postfix = "]") { "\"$it\"" }
+        return apiProvider.call { recipes(perPage = wanted.size, queryFilter = filter).toPaged { it.toDomain() }.items }
+            .map { found ->
+                val bySlug = found.associateBy { it.slug }
+                wanted.mapNotNull(bySlug::get)
+            }
     }
 
-    suspend fun favoriteIds(): ApiResult<Set<String>> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return apiCall { api.favorites().ratings.map { it.recipeId }.toSet() }
-    }
+    suspend fun recipe(slug: String): ApiResult<Recipe> = apiProvider.call { recipe(slug) }.map { it.toDomain() }.orInvalid()
 
     suspend fun setFavorite(slug: String, favorite: Boolean): ApiResult<Unit> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
         val userId = currentUserId() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return apiCall {
-            if (favorite) api.addFavorite(userId, slug) else api.removeFavorite(userId, slug)
-        }
+        return apiProvider.call { if (favorite) addFavorite(userId, slug) else removeFavorite(userId, slug) }
     }
 
     /**
-     * The rating the signed-in user gave this recipe, `null` when they never
-     * rated it. Mealie answers 404 for a recipe the user has no entry for.
+     * The stars the signed-in user gave this recipe and whether it is one of
+     * their favourites, in one request. Mealie answers 404 for a recipe the
+     * user has no entry for: neither rated nor favourite.
      */
-    suspend fun ownRating(recipeId: String): ApiResult<Int?> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return when (val result = apiCall { api.ownRating(recipeId) }) {
-            is ApiResult.Success -> ApiResult.Success(result.value.rating?.toStars())
-            is ApiResult.Failure ->
-                if (result.error == NetworkError.NotFound) ApiResult.Success(null) else result
+    suspend fun ownRating(recipeId: String): ApiResult<OwnRating> =
+        when (val result = apiProvider.call { ownRating(recipeId) }) {
+            is ApiResult.Success -> ApiResult.Success(OwnRating(result.value.rating?.toStars(), result.value.isFavorite))
+            is ApiResult.Failure -> if (result.error == NetworkError.NotFound) ApiResult.Success(OwnRating.None) else result
         }
-    }
 
     /**
      * Rates the recipe for the signed-in user. Mealie stores the rating and the
@@ -147,10 +138,9 @@ class RecipeRepository(
      * rather than left for the server to guess.
      */
     suspend fun setRating(slug: String, stars: Int, isFavorite: Boolean): ApiResult<Unit> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
         val userId = currentUserId() ?: return ApiResult.Failure(NetworkError.Unauthorized)
         val rating = stars.coerceIn(1, MAX_RATING_STARS).toDouble()
-        return apiCall { api.setRating(userId, slug, UserRatingUpdateDto(rating, isFavorite)) }
+        return apiProvider.call { setRating(userId, slug, UserRatingUpdateDto(rating, isFavorite)) }
     }
 
     /**
@@ -158,20 +148,10 @@ class RecipeRepository(
      * own "I made this" writes, and the date it was last made.
      */
     suspend fun markCooked(recipe: Recipe, subject: String, at: Instant = Instant.now()): ApiResult<Unit> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
         val timestamp = at.toString()
-        val event = apiCall {
-            api.createTimelineEvent(
-                TimelineEventInDto(
-                    recipeId = recipe.id,
-                    subject = subject,
-                    eventType = TIMELINE_INFO,
-                    timestamp = timestamp,
-                ),
-            )
-        }
-        if (event is ApiResult.Failure) return event
-        return apiCall { api.updateLastMade(recipe.slug, RecipeLastMadeDto(timestamp)) }
+        val event = TimelineEventInDto(recipeId = recipe.id, subject = subject, eventType = TIMELINE_INFO, timestamp = timestamp)
+        return apiProvider.call { createTimelineEvent(event) }
+            .flatMap { apiProvider.call { updateLastMade(recipe.slug, RecipeLastMadeDto(timestamp)) } }
     }
 
     private fun Double.toStars(): Int? = roundToInt().takeIf { it in 1..MAX_RATING_STARS }

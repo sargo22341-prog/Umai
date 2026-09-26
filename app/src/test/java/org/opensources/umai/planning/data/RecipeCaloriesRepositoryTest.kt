@@ -13,11 +13,12 @@ class RecipeCaloriesRepositoryTest {
 
     private lateinit var fake: FakeMealieServer
     private lateinit var repository: RecipeCaloriesRepository
+    private var instance = "https://mealie.lan/|u1"
 
     @Before
     fun setUp() {
         fake = FakeMealieServer()
-        repository = RecipeCaloriesRepository { fake.api() }
+        repository = RecipeCaloriesRepository(apiProvider = { fake.api() }, instanceKey = { instance })
     }
 
     @After
@@ -65,5 +66,16 @@ class RecipeCaloriesRepositoryTest {
         assertEquals(mapOf("r2" to 380), repository.calories(listOf(summary("r2"))))
         repository.forget()
         assertEquals(mapOf("r2" to 410), repository.calories(listOf(summary("r2"))))
+    }
+
+    @Test
+    fun `what was read from one instance is asked again on another`() = runTest {
+        fake.enqueueJson(recipe("380 kcal"))
+        fake.enqueueJson(recipe("410 kcal"))
+
+        assertEquals(mapOf("r2" to 380), repository.calories(listOf(summary("r2"))))
+        instance = "https://other.lan/|u1"
+        assertEquals(mapOf("r2" to 410), repository.calories(listOf(summary("r2"))))
+        assertEquals(2, fake.server.requestCount)
     }
 }

@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.opensources.umai.core.di.AppContainer
-import org.opensources.umai.provider.RecipeProvider
+import org.opensources.umai.provider.domain.RecipeProvider
 import org.opensources.umai.provider.data.ProviderSettings
 
 data class ProviderUiState(

@@ -5,13 +5,11 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
-import java.io.IOException
+import org.opensources.umai.core.settings.safeData
 
 private val Context.sessionDataStore: DataStore<Preferences> by preferencesDataStore(name = "umai_session")
 
@@ -23,8 +21,7 @@ class SessionStore(context: Context, private val vault: SecretVault = SecretVaul
 
     private val dataStore = context.applicationContext.sessionDataStore
 
-    val stored: Flow<StoredSession?> = dataStore.data
-        .catch { cause -> if (cause is IOException) emit(emptyPreferences()) else throw cause }
+    val stored: Flow<StoredSession?> = dataStore.safeData
         .map { prefs ->
             val baseUrl = prefs[KeyBaseUrl] ?: return@map null
             StoredSession(
@@ -41,6 +38,10 @@ class SessionStore(context: Context, private val vault: SecretVault = SecretVaul
                 tokenRejected = prefs[KeyTokenRejected] == true,
             )
         }
+
+    /** Where the stored session signs in, and as whom (see [instanceKeyOf]); the token is left sealed. */
+    val instanceKeys: Flow<String?> = dataStore.safeData
+        .map { prefs -> prefs[KeyBaseUrl]?.let { instanceKeyOf(it, prefs[KeyUserId]) } }
 
     suspend fun save(session: ServerSession) {
         val sealed = vault.seal(session.token)
@@ -60,12 +61,15 @@ class SessionStore(context: Context, private val vault: SecretVault = SecretVaul
         }
     }
 
-    /** Replaces the token after a silent refresh, leaving the rest untouched. */
-    suspend fun updateToken(token: String) {
+    /**
+     * Replaces the token after a silent refresh, leaving the rest untouched —
+     * unless the stored session is no longer the one of [baseUrl], or was
+     * rejected meanwhile.
+     */
+    suspend fun updateToken(baseUrl: String, token: String) {
         val sealed = vault.seal(token) ?: return
         dataStore.edit { prefs ->
-            prefs[KeySealedToken] = sealed
-            prefs[KeyTokenRejected] = false
+            if (prefs[KeyBaseUrl] == baseUrl && prefs[KeyTokenRejected] != true) prefs[KeySealedToken] = sealed
         }
     }
 
@@ -78,8 +82,27 @@ class SessionStore(context: Context, private val vault: SecretVault = SecretVaul
     }
 
     suspend fun clear() {
-        dataStore.edit { it.clear() }
+        dataStore.edit { prefs ->
+            val owner = prefs[KeyDataOwner]
+            prefs.clear()
+            // The data kept on the device still comes from that place.
+            owner?.let { prefs[KeyDataOwner] = it }
+        }
         vault.clear()
+    }
+
+    /**
+     * Records that the data kept on the device now comes from [owner], an
+     * instance and a user, and answers whether it came from another one until
+     * now. A first claim takes over what is there.
+     */
+    suspend fun claimLocalData(owner: String): Boolean {
+        var changed = false
+        dataStore.edit { prefs ->
+            changed = prefs[KeyDataOwner]?.let { it != owner } ?: false
+            prefs[KeyDataOwner] = owner
+        }
+        return changed
     }
 
     data class StoredSession(
@@ -106,5 +129,9 @@ class SessionStore(context: Context, private val vault: SecretVault = SecretVaul
         val KeyIsAdmin = booleanPreferencesKey("user_is_admin")
         val KeyAvatarCacheKey = stringPreferencesKey("user_avatar_cache_key")
         val KeyTokenRejected = booleanPreferencesKey("token_rejected")
+        val KeyDataOwner = stringPreferencesKey("local_data_owner")
     }
 }
+
+/** An instance and a user, as one key: what was read from Mealie holds only under the same one. */
+internal fun instanceKeyOf(baseUrl: String, userId: String?): String = "$baseUrl|${userId.orEmpty()}"

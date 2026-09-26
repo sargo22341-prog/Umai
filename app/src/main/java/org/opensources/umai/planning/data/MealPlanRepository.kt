@@ -5,11 +5,13 @@ import org.opensources.umai.core.model.MealPlanEntry
 import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
-import org.opensources.umai.core.network.apiCall
+import org.opensources.umai.core.network.api.MealieApi
+import org.opensources.umai.core.network.call
 import org.opensources.umai.core.network.dto.CreateMealPlanEntryDto
 import org.opensources.umai.core.network.dto.MealPlanEntryDto
 import org.opensources.umai.core.network.dto.UpdateMealPlanEntryDto
-import org.opensources.umai.core.network.api.MealieApi
+import org.opensources.umai.core.network.map
+import org.opensources.umai.core.network.orInvalid
 import org.opensources.umai.profile.data.toDomain
 import org.opensources.umai.recipe.data.toDomain
 import java.time.DayOfWeek
@@ -25,19 +27,10 @@ class MealPlanRepository(private val apiProvider: () -> MealieApi?) {
      * The day the household's weeks start on, a preference of Mealie
      * (`GET /api/households/preferences`) the meal plan follows.
      */
-    suspend fun firstDayOfWeek(): ApiResult<DayOfWeek> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return apiCall { api.householdPreferences().toDomain().firstDay }
-    }
+    suspend fun firstDayOfWeek(): ApiResult<DayOfWeek> = apiProvider.call { householdPreferences().toDomain().firstDay }
 
-    suspend fun entries(start: LocalDate, end: LocalDate): ApiResult<List<MealPlanEntry>> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return apiCall {
-            api.mealPlans(
-                startDate = ApiDates.format(start),
-                endDate = ApiDates.format(end),
-            ).items.mapNotNull { it.toDomain() }
-        }
+    suspend fun entries(start: LocalDate, end: LocalDate): ApiResult<List<MealPlanEntry>> = apiProvider.call {
+        mealPlans(startDate = ApiDates.format(start), endDate = ApiDates.format(end)).items.mapNotNull { it.toDomain() }
     }
 
     suspend fun add(
@@ -46,34 +39,24 @@ class MealPlanRepository(private val apiProvider: () -> MealieApi?) {
         recipeId: String?,
         title: String = "",
         text: String = "",
-    ): ApiResult<MealPlanEntry> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return apiCall {
-            api.createMealPlan(
-                CreateMealPlanEntryDto(
-                    date = ApiDates.format(date),
-                    entryType = type.apiValue,
-                    title = title,
-                    text = text,
-                    recipeId = recipeId,
-                ),
-            )
-        }.let { result ->
-            when (result) {
-                is ApiResult.Failure -> result
-                is ApiResult.Success -> result.value.toDomain()
-                    ?.let { ApiResult.Success(it) }
-                    ?: ApiResult.Failure(NetworkError.InvalidResponse)
-            }
-        }
-    }
+    ): ApiResult<MealPlanEntry> = apiProvider.call {
+        createMealPlan(
+            CreateMealPlanEntryDto(
+                date = ApiDates.format(date),
+                entryType = type.apiValue,
+                title = title,
+                text = text,
+                recipeId = recipeId,
+            ),
+        )
+    }.map { it.toDomain() }.orInvalid()
 
+    /** An entry Mealie sent without its group or user is off the OpenAPI contract, which requires both. */
     suspend fun update(entry: MealPlanEntry): ApiResult<MealPlanEntry> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
         val groupId = entry.groupId ?: return ApiResult.Failure(NetworkError.InvalidResponse)
         val userId = entry.userId ?: return ApiResult.Failure(NetworkError.InvalidResponse)
-        return apiCall {
-            api.updateMealPlan(
+        return apiProvider.call {
+            updateMealPlan(
                 id = entry.id,
                 entry = UpdateMealPlanEntryDto(
                     id = entry.id,
@@ -86,20 +69,10 @@ class MealPlanRepository(private val apiProvider: () -> MealieApi?) {
                     userId = userId,
                 ),
             )
-        }.let { result ->
-            when (result) {
-                is ApiResult.Failure -> result
-                is ApiResult.Success -> result.value.toDomain()
-                    ?.let { ApiResult.Success(it) }
-                    ?: ApiResult.Failure(NetworkError.InvalidResponse)
-            }
-        }
+        }.map { it.toDomain() }.orInvalid()
     }
 
-    suspend fun delete(id: Int): ApiResult<Unit> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return apiCall { api.deleteMealPlan(id) }
-    }
+    suspend fun delete(id: Int): ApiResult<Unit> = apiProvider.call { deleteMealPlan(id) }
 }
 
 fun MealPlanEntryDto.toDomain(): MealPlanEntry? {

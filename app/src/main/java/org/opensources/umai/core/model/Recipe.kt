@@ -162,8 +162,6 @@ data class Food(
     val labelColor: String?,
 )
 
-data class Label(val id: String, val name: String, val color: String)
-
 /** One page of a paginated Mealie collection. */
 data class Paged<T>(
     val items: List<T>,
@@ -185,14 +183,40 @@ data class PagedItems<T>(
     val total: Int = 0,
 ) {
     val canLoadMore: Boolean get() = page in 1..<totalPages
-    val isInitial: Boolean get() = page == 0
 
-    fun append(next: Paged<T>): PagedItems<T> = PagedItems(
-        items = if (next.page <= 1) next.items else items + next.items,
-        page = next.page,
-        totalPages = next.totalPages,
-        total = next.total,
-    )
+    /**
+     * [next] after the pages already loaded, or in their place when it is the
+     * first page. An item added to the collection meanwhile shifts the pages
+     * by one: what [next] repeats, as [keyOf] tells, is left out, since a list
+     * cannot show the same key twice.
+     */
+    fun append(next: Paged<T>, keyOf: (T) -> Any): PagedItems<T> {
+        val kept = if (next.page <= 1) emptyList() else items
+        val known = kept.mapTo(HashSet(), keyOf)
+        return PagedItems(
+            items = kept + next.items.filter { known.add(keyOf(it)) },
+            page = next.page,
+            totalPages = next.totalPages,
+            total = next.total,
+        )
+    }
+
+    /**
+     * The first page read again, keeping the pages loaded after it: its items
+     * come first, as they now are, followed by the others without repeating
+     * any of them.
+     */
+    fun withFirstPage(first: Paged<T>, keyOf: (T) -> Any): PagedItems<T> {
+        if (page <= 1) return PagedItems<T>().append(first, keyOf)
+        val fresh = PagedItems<T>().append(first, keyOf).items
+        val known = fresh.mapTo(HashSet(), keyOf)
+        return PagedItems(
+            items = fresh + items.filterNot { keyOf(it) in known },
+            page = page,
+            totalPages = first.totalPages,
+            total = first.total,
+        )
+    }
 
     /** The items without those [removed] matches, which no longer count in the total. */
     fun without(removed: (T) -> Boolean): PagedItems<T> {

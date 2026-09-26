@@ -3,14 +3,13 @@ package org.opensources.umai.youtube.domain
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.takeWhile
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import org.opensources.umai.llm.domain.LanguageModel
 import org.opensources.umai.llm.domain.LlmMedia
 import org.opensources.umai.llm.domain.LlmOutcome
 import org.opensources.umai.llm.domain.LlmRequest
+import org.opensources.umai.llm.domain.ModelAnswer
 import org.opensources.umai.speech.domain.SpeechTranscriber
 import kotlin.math.ceil
 import kotlin.math.max
@@ -161,8 +160,6 @@ class VideoWatcher(
         private const val SHOWN = "shown"
         private const val MAX_SHOWN_TOKENS = 120
 
-        private val json = Json { ignoreUnknownKeys = true }
-
         internal fun seeing(language: String): LlmRequest {
             val writeIn = if (language == "fr") "French" else "English"
             return LlmRequest(
@@ -181,7 +178,7 @@ class VideoWatcher(
 
         /** The text of [key] in the answer, `null` when empty. */
         internal fun field(answer: String, key: String): String? {
-            val root = runCatching { json.parseToJsonElement(answer) }.getOrNull() as? JsonObject ?: return null
+            val root = ModelAnswer.objectOrNull(answer) ?: return null
             return (root[key] as? JsonPrimitive)?.contentOrNull?.let(Transcript::clean)?.takeIf { it.isNotEmpty() }
         }
     }

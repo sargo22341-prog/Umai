@@ -47,7 +47,7 @@ class DeviceRecipeImageFiles(
 
     override suspend fun read(path: String): EncodedImage? = withContext(Dispatchers.IO) {
         val file = File(path).takeIf { it.isOwned() && it.isFile } ?: return@withContext null
-        runCatching { EncodedImage(file.readBytes(), mediaType = "image/jpeg", extension = file.extension) }
+        runCatching { EncodedImage(file.readBytes(), mediaType = EncodedImage.JPEG, extension = file.extension) }
             .getOrNull()
     }
 

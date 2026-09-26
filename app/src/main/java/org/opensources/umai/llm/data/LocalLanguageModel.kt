@@ -169,7 +169,9 @@ class LocalLanguageModel(
         val needed = estimatedTokens(request)
         val fitting = routes.filter { needed <= it.contextSize }
         routes.filter { it !in fitting }.forEach {
-            Log.i(TAG, "Backend: ${it.backend} skipped: about $needed tokens needed, context ${it.contextSize}")
+            if (Log.isLoggable(TAG, Log.INFO)) {
+                Log.i(TAG, "Backend: ${it.backend} skipped: about $needed tokens needed, context ${it.contextSize}")
+            }
         }
         if (fitting.isEmpty()) return LlmOutcome.Failure(LlmFailure.TOO_LONG)
         var failure = if (media) LlmFailure.MEDIA_UNSUPPORTED else LlmFailure.LOAD_FAILED
@@ -235,7 +237,9 @@ class LocalLanguageModel(
                 engine = it
                 loadedPath = route.path
                 _active.value = ActiveBackend(it.backend, model.model.name, device.socName)
-                Log.i(TAG, "Backend: ${it.backend} | Model: ${model.model.name} | SoC: ${device.socName}")
+                if (Log.isLoggable(TAG, Log.INFO)) {
+                    Log.i(TAG, "Backend: ${it.backend} | Model: ${model.model.name} | SoC: ${device.socName}")
+                }
             }
         } catch (e: AiBackendUnavailable) {
             // Without that part, the backend may still answer text.
@@ -248,12 +252,14 @@ class LocalLanguageModel(
 
     private fun logSpeed(model: InstalledModel, engine: AiEngine) {
         val speed = engine.lastSpeed ?: return
-        Log.i(
-            TAG,
-            "Backend: ${engine.backend} | Model: ${model.model.name} | SoC: ${device.socName} | " +
-                "prompt ${speed.promptTokens} tokens at %.1f/s | answer ${speed.generatedTokens} tokens at %.1f/s"
-                    .format(speed.promptSpeed, speed.generationSpeed),
-        )
+        if (Log.isLoggable(TAG, Log.INFO)) {
+            Log.i(
+                TAG,
+                "Backend: ${engine.backend} | Model: ${model.model.name} | SoC: ${device.socName} | " +
+                    "prompt ${speed.promptTokens} tokens at %.1f/s | answer ${speed.generatedTokens} tokens at %.1f/s"
+                        .format(speed.promptSpeed, speed.generationSpeed),
+            )
+        }
     }
 
     /** The installed model, when the local AI is on, runnable here and has a file for some backend. */

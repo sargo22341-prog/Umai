@@ -62,7 +62,7 @@ import org.opensources.umai.core.ui.component.NetworkErrorView
  * their food, which is how the web UI organizes an aisle-friendly list.
  */
 @Composable
-fun ShoppingScreen(onStartShoppingMode: (String) -> Unit, modifier: Modifier = Modifier) {
+fun ShoppingRoute(onStartShoppingMode: (String) -> Unit, modifier: Modifier = Modifier) {
     val container = LocalAppContainer.current
     val viewModel: ShoppingViewModel = viewModel(factory = ShoppingViewModel.factory(container))
     val state by viewModel.state.collectAsStateWithLifecycle()

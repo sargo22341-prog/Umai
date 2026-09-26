@@ -22,8 +22,10 @@ class FakeSessionHolder(
         activated += session
     }
 
-    override suspend fun updateToken(token: String) {
-        session = session?.copy(token = token)
+    override suspend fun replaceToken(previous: String, token: String): Boolean {
+        val current = session?.takeIf { it.token == previous } ?: return false
+        session = current.copy(token = token)
+        return true
     }
 
     override suspend fun signOut() {

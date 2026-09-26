@@ -9,7 +9,7 @@ import org.junit.Test
 import org.opensources.umai.core.image.EncodedImage
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.FakeMealieServer
-import org.opensources.umai.provider.ProviderRegistry
+import org.opensources.umai.provider.domain.ProviderRegistry
 import org.opensources.umai.provider.jow.JowProvider
 import org.opensources.umai.recipe.data.RecipeMediaRepository
 

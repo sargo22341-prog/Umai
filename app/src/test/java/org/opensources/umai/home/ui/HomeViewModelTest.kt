@@ -29,6 +29,7 @@ class HomeViewModelTest {
     private lateinit var fake: FakeMealieServer
 
     private val draws: MutableList<RecordedRequest> = Collections.synchronizedList(mutableListOf())
+    private val recentReads: MutableList<RecordedRequest> = Collections.synchronizedList(mutableListOf())
 
     @Volatile
     private var drawFails = false
@@ -42,11 +43,15 @@ class HomeViewModelTest {
         // answers are picked by request rather than queued in order.
         fake.server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse = when {
-                request.url.encodedPath == "/api/recipes/vu-recemment" -> json(RECENT)
+                request.query("queryFilter")?.startsWith("slug IN") == true -> {
+                    recentReads += request
+                    json(RECENT)
+                }
                 request.query("orderBy") == "random" -> {
                     draws += request
                     if (drawFails) json("""{"detail":"boom"}""", code = 500) else json(DRAW)
                 }
+                request.query("page") == "2" -> json(LATEST_PAGE_2)
                 else -> json(LATEST)
             }
         }
@@ -60,7 +65,7 @@ class HomeViewModelTest {
 
     private fun viewModel() = HomeViewModel(
         recipeRepository = RecipeRepository({ fake.api() }),
-        recentSlugs = flowOf(listOf("vu-recemment")),
+        recentSlugs = flowOf(listOf("vu-recemment", "supprimee", "deja-vue")),
         layout = flowOf(RecipeLayout.GRID),
         newSeed = { "seed-${++seeds}" },
     )
@@ -105,6 +110,29 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun `the recently viewed recipes are read in one request, in the order they were seen`() = runBlocking {
+        val state = viewModel().awaitLoaded()
+
+        assertEquals(listOf("Vu recemment", "Deja vue"), state.recentlyViewed.map { it.name })
+        assertEquals(1, recentReads.size)
+        assertEquals("""slug IN ["vu-recemment","supprimee","deja-vue"]""", recentReads.single().query("queryFilter"))
+    }
+
+    @Test
+    fun `coming back to the tab keeps the pages already scrolled through`() = runBlocking {
+        val vm = viewModel()
+        vm.awaitLoaded()
+        vm.loadMore()
+        withTimeout(TIMEOUT_MS) { vm.state.first { it.latest.page == 2 && !it.loadingMore } }
+
+        vm.onScreenShown()
+        val again = vm.awaitLoaded()
+
+        assertEquals(listOf("r1", "r4"), again.latest.items.map { it.id })
+        assertEquals(2, again.latest.page)
+    }
+
+    @Test
     fun `a failed draw leaves the carousel out without hiding the latest recipes`() = runBlocking {
         drawFails = true
 
@@ -125,8 +153,13 @@ class HomeViewModelTest {
         const val TIMEOUT_MS = 10_000L
 
         const val LATEST = """
-            {"page":1,"per_page":24,"total":1,"total_pages":1,
+            {"page":1,"per_page":24,"total":2,"total_pages":2,
              "items":[{"id":"r1","name":"Poulet au curry","slug":"poulet-au-curry","image":"73"}]}
+        """
+
+        const val LATEST_PAGE_2 = """
+            {"page":2,"per_page":24,"total":2,"total_pages":2,
+             "items":[{"id":"r4","name":"Gratin","slug":"gratin","image":null}]}
         """
 
         const val DRAW = """
@@ -137,9 +170,13 @@ class HomeViewModelTest {
              ]}
         """
 
+        /** Mealie lists what it found in its own order; the one deleted since is missing. */
         const val RECENT = """
-            {"id":"r9","name":"Vu recemment","slug":"vu-recemment","image":null,"recipeServings":2.0,
-             "recipeIngredient":[],"recipeInstructions":[]}
+            {"page":1,"per_page":3,"total":2,"total_pages":1,
+             "items":[
+               {"id":"r8","name":"Deja vue","slug":"deja-vue","image":null},
+               {"id":"r9","name":"Vu recemment","slug":"vu-recemment","image":null}
+             ]}
         """
     }
 }

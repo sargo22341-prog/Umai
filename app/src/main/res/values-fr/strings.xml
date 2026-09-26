@@ -18,23 +18,23 @@
 
     <!-- Erreurs réseau -->
     <string name="error_unreachable_title">Impossible de contacter votre serveur Mealie</string>
-    <string name="error_unreachable_message">Vérifiez votre connexion réseau ou l\'adresse de votre instance.</string>
+    <string name="error_unreachable_message">Vérifiez votre connexion réseau ou l’adresse de votre instance.</string>
     <string name="error_timeout_title">Le serveur a mis trop de temps à répondre</string>
     <string name="error_timeout_message">Votre instance Mealie est peut-être en cours de démarrage ou surchargée.</string>
     <string name="error_tls_title">Connexion sécurisée impossible</string>
-    <string name="error_tls_message">Le certificat de votre instance n\'a pas pu être vérifié. S\'il est signé par votre propre autorité de certification, installez cette autorité sur l\'appareil, puis réessayez.</string>
+    <string name="error_tls_message">Le certificat de votre instance n’a pas pu être vérifié. S’il est signé par votre propre autorité de certification, installez cette autorité sur l’appareil, puis réessayez.</string>
     <string name="error_unauthorized_title">Connexion requise</string>
     <string name="error_unauthorized_message">Votre session a expiré ou vos identifiants ont été refusés.</string>
     <string name="error_not_found_title">Introuvable</string>
-    <string name="error_not_found_message">Cet élément n\'existe plus sur votre instance Mealie.</string>
+    <string name="error_not_found_message">Cet élément n’existe plus sur votre instance Mealie.</string>
     <string name="error_server_title">Erreur du serveur</string>
     <string name="error_server_message">Votre instance Mealie a renvoyé une erreur (code %1$d).</string>
     <string name="error_http_title">Requête refusée</string>
     <string name="error_http_message">Votre instance Mealie a refusé la requête (code %1$d).</string>
     <string name="error_invalid_response_title">Réponse inattendue</string>
-    <string name="error_invalid_response_message">La réponse ne correspond pas à ce que documente l\'API Mealie. L\'instance utilise peut-être une version incompatible.</string>
-    <string name="error_not_mealie_title">Ce n\'est pas une instance Mealie</string>
-    <string name="error_not_mealie_message">Cette adresse répond, mais elle n\'expose pas l\'API Mealie.</string>
+    <string name="error_invalid_response_message">La réponse ne correspond pas à ce que documente l’API Mealie. L’instance utilise peut-être une version incompatible.</string>
+    <string name="error_not_mealie_title">Ce n’est pas une instance Mealie</string>
+    <string name="error_not_mealie_message">Cette adresse répond, mais elle n’expose pas l’API Mealie.</string>
     <string name="error_unknown_title">Une erreur est survenue</string>
     <string name="error_unknown_message">Veuillez réessayer.</string>
 
@@ -48,30 +48,30 @@
     <!-- Configuration -->
     <string name="setup_title">Connectez votre instance</string>
     <string name="setup_intro">Connectez votre instance Mealie pour accéder à vos recettes, à votre planning et à vos listes de courses.</string>
-    <string name="setup_url_label">Adresse de l\'instance</string>
+    <string name="setup_url_label">Adresse de l’instance</string>
     <string name="setup_url_placeholder">mealie.exemple.fr</string>
     <string name="setup_url_helper">Un domaine personnalisé, une adresse IP ou une adresse avec un port fonctionnent. Sans préfixe, HTTPS est utilisé.</string>
     <string name="setup_auth_method">Méthode de connexion</string>
     <!-- Volontairement courts : les deux libellés partagent la même rangée segmentée. -->
     <string name="setup_auth_password">Mot de passe</string>
-    <string name="setup_auth_token">Jeton d\'API</string>
+    <string name="setup_auth_token">Jeton d’API</string>
     <string name="setup_username_label">Identifiant ou e-mail</string>
     <string name="setup_password_label">Mot de passe</string>
-    <string name="setup_token_label">Jeton d\'API</string>
-    <string name="setup_token_helper">Créez un jeton depuis Mealie, dans Réglages, jetons d\'API.</string>
+    <string name="setup_token_label">Jeton d’API</string>
+    <string name="setup_token_helper">Créez un jeton depuis Mealie, dans Réglages, jetons d’API.</string>
     <string name="setup_show_password">Afficher le mot de passe</string>
     <string name="setup_hide_password">Masquer le mot de passe</string>
     <string name="setup_connecting">Connexion…</string>
     <string name="setup_cleartext_warning">Cette adresse utilise HTTP : votre mot de passe et vos recettes circuleront en clair sur le réseau. Préférez HTTPS dès que votre instance le permet.</string>
-    <string name="setup_error_url_empty">Saisissez l\'adresse de votre instance.</string>
+    <string name="setup_error_url_empty">Saisissez l’adresse de votre instance.</string>
     <string name="setup_error_url_invalid">Cette adresse ne peut pas être lue. Exemple : mealie.exemple.fr</string>
     <string name="setup_error_url_scheme">Seuls http et https sont pris en charge.</string>
     <string name="setup_error_credentials_empty">Renseignez votre identifiant et votre mot de passe.</string>
-    <string name="setup_error_token_empty">Collez votre jeton d\'API.</string>
-    <string name="setup_error_password_login_disabled">Cette instance désactive la connexion par mot de passe. Utilisez plutôt un jeton d\'API.</string>
+    <string name="setup_error_token_empty">Collez votre jeton d’API.</string>
+    <string name="setup_error_password_login_disabled">Cette instance désactive la connexion par mot de passe. Utilisez plutôt un jeton d’API.</string>
     <string name="setup_expired_title">Reconnectez-vous</string>
     <string name="setup_expired_message">Votre session sur %1$s a expiré.</string>
-    <string name="setup_error_local_network_denied">Umai a besoin d\'accéder à votre réseau local pour joindre une instance hébergée chez vous. Accordez l\'autorisation, ou autorisez-la depuis les paramètres système de l\'application.</string>
+    <string name="setup_error_local_network_denied">Umai a besoin d’accéder à votre réseau local pour joindre une instance hébergée chez vous. Accordez l’autorisation, ou autorisez-la depuis les paramètres système de l’application.</string>
     <string name="setup_use_other_instance">Utiliser une autre instance</string>
 
     <!-- Accueil -->
@@ -80,7 +80,7 @@
     <string name="cd_discovery_position">Recette %1$d sur %2$d</string>
     <string name="home_section_recent">Consultées récemment</string>
     <string name="home_section_latest">Dernières recettes</string>
-    <string name="home_empty_title">Aucune recette pour l\'instant</string>
+    <string name="home_empty_title">Aucune recette pour l’instant</string>
     <string name="home_empty_message">Ajoutez une première recette depuis Mealie, elle apparaîtra ici.</string>
     <string name="home_search_hint">Rechercher une recette</string>
 
@@ -122,24 +122,24 @@
     <string name="recipe_instructions">Instructions</string>
     <string name="recipe_notes">Notes</string>
     <string name="recipe_nutrition">Nutrition</string>
-    <string name="recipe_open_source">Ouvrir la page d\'origine</string>
+    <string name="recipe_open_source">Ouvrir la page d’origine</string>
     <string name="recipe_cook_mode">Mode cuisine</string>
     <string name="recipe_add_to_list">Ajouter à une liste de courses</string>
     <string name="recipe_add_to_plan">Ajouter au planning</string>
     <string name="recipe_favorite_add">Ajouter aux favoris</string>
     <string name="recipe_favorite_remove">Retirer des favoris</string>
-    <string name="recipe_no_ingredients">Cette recette n\'a aucun ingrédient.</string>
-    <string name="recipe_no_instructions">Cette recette n\'a aucune instruction.</string>
+    <string name="recipe_no_ingredients">Cette recette n’a aucun ingrédient.</string>
+    <string name="recipe_no_instructions">Cette recette n’a aucune instruction.</string>
     <string name="recipe_time_total">Total</string>
     <string name="recipe_time_prep">Préparation</string>
     <string name="recipe_time_cook">Cuisson</string>
     <string name="recipe_added_to_list">Ajouté à %1$s</string>
     <string name="recipe_added_to_plan">Ajouté au planning</string>
-    <string name="recipe_favorite_needs_account">Les favoris nécessitent un compte utilisateur ; un jeton d\'API seul ne suffit pas.</string>
+    <string name="recipe_favorite_needs_account">Les favoris nécessitent un compte utilisateur ; un jeton d’API seul ne suffit pas.</string>
 
     <!-- Commentaires -->
     <string name="recipe_comments">Commentaires</string>
-    <string name="recipe_comments_empty">Aucun commentaire pour l\'instant.</string>
+    <string name="recipe_comments_empty">Aucun commentaire pour l’instant.</string>
     <string name="recipe_comment_placeholder">Écrire un commentaire…</string>
     <string name="recipe_comment_send">Envoyer le commentaire</string>
     <string name="recipe_comment_delete">Supprimer ce commentaire</string>
@@ -166,14 +166,14 @@
     <string name="cooking_exit">Quitter le mode cuisine</string>
     <string name="cooking_steps">Toutes les étapes</string>
     <string name="cooking_ingredients_for_step">Ingrédients de cette étape</string>
-    <string name="cooking_no_steps">Cette recette n\'a aucune instruction à suivre.</string>
+    <string name="cooking_no_steps">Cette recette n’a aucune instruction à suivre.</string>
     <string name="cooking_done_title">Recette terminée</string>
     <string name="cooking_done_message">Bon appétit !</string>
 
     <!-- Planning -->
     <string name="planning_title">Planning</string>
     <string name="planning_yesterday">Hier</string>
-    <string name="planning_today">Aujourd\'hui</string>
+    <string name="planning_today">Aujourd’hui</string>
     <string name="planning_tomorrow">Demain</string>
     <string name="planning_add_meal">Ajouter un repas</string>
     <string name="planning_empty_day">Rien de prévu</string>
@@ -184,7 +184,7 @@
     <string name="planning_delete_entry">Retirer du planning</string>
     <string name="planning_previous_week">Semaine précédente</string>
     <string name="planning_next_week">Semaine suivante</string>
-    <string name="planning_back_to_today">Revenir à aujourd\'hui</string>
+    <string name="planning_back_to_today">Revenir à aujourd’hui</string>
     <string name="planning_search_recipe">Rechercher une recette</string>
     <string name="planning_entry_for">%1$s — %2$s</string>
 
@@ -203,9 +203,9 @@
     <string name="shopping_no_lists_title">Aucune liste de courses</string>
     <string name="shopping_no_lists_message">Créez une liste pour commencer à la remplir, ici ou depuis Mealie.</string>
     <string name="shopping_empty_title">Cette liste est vide</string>
-    <string name="shopping_empty_message">Ajoutez un élément, ou envoyez-y les ingrédients d\'une recette depuis sa fiche.</string>
+    <string name="shopping_empty_message">Ajoutez un élément, ou envoyez-y les ingrédients d’une recette depuis sa fiche.</string>
     <string name="shopping_add_item">Ajouter un élément</string>
-    <string name="shopping_item_placeholder">Deux citrons, huile d\'olive…</string>
+    <string name="shopping_item_placeholder">Deux citrons, huile d’olive…</string>
     <string name="shopping_checked_section">Fait (%1$d)</string>
     <string name="shopping_unlabelled">Autre</string>
     <string name="shopping_delete_list">Supprimer cette liste</string>
@@ -233,30 +233,30 @@
     <string name="profile_import_recipe">Importer une recette</string>
     <string name="profile_import_recipe_summary">Laissez Mealie lire une page web et la transformer en recette.</string>
     <string name="profile_create_recipe">Ajouter une recette</string>
-    <string name="profile_create_recipe_summary">Rédigez une recette étape par étape, en l\'enregistrant comme brouillon au passage.</string>
+    <string name="profile_create_recipe_summary">Rédigez une recette étape par étape, en l’enregistrant comme brouillon au passage.</string>
     <string name="profile_drafts">Mes brouillons</string>
     <string name="profile_drafts_empty">Aucune recette commencée</string>
 
     <!-- Import de recette -->
-    <string name="import_intro">Collez l\'adresse d\'une page de recette : Mealie la lit et crée la recette sur votre instance.</string>
+    <string name="import_intro">Collez l’adresse d’une page de recette : Mealie la lit et crée la recette sur votre instance.</string>
     <string name="import_url_label">Adresse de la page</string>
     <string name="import_url_placeholder">https://exemple.fr/recette</string>
     <string name="import_include_tags">Importer les tags</string>
     <string name="import_include_categories">Importer les catégories</string>
     <string name="import_action">Importer</string>
     <string name="import_running">Import en cours…</string>
-    <string name="import_hint">Si la page n\'est pas reconnue, Mealie crée une recette avec ce qu\'il a pu lire ; vous pourrez la compléter à la main.</string>
+    <string name="import_hint">Si la page n’est pas reconnue, Mealie crée une recette avec ce qu’il a pu lire ; vous pourrez la compléter à la main.</string>
 
     <!-- Création de recette -->
     <string name="create_save_draft">Enregistrer le brouillon et fermer</string>
     <string name="create_step_position">Étape %1$d sur %2$d — %3$s</string>
-    <string name="create_step_basics">L\'essentiel</string>
+    <string name="create_step_basics">L’essentiel</string>
     <string name="create_step_organizers">Catégories et tags</string>
     <string name="create_previous">Précédent</string>
     <string name="create_next">Suivant</string>
     <string name="create_publish">Créer la recette</string>
     <string name="create_name_label">Nom de la recette</string>
-    <string name="create_name_helper">Obligatoire : Mealie en déduit l\'adresse de la recette.</string>
+    <string name="create_name_helper">Obligatoire : Mealie en déduit l’adresse de la recette.</string>
     <string name="create_description_label">Description</string>
     <string name="create_time_placeholder">30 minutes</string>
     <string name="create_time_helper">Les durées sont du texte libre côté Mealie : écrivez-les comme vous voulez les relire.</string>
@@ -270,18 +270,18 @@
     <string name="create_add_step">Ajouter une étape</string>
     <string name="create_remove_step">Retirer cette étape</string>
     <string name="create_organizers_helper">Seuls les catégories et tags déjà présents sur votre instance sont proposés ; créez les autres depuis Mealie.</string>
-    <string name="create_no_organizer">Rien sur cette instance pour l\'instant.</string>
+    <string name="create_no_organizer">Rien sur cette instance pour l’instant.</string>
 
     <!-- Brouillons -->
     <string name="drafts_empty_title">Aucun brouillon</string>
-    <string name="drafts_empty_message">Une recette que vous commencez à écrire reste ici jusqu\'à sa création sur Mealie.</string>
+    <string name="drafts_empty_message">Une recette que vous commencez à écrire reste ici jusqu’à sa création sur Mealie.</string>
     <string name="drafts_untitled">Recette sans titre</string>
     <string name="drafts_updated_at">Modifié le %1$s</string>
     <string name="drafts_delete_title">Supprimer ce brouillon ?</string>
-    <string name="drafts_delete_message">Le brouillon n\'existe que sur cet appareil et ne pourra pas être récupéré.</string>
+    <string name="drafts_delete_message">Le brouillon n’existe que sur cet appareil et ne pourra pas être récupéré.</string>
 
     <!-- Réglages -->
-    <string name="settings_app_title">Réglages de l\'application</string>
+    <string name="settings_app_title">Réglages de l’application</string>
     <string name="settings_app_summary">Langue, thème, affichage et mode cuisine.</string>
     <string name="settings_mealie_title">Réglages Mealie</string>
     <string name="settings_mealie_summary">Instance, compte et préférences de votre foyer.</string>
@@ -293,12 +293,12 @@
     <string name="settings_status_expired">Session expirée</string>
     <string name="settings_status_checking">Vérification…</string>
     <string name="settings_auth_password">Identifiant et mot de passe</string>
-    <string name="settings_auth_token">Jeton d\'API</string>
+    <string name="settings_auth_token">Jeton d’API</string>
     <string name="settings_check_connection">Vérifier la connexion</string>
-    <string name="settings_change_instance">Changer d\'instance</string>
+    <string name="settings_change_instance">Changer d’instance</string>
     <string name="settings_sign_out">Se déconnecter</string>
     <string name="settings_sign_out_title">Se déconnecter ?</string>
-    <string name="settings_sign_out_message">Umai oubliera cette instance et son jeton. Rien n\'est supprimé sur votre serveur Mealie.</string>
+    <string name="settings_sign_out_message">Umai oubliera cette instance et son jeton. Rien n’est supprimé sur votre serveur Mealie.</string>
     <string name="settings_section_app">Application</string>
     <string name="settings_language">Langue</string>
     <string name="settings_language_system">Langue du système</string>
@@ -308,13 +308,13 @@
     <string name="settings_theme_system">Système</string>
     <string name="settings_theme_light">Clair</string>
     <string name="settings_theme_dark">Sombre</string>
-    <string name="settings_dynamic_color">Couleurs du fond d\'écran</string>
-    <string name="settings_dynamic_color_summary">Utiliser la palette Android tirée de votre fond d\'écran à la place de la palette Umai.</string>
+    <string name="settings_dynamic_color">Couleurs du fond d’écran</string>
+    <string name="settings_dynamic_color_summary">Utiliser la palette Android tirée de votre fond d’écran à la place de la palette Umai.</string>
     <string name="settings_layout">Affichage des recettes</string>
     <string name="settings_layout_grid">Grille</string>
     <string name="settings_layout_list">Liste</string>
-    <string name="settings_keep_screen_on">Garder l\'écran allumé en cuisine</string>
-    <string name="settings_keep_screen_on_summary">L\'écran reste allumé tant que le mode cuisine est ouvert.</string>
+    <string name="settings_keep_screen_on">Garder l’écran allumé en cuisine</string>
+    <string name="settings_keep_screen_on_summary">L’écran reste allumé tant que le mode cuisine est ouvert.</string>
     <string name="settings_section_household">Votre foyer</string>
     <string name="settings_first_day_of_week">Premier jour de la semaine</string>
     <string name="settings_show_nutrition">Afficher la nutrition</string>
@@ -328,9 +328,9 @@
     <string name="settings_private_household">Foyer privé</string>
     <string name="settings_private_household_summary">Garder le foyer en dehors des pages publiques du groupe.</string>
     <string name="settings_household_read_only">Seul un gestionnaire du foyer peut modifier ces préférences. Demandez ce droit à un administrateur de votre instance.</string>
-    <string name="settings_household_unavailable">Ces préférences n\'ont pas pu être lues depuis votre instance.</string>
+    <string name="settings_household_unavailable">Ces préférences n’ont pas pu être lues depuis votre instance.</string>
     <string name="settings_section_about">À propos</string>
-    <string name="settings_app_version">Version d\'Umai</string>
+    <string name="settings_app_version">Version d’Umai</string>
     <string name="settings_server_version">Version de Mealie</string>
     <string name="settings_about_description">Umai est un client Android natif pour Mealie. Il ne requiert aucun service Google et conserve vos données sur votre propre instance.</string>
 
@@ -339,13 +339,13 @@
     <string name="unit_minute_short">min</string>
     <string name="value_unknown">—</string>
 
-    <!-- Descriptions d\'accessibilité -->
+    <!-- Descriptions d’accessibilité -->
     <string name="cd_recipe_image">Photo de %1$s</string>
-    <string name="cd_recipe_no_image">Cette recette n\'a pas de photo</string>
-    <string name="cd_step_image">Photo de l\'étape %1$d</string>
+    <string name="cd_recipe_no_image">Cette recette n’a pas de photo</string>
+    <string name="cd_step_image">Photo de l’étape %1$d</string>
     <string name="cd_open_filters">Ouvrir les filtres</string>
     <string name="cd_search">Rechercher</string>
-    <string name="cd_more_options">Plus d\'options</string>
+    <string name="cd_more_options">Plus d’options</string>
     <string name="cd_rating">Note de %1$s sur 5</string>
 
     <plurals name="plural_servings">
@@ -369,20 +369,20 @@
     <string name="filter_search_tags">Saisissez un tag</string>
     <string name="filter_search_foods">Saisissez un ingrédient</string>
     <string name="filter_remove_entry">Retirer %1$s</string>
-    <string name="sort_created">Date d\'ajout</string>
+    <string name="sort_created">Date d’ajout</string>
     <string name="sort_name">Nom</string>
     <string name="sort_ascending">Croissant</string>
     <string name="sort_descending">Décroissant</string>
     <string name="recipe_edit">Modifier la recette</string>
-    <string name="recipe_rating_needs_account">Noter une recette nécessite un compte utilisateur ; un jeton d\'API seul ne suffit pas.</string>
+    <string name="recipe_rating_needs_account">Noter une recette nécessite un compte utilisateur ; un jeton d’API seul ne suffit pas.</string>
     <string name="recipe_rating_none">Pas encore notée</string>
     <string name="settings_section_recipe_page">Page recette</string>
     <string name="settings_recipe_times">Durées</string>
     <string name="settings_recipe_times_summary">Temps de préparation, de cuisson et total</string>
     <string name="settings_recipe_nutrition">Nutrition</string>
     <string name="settings_recipe_nutrition_summary">Valeurs nutritionnelles, quand la recette en a</string>
-    <string name="settings_recipe_source">Lien d\'origine</string>
-    <string name="settings_recipe_source_summary">La page d\'où la recette a été importée</string>
+    <string name="settings_recipe_source">Lien d’origine</string>
+    <string name="settings_recipe_source_summary">La page d’où la recette a été importée</string>
     <string name="settings_recipe_comments">Commentaires</string>
     <string name="settings_recipe_comments_summary">Ce que le foyer a écrit, et le champ pour ajouter un commentaire</string>
     <string name="crop_title">Cadrer la photo</string>
@@ -390,14 +390,14 @@
     <string name="crop_zoom">Zoom</string>
     <string name="crop_confirm">Utiliser cette photo</string>
     <string name="crop_image">Photo en cours de cadrage</string>
-    <string name="crop_unreadable">Impossible d\'ouvrir cette photo.</string>
+    <string name="crop_unreadable">Impossible d’ouvrir cette photo.</string>
     <string name="image_source_title">Choisir une photo</string>
     <string name="image_source_gallery">Galerie photo</string>
     <string name="image_source_camera">Prendre une photo</string>
     <string name="image_source_files">Parcourir les fichiers</string>
-    <string name="image_camera_unavailable">Aucune application d\'appareil photo n\'est disponible sur cet appareil.</string>
+    <string name="image_camera_unavailable">Aucune application d’appareil photo n’est disponible sur cet appareil.</string>
     <string name="create_step_image">Photo</string>
-    <string name="create_image_helper">Facultatif : la photo affichée en haut de la recette. Vous la cadrez avant qu\'elle soit conservée.</string>
+    <string name="create_image_helper">Facultatif : la photo affichée en haut de la recette. Vous la cadrez avant qu’elle soit conservée.</string>
     <string name="create_image_preview">Photo de la recette</string>
     <string name="create_image_pick">Ajouter une photo</string>
     <string name="create_image_change">Changer la photo</string>
@@ -406,13 +406,13 @@
     <string name="edit_title">Modifier la recette</string>
     <string name="edit_save">Enregistrer</string>
     <string name="edit_discard_title">Abandonner les modifications ?</string>
-    <string name="edit_discard_message">Vos modifications n\'ont pas été enregistrées sur Mealie.</string>
+    <string name="edit_discard_message">Vos modifications n’ont pas été enregistrées sur Mealie.</string>
     <string name="edit_discard_confirm">Abandonner</string>
     <string name="edit_keep_editing">Continuer</string>
-    <string name="edit_more_actions">Plus d\'actions</string>
+    <string name="edit_more_actions">Plus d’actions</string>
     <string name="edit_delete">Supprimer la recette</string>
     <string name="edit_delete_title">Supprimer « %1$s » ?</string>
-    <string name="edit_delete_message">La recette sera supprimée de Mealie, pour tous les utilisateurs de l\'instance. Cette action est définitive.</string>
+    <string name="edit_delete_message">La recette sera supprimée de Mealie, pour tous les utilisateurs de l’instance. Cette action est définitive.</string>
     <string name="edit_delete_confirm">Supprimer</string>
     <string name="edit_section_video">Vidéo</string>
     <string name="cd_edit_video">Vidéo de la recette</string>
@@ -421,7 +421,7 @@
     <string name="edit_video_position">%1$s / %2$s</string>
     <string name="edit_video_loading">Chargement de la vidéo…</string>
     <string name="edit_video_unavailable">La vidéo ne peut pas être lue pour le moment. Les temps peuvent quand même être saisis.</string>
-    <string name="edit_video_helper">Pour chaque étape, mettez la vidéo en pause là où l\'étape commence, puis touchez le bouton de début. Le mode cuisine joue chaque étape en boucle, de son début jusqu\'à l\'étape suivante.</string>
+    <string name="edit_video_helper">Pour chaque étape, mettez la vidéo en pause là où l’étape commence, puis touchez le bouton de début. Le mode cuisine joue chaque étape en boucle, de son début jusqu’à l’étape suivante.</string>
     <string name="edit_video_start">Début</string>
     <string name="edit_video_not_placed">Pas dans la vidéo</string>
     <string name="edit_video_start_here">%1$s : commencer ici</string>
@@ -430,14 +430,14 @@
     <string name="edit_video_end">Fin</string>
     <string name="edit_video_end_next">Étape suivante</string>
     <string name="edit_video_end_here">%1$s : finir ici</string>
-    <string name="edit_video_end_clear">%1$s : finir à l\'étape suivante</string>
+    <string name="edit_video_end_clear">%1$s : finir à l’étape suivante</string>
     <string name="edit_video_end_before_start">La fin doit venir après le début</string>
     <string name="edit_video_time_format">Écrivez minutes:secondes, par exemple 1:25</string>
-    <string name="edit_delete_failed">La recette n\'a pas pu être supprimée.</string>
+    <string name="edit_delete_failed">La recette n’a pas pu être supprimée.</string>
     <string name="notice_draft_saved">Brouillon enregistré</string>
     <string name="notice_recipe_saved">Recette enregistrée</string>
     <string name="notice_recipe_deleted">Recette supprimée</string>
-    <string name="notice_recipe_created_without_image">Recette créée sans sa photo : ajoutez-la depuis l\'édition</string>
+    <string name="notice_recipe_created_without_image">Recette créée sans sa photo : ajoutez-la depuis l’édition</string>
     <plurals name="filter_rating_stars">
         <item quantity="one">%1$d étoile</item>
         <item quantity="other">%1$d étoiles</item>
@@ -464,59 +464,59 @@
         <item quantity="many">Noter %1$d étoiles</item>
     </plurals>
 
-    <!-- Partage vers l'application -->
+    <!-- Partage vers l’application -->
     <string name="share_import_label">Importer dans Umai</string>
 
     <!-- Import : doublons et fournisseurs -->
-    <string name="import_checking">Vérification de l\'instance…</string>
+    <string name="import_checking">Vérification de l’instance…</string>
     <string name="import_fetching_media">Récupération de la vidéo et des photos…</string>
-    <string name="import_provider_hint">Page %1$s : sa vidéo découpée par étape et ses photos d\'étapes seront aussi récupérées.</string>
+    <string name="import_provider_hint">Page %1$s : sa vidéo découpée par étape et ses photos d’étapes seront aussi récupérées.</string>
     <string name="import_duplicate_title">Déjà sur votre instance</string>
     <string name="import_duplicate_message">« %1$s » a déjà été importée depuis cette page.</string>
-    <string name="import_duplicate_open">L\'ouvrir</string>
+    <string name="import_duplicate_open">L’ouvrir</string>
     <string name="import_duplicate_anyway">Importer quand même</string>
-    <string name="notice_recipe_imported_without_media">Recette importée, mais sa vidéo et ses photos n\'ont pas pu être récupérées</string>
+    <string name="notice_recipe_imported_without_media">Recette importée, mais sa vidéo et ses photos n’ont pas pu être récupérées</string>
 
     <!-- Fournisseurs -->
     <string name="providers_title">Fournisseurs de recettes</string>
-    <string name="providers_summary">Vidéos et photos d\'étapes des sites depuis lesquels vous importez.</string>
-    <string name="providers_intro">Certains sites publient plus qu\'une recette : une vidéo découpée par étape, des photos des étapes. Mealie ne les conserve pas ; l\'application les récupère pour les fournisseurs ci-dessous.</string>
-    <string name="provider_unknown">Ce fournisseur n\'est pas disponible.</string>
+    <string name="providers_summary">Vidéos et photos d’étapes des sites depuis lesquels vous importez.</string>
+    <string name="providers_intro">Certains sites publient plus qu’une recette : une vidéo découpée par étape, des photos des étapes. Mealie ne les conserve pas ; l’application les récupère pour les fournisseurs ci-dessous.</string>
+    <string name="provider_unknown">Ce fournisseur n’est pas disponible.</string>
     <string name="provider_jow_description">Jow publie une vidéo pour la plupart de ses recettes, découpée étape par étape. Le mode cuisine lit le passage de chaque étape, et les photos des étapes sont récupérées quand Jow en fournit.</string>
     <string name="provider_section_import">Import</string>
-    <string name="provider_import_media">Récupérer la vidéo et les photos d\'étapes</string>
-    <string name="provider_import_media_summary">Quand une recette de ce fournisseur est importée, les chapitres de sa vidéo et ses photos d\'étapes sont enregistrés avec elle sur Mealie. La vidéo elle-même est lue depuis le fournisseur.</string>
+    <string name="provider_import_media">Récupérer la vidéo et les photos d’étapes</string>
+    <string name="provider_import_media_summary">Quand une recette de ce fournisseur est importée, les chapitres de sa vidéo et ses photos d’étapes sont enregistrés avec elle sur Mealie. La vidéo elle-même est lue depuis le fournisseur.</string>
 
     <!-- Ingrédients liés aux étapes -->
-    <string name="links_helper">Chaque étape peut lister les ingrédients qu\'elle utilise : le mode cuisine les affiche avec l\'étape. La liaison trouve les ingrédients que chaque étape mentionne et conserve les liens déjà présents.</string>
+    <string name="links_helper">Chaque étape peut lister les ingrédients qu’elle utilise : le mode cuisine les affiche avec l’étape. La liaison trouve les ingrédients que chaque étape mentionne et conserve les liens déjà présents.</string>
     <string name="links_action">Lier les ingrédients aux étapes</string>
     <string name="links_step_ingredients">Ingrédients de cette étape</string>
     <string name="links_remove">Retirer le lien vers %1$s</string>
 
-    <!-- Photos d'étapes -->
+    <!-- Photos d’étapes -->
     <string name="step_photo_add">Ajouter une photo</string>
     <string name="step_photo_change">Changer la photo</string>
     <string name="cd_ingredients_photo">Photo des ingrédients</string>
 
     <!-- Mode cuisine : vidéo et fin -->
-    <string name="cd_step_video">Vidéo de l\'étape %1$d</string>
+    <string name="cd_step_video">Vidéo de l’étape %1$d</string>
     <string name="cooking_video_failed">La vidéo de cette étape ne peut pas être lue.</string>
     <string name="cooking_video_sound_on">Activer le son de la vidéo</string>
     <string name="cooking_video_sound_off">Couper le son de la vidéo</string>
     <string name="cooking_mark_cooked">Marquer comme cuisinée</string>
-    <string name="cooking_mark_cooked_summary">L\'ajoute à l\'historique de la recette sur Mealie et met à jour sa date de dernière réalisation.</string>
+    <string name="cooking_mark_cooked_summary">L’ajoute à l’historique de la recette sur Mealie et met à jour sa date de dernière réalisation.</string>
     <string name="cooking_leave">Quitter</string>
     <string name="cooking_timeline_subject">Recette cuisinée</string>
     <string name="notice_recipe_cooked">Recette marquée comme cuisinée</string>
 
     <!-- Filtre calories -->
     <string name="filter_calories">Calories</string>
-    <string name="filter_calories_up_to">Jusqu\'à %1$d kcal</string>
+    <string name="filter_calories_up_to">Jusqu’à %1$d kcal</string>
     <string name="filter_calories_unknown">Sans calories</string>
-    <string name="filter_calories_hint">Les calories sont du texte libre dans Mealie : le filtre s\'appuie sur le tag « calorie-… » que porte chaque recette avec des calories. Les recettes sont taguées quand elles sont créées, modifiées ou importées.</string>
+    <string name="filter_calories_hint">Les calories sont du texte libre dans Mealie : le filtre s’appuie sur le tag « calorie-… » que porte chaque recette avec des calories. Les recettes sont taguées quand elles sont créées, modifiées ou importées.</string>
     <string name="settings_section_recipes">Recettes</string>
     <string name="settings_calorie_tags">Tags calories</string>
-    <string name="settings_calorie_tags_summary">Donne à chaque recette avec des calories le tag « calorie-… » sur lequel s\'appuie le filtre, et corrige ceux qui ont changé. Les recettes déjà à jour ne sont pas modifiées.</string>
+    <string name="settings_calorie_tags_summary">Donne à chaque recette avec des calories le tag « calorie-… » sur lequel s’appuie le filtre, et corrige ceux qui ont changé. Les recettes déjà à jour ne sont pas modifiées.</string>
     <string name="settings_calorie_tags_action">Mettre à jour les tags calories</string>
     <string name="settings_calorie_tags_running">Mise à jour…</string>
     <string name="settings_calorie_tags_done">Recettes vérifiées : %1$d. Mises à jour : %2$d. En échec : %3$d.</string>
@@ -528,7 +528,7 @@
     <string name="week_shopping_step_servings">Portions</string>
     <string name="week_shopping_step_ingredients">Ingrédients</string>
     <string name="week_shopping_meals">Recettes planifiées</string>
-    <string name="week_shopping_no_recipe">Aucune recette n\'est planifiée sur ces jours.</string>
+    <string name="week_shopping_no_recipe">Aucune recette n’est planifiée sur ces jours.</string>
     <string name="week_shopping_no_servings">Nombre de portions inconnu : les quantités sont envoyées telles quelles.</string>
     <plurals name="week_shopping_done">
         <item quantity="one">%1$d recette ajoutée à « %2$s ».</item>
@@ -564,11 +564,11 @@
     <string name="shopping_mode_basket">Dans le panier (%1$d)</string>
 
     <!-- Mealie settings: where each preference applies -->
-    <string name="settings_household_intro">Ces préférences sont enregistrées sur votre serveur Mealie et s\'appliquent à son site. La plupart ne changent rien dans l\'application, comme indiqué ci-dessous.</string>
-    <string name="settings_scope_server_only">Serveur Mealie uniquement — sans effet dans l\'app</string>
-    <string name="settings_scope_first_day">S\'applique aussi dans l\'app : les semaines du planning commencent ce jour-là</string>
-    <string name="settings_scope_nutrition">Serveur Mealie uniquement — l\'app affiche la nutrition dès qu\'une recette en a ; voir les réglages de l\'app</string>
-    <string name="settings_scope_comments">S\'applique aussi dans l\'app, aux recettes créées ensuite</string>
+    <string name="settings_household_intro">Ces préférences sont enregistrées sur votre serveur Mealie et s’appliquent à son site. La plupart ne changent rien dans l’application, comme indiqué ci-dessous.</string>
+    <string name="settings_scope_server_only">Serveur Mealie uniquement — sans effet dans l’app</string>
+    <string name="settings_scope_first_day">S’applique aussi dans l’app : les semaines du planning commencent ce jour-là</string>
+    <string name="settings_scope_nutrition">Serveur Mealie uniquement — l’app affiche la nutrition dès qu’une recette en a ; voir les réglages de l’app</string>
+    <string name="settings_scope_comments">S’applique aussi dans l’app, aux recettes créées ensuite</string>
 
     <!-- Cooking mode timers -->
     <string name="unit_second_short">s</string>
@@ -583,7 +583,7 @@
     <string name="cooking_timer_action_resume">Reprendre</string>
     <string name="cooking_timer_paused">%1$s · en pause, encore %2$s</string>
     <string name="cooking_timer_of_recipe">%1$s · %2$s</string>
-    <string name="cooking_timer_open">Ouvrir l\'étape de ce minuteur</string>
+    <string name="cooking_timer_open">Ouvrir l’étape de ce minuteur</string>
     <string name="cooking_timer_stop_named">Arrêter le minuteur %1$s</string>
     <plurals name="cooking_timers_running">
         <item quantity="one">%1$d minuteur de cuisine</item>
@@ -593,76 +593,76 @@
     <string name="cooking_timer_channel_running">Minuteurs en cours</string>
     <string name="cooking_timer_channel_running_description">Affiche les minuteurs de cuisine pendant leur décompte.</string>
     <string name="cooking_timer_channel_alarm">Minuteurs terminés</string>
-    <string name="cooking_timer_channel_alarm_description">Affiche un minuteur de cuisine arrivé à zéro, pendant qu\'il sonne.</string>
-    <string name="cooking_timer_notifications_off">Notifications désactivées : les minuteurs sonnent quand même, mais ne s\'affichent que dans l\'app.</string>
+    <string name="cooking_timer_channel_alarm_description">Affiche un minuteur de cuisine arrivé à zéro, pendant qu’il sonne.</string>
+    <string name="cooking_timer_notifications_off">Notifications désactivées : les minuteurs sonnent quand même, mais ne s’affichent que dans l’app.</string>
     <string name="settings_section_cooking">Mode cuisine</string>
     <string name="settings_detect_timers">Minuteurs des étapes</string>
     <string name="settings_detect_timers_summary">Proposer un minuteur pour chaque durée écrite dans une étape (« cuire 15 min » → Démarrer 15 min)</string>
     <string name="settings_timer_sound">Son des minuteurs</string>
-    <string name="settings_timer_sound_summary">Sonner avec l\'alarme du téléphone quand un minuteur se termine</string>
+    <string name="settings_timer_sound_summary">Sonner avec l’alarme du téléphone quand un minuteur se termine</string>
     <string name="settings_timer_vibrate">Vibration des minuteurs</string>
     <string name="settings_timer_vibrate_summary">Vibrer quand un minuteur se termine</string>
 
     <!-- Providers: step photos only -->
     <string name="provider_750g_description">Les recettes « pas à pas » de 750g donnent une photo pour chaque étape. Elles sont récupérées et associées à leur étape, puis affichées sur la page de la recette et dans le mode cuisine.</string>
     <string name="provider_marmiton_description">Quand une recette Marmiton donne des photos de ses étapes, elles sont récupérées et associées à leur étape, puis affichées sur la page de la recette et dans le mode cuisine.</string>
-    <string name="provider_import_photos">Récupérer automatiquement les photos d\'étapes</string>
+    <string name="provider_import_photos">Récupérer automatiquement les photos d’étapes</string>
     <string name="provider_import_photos_summary">Quand une recette de ce fournisseur est importée, la photo de chaque étape est enregistrée avec la recette sur Mealie et associée à son étape.</string>
-    <string name="import_provider_hint_photos">Page %1$s : ses photos d\'étapes seront aussi récupérées, si elle en a.</string>
+    <string name="import_provider_hint_photos">Page %1$s : ses photos d’étapes seront aussi récupérées, si elle en a.</string>
 
     <!-- Local AI -->
     <string name="local_ai_title">IA locale</string>
     <string name="local_ai_summary">Un modèle de langage qui tourne sur le téléphone, pour les fonctions intelligentes</string>
-    <string name="local_ai_intro">Un modèle de langage téléchargé une fois tourne sur ce téléphone, sans aucun service en ligne : rien de ce que vous importez ou planifiez ne quitte l\'appareil. Il reconstruit les recettes à partir des vidéos, reconnaît les plats pour le planning et lit les étiquettes nutritionnelles. Toutes les fonctions marchent aussi sans lui, avec des règles plus simples.</string>
-    <string name="local_ai_unsupported">Ce téléphone ne peut pas faire tourner l\'IA locale : il lui faut un processeur ARM 64 bits.</string>
-    <string name="local_ai_enabled">Utiliser l\'IA locale</string>
+    <string name="local_ai_intro">Un modèle de langage téléchargé une fois tourne sur ce téléphone, sans aucun service en ligne : rien de ce que vous importez ou planifiez ne quitte l’appareil. Il reconstruit les recettes à partir des vidéos, reconnaît les plats pour le planning et lit les étiquettes nutritionnelles. Toutes les fonctions marchent aussi sans lui, avec des règles plus simples.</string>
+    <string name="local_ai_unsupported">Ce téléphone ne peut pas faire tourner l’IA locale : il lui faut un processeur ARM 64 bits.</string>
+    <string name="local_ai_enabled">Utiliser l’IA locale</string>
     <string name="local_ai_enabled_summary">Désactivée, le modèle reste téléchargé et les fonctions utilisent leurs règles simples.</string>
     <string name="local_ai_section_installed">Modèle installé</string>
-    <string name="local_ai_none_installed">Aucun modèle n\'est encore installé. Choisissez-en un ci-dessous : il se télécharge en Wi-Fi.</string>
+    <string name="local_ai_none_installed">Aucun modèle n’est encore installé. Choisissez-en un ci-dessous : il se télécharge en Wi-Fi.</string>
     <string name="local_ai_section_models">Modèles</string>
-    <string name="local_ai_device_memory">Ce téléphone a %1$s Go de mémoire. Le modèle n\'est chargé que pendant qu\'il travaille, et libéré une minute après.</string>
+    <string name="local_ai_device_memory">Ce téléphone a %1$s Go de mémoire. Le modèle n’est chargé que pendant qu’il travaille, et libéré une minute après.</string>
     <string name="local_ai_section_custom">Un autre modèle</string>
     <string name="local_ai_model_meta">%1$s Go · %2$s</string>
     <string name="local_ai_benchmark">Tester la vitesse</string>
-    <string name="local_ai_benchmark_running">Chargement du modèle et rédaction d\'une courte réponse…</string>
-    <string name="local_ai_benchmark_failed">Le modèle n\'a pas pu tourner. Le téléphone manque peut-être de mémoire libre : fermez d\'autres applications, ou choisissez un modèle plus petit.</string>
+    <string name="local_ai_benchmark_running">Chargement du modèle et rédaction d’une courte réponse…</string>
+    <string name="local_ai_benchmark_failed">Le modèle n’a pas pu tourner. Le téléphone manque peut-être de mémoire libre : fermez d’autres applications, ou choisissez un modèle plus petit.</string>
     <string name="local_ai_benchmark_generation">Écrit %1$s jetons par seconde</string>
     <string name="local_ai_benchmark_prompt">Lit %1$s jetons par seconde</string>
     <string name="local_ai_benchmark_details">Chargé en %1$s s · %2$s Go de mémoire · a tourné sur le %3$s</string>
     <string name="local_ai_downloading">Téléchargement de %1$s</string>
-    <string name="local_ai_download_waiting">En attente d\'un réseau Wi-Fi</string>
+    <string name="local_ai_download_waiting">En attente d’un réseau Wi-Fi</string>
     <string name="local_ai_download_progress">%1$s sur %2$s Go</string>
     <string name="local_ai_download_description">Modèle de langage pour Umai</string>
     <string name="local_ai_verifying">Vérification de %1$s</string>
-    <string name="local_ai_failure_storage">%1$s n\'a pas pu être enregistré : le stockage du téléphone n\'est pas disponible.</string>
-    <string name="local_ai_failure_space">Pas assez d\'espace libre pour %1$s.</string>
+    <string name="local_ai_failure_storage">%1$s n’a pas pu être enregistré : le stockage du téléphone n’est pas disponible.</string>
+    <string name="local_ai_failure_space">Pas assez d’espace libre pour %1$s.</string>
     <string name="local_ai_failure_download">Le téléchargement de %1$s a échoué. Réessayez plus tard.</string>
     <string name="local_ai_failure_corrupted">Le fichier de %1$s est abîmé et a été supprimé. Réessayez.</string>
-    <string name="local_ai_failure_not_model">%1$s n\'est pas un fichier de modèle LiteRT-LM (.litertlm).</string>
+    <string name="local_ai_failure_not_model">%1$s n’est pas un fichier de modèle LiteRT-LM (.litertlm).</string>
     <string name="local_ai_recommended">Recommandé</string>
-    <string name="local_ai_model_tight">Gros pour ce téléphone : il peut ne pas se charger, ou tourner très lentement, quand d\'autres applications occupent la mémoire.</string>
+    <string name="local_ai_model_tight">Gros pour ce téléphone : il peut ne pas se charger, ou tourner très lentement, quand d’autres applications occupent la mémoire.</string>
     <string name="local_ai_model_installed">Installé</string>
     <string name="local_ai_download">Télécharger</string>
     <string name="speech_section">Transcription de la parole</string>
-    <string name="speech_intro">Whisper écrit, sur ce téléphone, ce qui est dit dans une vidéo sans sous-titres, pour en placer les étapes. Sans lui, une telle vidéo n\'est pas écoutée. Ce modèle se choisit à part du modèle de langage ci-dessus.</string>
+    <string name="speech_intro">Whisper écrit, sur ce téléphone, ce qui est dit dans une vidéo sans sous-titres, pour en placer les étapes. Sans lui, une telle vidéo n’est pas écoutée. Ce modèle se choisit à part du modèle de langage ci-dessus.</string>
     <string name="speech_model_base">Le plus rapide : une minute de parole en 12 secondes environ sur un Pixel 10, 20 sur un Pixel 6 Pro, avec quelques mots mal compris en français.</string>
     <string name="speech_model_small">Un français presque sans faute : une minute de parole en 40 secondes environ sur un Pixel 10, une minute sur un Pixel 6 Pro.</string>
     <string name="speech_model_turbo">Le plus précis, mais lent : une minute de parole prend 3 minutes environ sur un Pixel 10, et plus de 5 sur un Pixel 6 Pro. Pour les téléphones récents.</string>
     <string name="speech_model_meta">%1$s Mo · %2$s</string>
     <string name="speech_download_progress">%1$s sur %2$s Mo</string>
     <string name="speech_download_description">Modèle de transcription pour umai</string>
-    <string name="local_ai_custom_hint">Tout modèle d\'instruction au format LiteRT-LM, par l\'adresse de son fichier, comme un lien de téléchargement Hugging Face. Il tourne sur le processeur ou le GPU, et remplace le modèle installé.</string>
-    <string name="local_ai_custom_label">Adresse d\'un fichier .litertlm</string>
+    <string name="local_ai_custom_hint">Tout modèle d’instruction au format LiteRT-LM, par l’adresse de son fichier, comme un lien de téléchargement Hugging Face. Il tourne sur le processeur ou le GPU, et remplace le modèle installé.</string>
+    <string name="local_ai_custom_label">Adresse d’un fichier .litertlm</string>
     <string name="local_ai_custom_invalid">Une adresse https qui se termine par le nom du fichier .litertlm</string>
     <string name="local_ai_model_gemma4_e2b">Le modèle de Google pour les téléphones, bon pour les recettes en français et en anglais. Sur un Pixel à puce Tensor G5 ou G6, sa version pour le TPU est fournie avec.</string>
-    <string name="local_ai_model_gemma4_e4b">Plus grand et plus fin, mais bien plus lent, et pour les téléphones à beaucoup de mémoire : sur un Pixel 6 Pro (12 Go), il n\'avait pas reconstruit une vidéo au bout de 27 minutes. Il tourne sur le processeur ou le GPU.</string>
+    <string name="local_ai_model_gemma4_e4b">Plus grand et plus fin, mais bien plus lent, et pour les téléphones à beaucoup de mémoire : sur un Pixel 6 Pro (12 Go), il n’avait pas reconstruit une vidéo au bout de 27 minutes. Il tourne sur le processeur ou le GPU.</string>
     <string name="local_ai_model_tpu">Comprend la version pour le TPU de la puce %1$s.</string>
-    <string name="local_ai_device_tpu">Ce téléphone a une puce %1$s : le modèle tourne sur son TPU quand c\'est possible, sinon sur son processeur, et sur son GPU pour les textes les plus longs, comme la transcription d\'une longue vidéo.</string>
-    <string name="local_ai_device_no_tpu">Ce téléphone (%1$s) n\'a pas de TPU utilisable par l\'application : le modèle tourne sur son processeur, et sur son GPU pour les textes les plus longs, comme la transcription d\'une longue vidéo.</string>
+    <string name="local_ai_device_tpu">Ce téléphone a une puce %1$s : le modèle tourne sur son TPU quand c’est possible, sinon sur son processeur, et sur son GPU pour les textes les plus longs, comme la transcription d’une longue vidéo.</string>
+    <string name="local_ai_device_no_tpu">Ce téléphone (%1$s) n’a pas de TPU utilisable par l’application : le modèle tourne sur son processeur, et sur son GPU pour les textes les plus longs, comme la transcription d’une longue vidéo.</string>
     <string name="local_ai_running_on">Tourne sur le %1$s</string>
     <string name="local_ai_channel">IA locale</string>
     <string name="local_ai_channel_description">Montre le modèle de langage au travail sur le téléphone.</string>
-    <string name="local_ai_working">L\'IA locale travaille</string>
+    <string name="local_ai_working">L’IA locale travaille</string>
     <string name="local_ai_reading">Lecture et rédaction</string>
     <plurals name="local_ai_writing">
         <item quantity="one">%d jeton écrit</item>
@@ -671,13 +671,13 @@
     </plurals>
 
     <!-- Import of a YouTube video -->
-    <string name="import_video_hint_model">Vidéo YouTube : l\'IA locale reconstruit la recette à partir de la transcription, des chapitres et de la description, et relie chaque étape à son passage de la vidéo. Comptez quelques minutes.</string>
-    <string name="import_video_hint_rules">Vidéo YouTube : la recette est reconstruite à partir de la description et des chapitres. Installez l\'IA locale, dans votre profil, pour une recette réécrite à partir de toute la vidéo.</string>
+    <string name="import_video_hint_model">Vidéo YouTube : l’IA locale reconstruit la recette à partir de la transcription, des chapitres et de la description, et relie chaque étape à son passage de la vidéo. Comptez quelques minutes.</string>
+    <string name="import_video_hint_rules">Vidéo YouTube : la recette est reconstruite à partir de la description et des chapitres. Installez l’IA locale, dans votre profil, pour une recette réécrite à partir de toute la vidéo.</string>
     <string name="import_reading_video">Lecture de la vidéo…</string>
     <string name="import_watching_sound">Écoute de la vidéo…</string>
     <string name="import_watching_pictures">Observation de la vidéo…</string>
-    <string name="import_watching_sound_count">La vidéo n\'a pas de sous-titres : l\'IA locale l\'écoute, passage %1$d sur %2$d</string>
-    <string name="import_watching_pictures_count">Rien n\'est dit dans la vidéo : l\'IA locale la regarde, image %1$d sur %2$d</string>
+    <string name="import_watching_sound_count">La vidéo n’a pas de sous-titres : l’IA locale l’écoute, passage %1$d sur %2$d</string>
+    <string name="import_watching_pictures_count">Rien n’est dit dans la vidéo : l’IA locale la regarde, image %1$d sur %2$d</string>
     <string name="import_understanding">Reconstruction de la recette…</string>
     <string name="import_saving">Enregistrement sur Mealie…</string>
     <string name="import_model_loading">Chargement du modèle…</string>
@@ -687,31 +687,31 @@
         <item quantity="many">Rédaction de la recette : %d jetons</item>
         <item quantity="other">Rédaction de la recette : %d jetons</item>
     </plurals>
-    <string name="import_model_background">Vous pouvez quitter cet écran ou l\'application : l\'import continue, et une notification prévient quand il est terminé.</string>
-    <string name="import_notification_running">Import d\'une recette</string>
+    <string name="import_model_background">Vous pouvez quitter cet écran ou l’application : l’import continue, et une notification prévient quand il est terminé.</string>
+    <string name="import_notification_running">Import d’une recette</string>
     <string name="import_notification_done">Recette importée</string>
-    <string name="import_notification_open">Touchez pour l\'ouvrir.</string>
-    <string name="import_notification_failed">L\'import n\'a pas abouti</string>
+    <string name="import_notification_open">Touchez pour l’ouvrir.</string>
+    <string name="import_notification_failed">L’import n’a pas abouti</string>
     <string name="import_notification_failed_open">Touchez pour voir pourquoi et réessayer.</string>
     <string name="import_channel_running">Imports de recettes</string>
-    <string name="import_channel_running_description">Montre où en est un import, pendant qu\'il avance.</string>
+    <string name="import_channel_running_description">Montre où en est un import, pendant qu’il avance.</string>
     <string name="import_channel_ended">Imports terminés</string>
-    <string name="import_channel_ended_description">Prévient quand un import se termine pendant que l\'application montre autre chose.</string>
-    <string name="import_video_empty">Cette vidéo n\'a ni liste d\'ingrédients, ni chapitres, ni sous-titres : il n\'y a rien pour reconstruire une recette.</string>
-    <string name="import_video_not_video">Cette adresse n\'est pas une vidéo YouTube.</string>
+    <string name="import_channel_ended_description">Prévient quand un import se termine pendant que l’application montre autre chose.</string>
+    <string name="import_video_empty">Cette vidéo n’a ni liste d’ingrédients, ni chapitres, ni sous-titres : il n’y a rien pour reconstruire une recette.</string>
+    <string name="import_video_not_video">Cette adresse n’est pas une vidéo YouTube.</string>
     <string name="import_video_unavailable">Cette vidéo est privée, supprimée ou indisponible ici.</string>
     <string name="import_video_blocked">YouTube demande de se connecter avant de montrer cette vidéo. Réessayez dans un moment.</string>
     <string name="import_video_network">YouTube est injoignable. Vérifiez la connexion.</string>
-    <string name="import_video_unreadable">YouTube a répondu d\'une façon que l\'application ne sait pas lire. Une mise à jour de l\'application est peut-être nécessaire.</string>
+    <string name="import_video_unreadable">YouTube a répondu d’une façon que l’application ne sait pas lire. Une mise à jour de l’application est peut-être nécessaire.</string>
     <string name="notice_video_without_model">Recette reconstruite à partir de la description : vérifiez les étapes</string>
-    <string name="notice_video_model_failed">L\'IA locale a échoué : recette reconstruite à partir de la description</string>
+    <string name="notice_video_model_failed">L’IA locale a échoué : recette reconstruite à partir de la description</string>
     <string name="notice_video_not_linked">Recette importée, mais ses étapes ne sont pas reliées à la vidéo : placez-les depuis Modifier › Vidéo</string>
-    <string name="notice_video_captions_refused">YouTube refuse pour l\'instant les sous-titres de la vidéo : placez les étapes depuis Modifier › Vidéo, ou réimportez plus tard</string>
+    <string name="notice_video_captions_refused">YouTube refuse pour l’instant les sous-titres de la vidéo : placez les étapes depuis Modifier › Vidéo, ou réimportez plus tard</string>
     <string name="notice_meal_plan_created">Repas ajoutés au planning</string>
 
     <!-- Automatic planning -->
     <string name="auto_plan_title">Planifier automatiquement</string>
-    <string name="auto_plan_intro">Un plat à midi et un plat le soir : jamais de dessert, de boisson ni d\'accompagnement. Les repas déjà prévus sont gardés, et les plats sont choisis pour partager leurs ingrédients, pour une liste de courses plus courte.</string>
+    <string name="auto_plan_intro">Un plat à midi et un plat le soir : jamais de dessert, de boisson ni d’accompagnement. Les repas déjà prévus sont gardés, et les plats sont choisis pour partager leurs ingrédients, pour une liste de courses plus courte.</string>
     <string name="auto_plan_scope_week">Cette semaine</string>
     <string name="auto_plan_scope_day">Un jour</string>
     <string name="auto_plan_nothing_to_fill">Tous les déjeuners et dîners sont déjà prévus.</string>
@@ -724,13 +724,13 @@
     <string name="auto_plan_no_dishes">Aucun plat trouvé parmi les recettes. Vérifiez comment les catégories et les tags sont reconnus.</string>
     <string name="auto_plan_reading_recipes">Lecture des recettes…</string>
     <string name="auto_plan_reading_dishes">Lecture des ingrédients des plats…</string>
-    <string name="auto_plan_recognizing">L\'IA locale reconnaît les recettes que rien ne situe…</string>
+    <string name="auto_plan_recognizing">L’IA locale reconnaît les recettes que rien ne situe…</string>
     <string name="auto_plan_composing">Composition du planning…</string>
     <string name="auto_plan_saving">Ajout des repas au planning…</string>
     <plurals name="auto_plan_unfilled">
-        <item quantity="one">%d repas n\'a pas pu être rempli : plus aucun plat que les règles du planning autorisent.</item>
-        <item quantity="many">%d repas n\'ont pas pu être remplis : plus aucun plat que les règles du planning autorisent.</item>
-        <item quantity="other">%d repas n\'ont pas pu être remplis : plus aucun plat que les règles du planning autorisent.</item>
+        <item quantity="one">%d repas n’a pas pu être rempli : plus aucun plat que les règles du planning autorisent.</item>
+        <item quantity="many">%d repas n’ont pas pu être remplis : plus aucun plat que les règles du planning autorisent.</item>
+        <item quantity="other">%d repas n’ont pas pu être remplis : plus aucun plat que les règles du planning autorisent.</item>
     </plurals>
     <plurals name="auto_plan_ingredient_count">
         <item quantity="one">%d ingrédient à acheter, hors produits de base</item>
@@ -743,7 +743,7 @@
     <string name="auto_plan_accept">Ajouter au planning</string>
     <string name="auto_plan_replace">Remplacer %1$s par un autre plat</string>
     <string name="dish_types_title">Types de plats reconnus</string>
-    <string name="dish_types_intro">Le planning automatique ne met que des plats à midi et le soir. Il reconnaît le type d\'une recette à ses catégories et tags, à son nom et à la façon dont elle a déjà été planifiée. Corrigez ici une catégorie ou un tag : le choix reste sur cet appareil.</string>
+    <string name="dish_types_intro">Le planning automatique ne met que des plats à midi et le soir. Il reconnaît le type d’une recette à ses catégories et tags, à son nom et à la façon dont elle a déjà été planifiée. Corrigez ici une catégorie ou un tag : le choix reste sur cet appareil.</string>
     <string name="dish_types_empty_title">Ni catégories ni tags</string>
     <string name="dish_types_empty_message">Les recettes de cette instance sont reconnues à leur nom et à leurs repas passés seulement.</string>
     <string name="dish_types_chosen">%1$s · choisi par vous</string>
@@ -777,43 +777,43 @@
     <string name="food_photo">Photo du produit (facultative)</string>
     <string name="food_photo_pick">Choisir une image</string>
     <string name="food_photo_remove">Retirer la photo</string>
-    <string name="food_photo_failed">La photo n\'a pas pu être lue.</string>
+    <string name="food_photo_failed">La photo n’a pas pu être lue.</string>
     <string name="food_photo_description">Photo de %1$s</string>
-    <string name="food_photo_local">Gardée sur ce téléphone uniquement : Mealie ne stocke pas d\'image dans le planning.</string>
-    <string name="food_label_intro">Photographiez le tableau nutritionnel : l\'IA locale en lit les valeurs, puis la photo est supprimée.</string>
-    <string name="food_label_take">Photographier l\'étiquette</string>
-    <string name="food_label_reading">Lecture de l\'étiquette… Cela peut prendre une minute.</string>
-    <string name="food_label_read">Valeurs lues sur l\'étiquette : vérifiez-les avant de continuer.</string>
-    <string name="food_label_no_model">Pour lire les étiquettes, installez un modèle d\'IA locale depuis Profil, IA locale. Les valeurs peuvent être saisies ci-dessous.</string>
+    <string name="food_photo_local">Gardée sur ce téléphone uniquement : Mealie ne stocke pas d’image dans le planning.</string>
+    <string name="food_label_intro">Photographiez le tableau nutritionnel : l’IA locale en lit les valeurs, puis la photo est supprimée.</string>
+    <string name="food_label_take">Photographier l’étiquette</string>
+    <string name="food_label_reading">Lecture de l’étiquette… Cela peut prendre une minute.</string>
+    <string name="food_label_read">Valeurs lues sur l’étiquette : vérifiez-les avant de continuer.</string>
+    <string name="food_label_no_model">Pour lire les étiquettes, installez un modèle d’IA locale depuis Profil, IA locale. Les valeurs peuvent être saisies ci-dessous.</string>
     <string name="food_label_no_vision">Le modèle installé ne lit pas les images. Saisissez les valeurs ci-dessous, ou choisissez un modèle qui voit les images.</string>
-    <string name="food_label_picture_unreadable">L\'image n\'a pas pu être ouverte.</string>
-    <string name="food_label_nothing">Aucun tableau nutritionnel n\'a été trouvé sur l\'image. Réessayez de plus près, ou saisissez les valeurs ci-dessous.</string>
-    <string name="food_label_failed">L\'étiquette n\'a pas pu être lue. Réessayez, ou saisissez les valeurs ci-dessous.</string>
+    <string name="food_label_picture_unreadable">L’image n’a pas pu être ouverte.</string>
+    <string name="food_label_nothing">Aucun tableau nutritionnel n’a été trouvé sur l’image. Réessayez de plus près, ou saisissez les valeurs ci-dessous.</string>
+    <string name="food_label_failed">L’étiquette n’a pas pu être lue. Réessayez, ou saisissez les valeurs ci-dessous.</string>
     <string name="food_values_for">Valeurs pour 100</string>
     <string name="food_quantity">Quantité consommée</string>
-    <string name="food_quantity_hint">La quantité d\'une canette ou d\'un paquet est souvent imprimée à côté de son tableau nutritionnel.</string>
+    <string name="food_quantity_hint">La quantité d’une canette ou d’un paquet est souvent imprimée à côté de son tableau nutritionnel.</string>
     <string name="food_calories_total">%1$s kcal pour cette portion</string>
-    <string name="food_calories_missing">Sans l\'énergie pour 100 %1$s ni la quantité consommée, le produit est ajouté sans calories.</string>
+    <string name="food_calories_missing">Sans l’énergie pour 100 %1$s ni la quantité consommée, le produit est ajouté sans calories.</string>
     <string name="food_mode_auto">Automatique</string>
     <string name="food_mode_manual">Manuel</string>
-    <string name="food_barcode_intro">Scannez le code-barres : le produit, ses valeurs nutritionnelles et sa photo viennent d\'Open Food Facts, la base ouverte des produits alimentaires.</string>
+    <string name="food_barcode_intro">Scannez le code-barres : le produit, ses valeurs nutritionnelles et sa photo viennent d’Open Food Facts, la base ouverte des produits alimentaires.</string>
     <string name="food_barcode_scan">Scanner le code-barres</string>
     <string name="food_barcode_field">Code-barres</string>
     <string name="food_barcode_search">Rechercher</string>
     <string name="food_barcode_searching">Recherche du produit…</string>
     <string name="food_scanner_hint">Placez le code-barres dans le cadre</string>
-    <string name="food_scanner_permission">Umai a besoin de l\'appareil photo pour lire le code-barres. Autorisez-le dans les paramètres système de l\'application, ou saisissez les chiffres du code-barres.</string>
-    <string name="food_scanner_failed">L\'appareil photo n\'a pas pu être ouvert. Saisissez plutôt les chiffres du code-barres.</string>
+    <string name="food_scanner_permission">Umai a besoin de l’appareil photo pour lire le code-barres. Autorisez-le dans les paramètres système de l’application, ou saisissez les chiffres du code-barres.</string>
+    <string name="food_scanner_failed">L’appareil photo n’a pas pu être ouvert. Saisissez plutôt les chiffres du code-barres.</string>
     <string name="food_scanner_torch_on">Allumer la lampe</string>
     <string name="food_scanner_torch_off">Éteindre la lampe</string>
-    <string name="food_lookup_unreadable">Aucun code-barres n\'a pu être lu sur la photo. Réessayez de plus près, les barres bien nettes, ou saisissez ses chiffres.</string>
-    <string name="food_lookup_invalid">Ce n\'est pas un code-barres valide : vérifiez ses chiffres.</string>
+    <string name="food_lookup_unreadable">Aucun code-barres n’a pu être lu sur la photo. Réessayez de plus près, les barres bien nettes, ou saisissez ses chiffres.</string>
+    <string name="food_lookup_invalid">Ce n’est pas un code-barres valide : vérifiez ses chiffres.</string>
     <string name="food_lookup_not_found">Open Food Facts ne connaît pas ce produit : décrivez-le à la main.</string>
-    <string name="food_lookup_no_nutrition">Open Food Facts n\'a pas les valeurs nutritionnelles de ce produit : complétez-les à la main.</string>
-    <string name="food_lookup_failed">Open Food Facts n\'a pas pu être joint. Réessayez, ou décrivez le produit à la main.</string>
+    <string name="food_lookup_no_nutrition">Open Food Facts n’a pas les valeurs nutritionnelles de ce produit : complétez-les à la main.</string>
+    <string name="food_lookup_failed">Open Food Facts n’a pas pu être joint. Réessayez, ou décrivez le produit à la main.</string>
     <string name="food_found_title">Trouvé sur Open Food Facts</string>
     <string name="food_found_energy">%1$s kcal pour 100 %2$s</string>
-    <string name="food_found_source">Données d\'Open Food Facts, sous licence Open Database License.</string>
-    <string name="food_values_from_database">Valeurs d\'Open Food Facts : vérifiez-les sur l\'emballage.</string>
+    <string name="food_found_source">Données d’Open Food Facts, sous licence Open Database License.</string>
+    <string name="food_values_from_database">Valeurs d’Open Food Facts : vérifiez-les sur l’emballage.</string>
     <string name="notice_food_added_without_photo">Ajouté au planning, sans sa photo</string>
 </resources>

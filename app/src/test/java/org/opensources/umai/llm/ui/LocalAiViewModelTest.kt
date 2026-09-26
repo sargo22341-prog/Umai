@@ -13,8 +13,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.opensources.umai.core.download.DownloadState
 import org.opensources.umai.llm.data.ActiveBackend
-import org.opensources.umai.llm.data.InstallState
 import org.opensources.umai.llm.data.LlmBenchmark
 import org.opensources.umai.llm.data.LocalAiSettings
 import org.opensources.umai.llm.domain.AiBackend
@@ -22,7 +22,6 @@ import org.opensources.umai.llm.domain.DeviceProfile
 import org.opensources.umai.llm.domain.LocalModel
 import org.opensources.umai.llm.domain.LocalModelCatalog
 import org.opensources.umai.llm.domain.TensorChip
-import org.opensources.umai.speech.data.SpeechInstallState
 import org.opensources.umai.speech.data.SpeechSettings
 import org.opensources.umai.speech.domain.SpeechModel
 import org.opensources.umai.speech.domain.SpeechModelCatalog
@@ -31,12 +30,12 @@ import org.opensources.umai.speech.domain.SpeechModelCatalog
 class LocalAiViewModelTest {
 
     private val settings = MutableStateFlow(LocalAiSettings())
-    private val install = MutableStateFlow<InstallState>(InstallState.Idle)
+    private val install = MutableStateFlow<DownloadState<LocalModel>>(DownloadState.Idle)
     private val active = MutableStateFlow<ActiveBackend?>(null)
     private val installed = mutableListOf<LocalModel>()
     private val benchmark = CompletableDeferred<LlmBenchmark?>()
     private val speech = MutableStateFlow(SpeechSettings())
-    private val speechInstall = MutableStateFlow<SpeechInstallState>(SpeechInstallState.Idle)
+    private val speechInstall = MutableStateFlow<DownloadState<SpeechModel>>(DownloadState.Idle)
     private val speechInstalled = mutableListOf<SpeechModel>()
 
     @Before
@@ -56,16 +55,16 @@ class LocalAiViewModelTest {
         speechInstall = speechInstall,
         actions = LocalAiActions(
             install = { installed += it },
-            cancel = { install.value = InstallState.Idle },
+            cancel = { install.value = DownloadState.Idle },
             uninstall = { settings.value = settings.value.copy(installed = null) },
-            dismissFailure = { install.value = InstallState.Idle },
+            dismissFailure = { install.value = DownloadState.Idle },
             setEnabled = { settings.value = settings.value.copy(enabled = it) },
             benchmark = { benchmark.await() },
             speech = SpeechActions(
                 install = { speechInstalled += it },
-                cancel = { speechInstall.value = SpeechInstallState.Idle },
+                cancel = { speechInstall.value = DownloadState.Idle },
                 uninstall = { speech.value = SpeechSettings() },
-                dismissFailure = { speechInstall.value = SpeechInstallState.Idle },
+                dismissFailure = { speechInstall.value = DownloadState.Idle },
             ),
         ),
     )
@@ -79,7 +78,7 @@ class LocalAiViewModelTest {
 
     @Test
     fun `nothing else is downloaded while a download runs`() {
-        install.value = InstallState.Downloading(LocalModelCatalog.recommended, 10, 100, waiting = false)
+        install.value = DownloadState.Downloading(LocalModelCatalog.recommended, 10, 100, waiting = false)
         val vm = viewModel()
 
         vm.download(LocalModelCatalog.models.last())
@@ -188,7 +187,7 @@ class LocalAiViewModelTest {
     @Test
     fun `a Whisper download in progress blocks another one, and is followed`() {
         val vm = viewModel()
-        speechInstall.value = SpeechInstallState.Downloading(SpeechModelCatalog.small, 10L, 100L, waiting = false)
+        speechInstall.value = DownloadState.Downloading(SpeechModelCatalog.small, 10L, 100L, waiting = false)
 
         vm.downloadSpeech(SpeechModelCatalog.base)
 

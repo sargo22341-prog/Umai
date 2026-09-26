@@ -11,9 +11,16 @@ import org.opensources.umai.core.network.MealieClientFactory
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.network.api.MealieApi
 import org.opensources.umai.core.network.apiCall
+import org.opensources.umai.core.network.call
+import org.opensources.umai.core.network.fetchAllPages
+import org.opensources.umai.core.network.map
+import org.opensources.umai.core.network.orInvalid
+import org.opensources.umai.core.network.toPaged
+import org.opensources.umai.core.network.valueOr
 import org.opensources.umai.core.network.dto.RecipeDetailDto
 import org.opensources.umai.core.network.dto.RecipeTagDto
 import org.opensources.umai.core.network.dto.TagInDto
+import org.opensources.umai.core.session.InstanceCache
 import org.opensources.umai.recipe.domain.CalorieTag
 import org.opensources.umai.recipe.domain.CalorieTags
 
@@ -21,24 +28,20 @@ import org.opensources.umai.recipe.domain.CalorieTags
  * Keeps the `calorie-<value>` tag of recipes in step with their nutrition
  * (see [CalorieTags]), and lists the calorie tags the search filters on.
  */
-class CalorieTagRepository(private val apiProvider: () -> MealieApi?) {
+class CalorieTagRepository(
+    private val apiProvider: () -> MealieApi?,
+    instanceKey: () -> String?,
+) {
 
-    private var cached: List<CalorieTag>? = null
+    private val cache = InstanceCache<List<CalorieTag>>(instanceKey)
 
     /** Every calorie tag of the instance, kept until one is created here. */
-    suspend fun calorieTags(): ApiResult<List<CalorieTag>> {
-        cached?.let { return ApiResult.Success(it) }
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return apiCall {
-            val all = mutableListOf<CalorieTag>()
-            var page = 1
-            do {
-                val result = api.tags(page = page, perPage = PAGE_SIZE, search = CalorieTags.PREFIX)
-                all += result.items.mapNotNull { it.toCalorieTag() }
-                page++
-            } while (page <= result.totalPages && page <= MAX_PAGES)
-            all.toList()
-        }.also { if (it is ApiResult.Success) cached = it.value }
+    suspend fun calorieTags(): ApiResult<List<CalorieTag>> = cache.get {
+        apiProvider.call {
+            fetchAllPages(MAX_PAGES) { page ->
+                tags(page = page, perPage = PAGE_SIZE, search = CalorieTags.PREFIX).toPaged { it.toCalorieTag() }
+            }
+        }
     }
 
     /**
@@ -48,10 +51,7 @@ class CalorieTagRepository(private val apiProvider: () -> MealieApi?) {
      */
     suspend fun sync(slug: String): ApiResult<Boolean> {
         val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        val document = when (val result = apiCall { api.recipeDocument(slug) }) {
-            is ApiResult.Failure -> return result
-            is ApiResult.Success -> result.value
-        }
+        val document = apiCall { api.recipeDocument(slug) }.valueOr { return it }
         val detail = MealieClientFactory.json.decodeFromJsonElement(RecipeDetailDto.serializer(), document)
         val calories = CalorieTags.parse(detail.nutrition?.calories)
         val current = detail.tags.orEmpty()
@@ -59,14 +59,7 @@ class CalorieTagRepository(private val apiProvider: () -> MealieApi?) {
         val calorieTags = current.filter { CalorieTags.isCalorieTag(it.slug) }
         if (calorieTags.map { it.slug } == listOfNotNull(wanted)) return ApiResult.Success(false)
 
-        val tag = if (wanted == null) {
-            null
-        } else {
-            when (val result = findOrCreate(api, wanted)) {
-                is ApiResult.Failure -> return result
-                is ApiResult.Success -> result.value
-            }
-        }
+        val tag = wanted?.let { findOrCreate(api, it).valueOr { failure -> return failure } }
         val kept = (document["tags"] as? JsonArray).orEmpty().filterNot { element ->
             val slug = (element as? JsonObject)?.get("slug")?.jsonPrimitive?.contentOrNull.orEmpty()
             CalorieTags.isCalorieTag(slug)
@@ -82,24 +75,17 @@ class CalorieTagRepository(private val apiProvider: () -> MealieApi?) {
                 },
             ),
         )
-        return apiCall { api.replaceRecipe(slug, JsonObject(document + ("tags" to tags))) }
-            .let { if (it is ApiResult.Failure) it else ApiResult.Success(true) }
+        return apiCall { api.replaceRecipe(slug, JsonObject(document + ("tags" to tags))) }.map { true }
     }
 
     private suspend fun findOrCreate(api: MealieApi, name: String): ApiResult<RecipeTagDto> {
-        val existing = when (val result = apiCall { api.tags(perPage = PAGE_SIZE, search = name) }) {
-            is ApiResult.Failure -> return result
-            is ApiResult.Success -> result.value.items.firstOrNull { it.slug == name && it.id != null }
-        }
+        val existing = apiCall { api.tags(perPage = PAGE_SIZE, search = name) }.valueOr { return it }
+            .items.firstOrNull { it.slug == name && it.id != null }
         if (existing != null) return ApiResult.Success(existing)
-        return when (val created = apiCall { api.createTag(TagInDto(name)) }) {
-            is ApiResult.Failure -> created
-            is ApiResult.Success -> {
-                cached = null
-                created.value.takeIf { it.id != null }?.let { ApiResult.Success(it) }
-                    ?: ApiResult.Failure(NetworkError.InvalidResponse)
-            }
-        }
+        return apiCall { api.createTag(TagInDto(name)) }
+            .also { if (it is ApiResult.Success) cache.clear() }
+            .map { created -> created.takeIf { it.id != null } }
+            .orInvalid()
     }
 
     private fun RecipeTagDto.toCalorieTag(): CalorieTag? {
@@ -113,5 +99,3 @@ class CalorieTagRepository(private val apiProvider: () -> MealieApi?) {
         const val MAX_PAGES = 20
     }
 }
-
-private fun JsonArray?.orEmpty(): List<kotlinx.serialization.json.JsonElement> = this ?: emptyList()

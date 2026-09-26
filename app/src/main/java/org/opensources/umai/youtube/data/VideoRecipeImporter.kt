@@ -9,13 +9,14 @@ import kotlinx.serialization.json.putJsonObject
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.network.api.MealieApi
-import org.opensources.umai.core.network.apiCall
+import org.opensources.umai.core.network.call
 import org.opensources.umai.core.network.dto.ScrapeRecipeDataDto
 import org.opensources.umai.llm.domain.LanguageModel
 import org.opensources.umai.llm.domain.LlmFailure
 import org.opensources.umai.llm.domain.LlmProgress
 import org.opensources.umai.recipe.data.RecipeEditRepository
 import org.opensources.umai.recipe.data.RecipeMediaRepository
+import org.opensources.umai.recipe.data.asSlug
 import org.opensources.umai.recipe.domain.DraftStep
 import org.opensources.umai.recipe.domain.IngredientLinker
 import org.opensources.umai.recipe.domain.RecipeDraft
@@ -26,11 +27,11 @@ import org.opensources.umai.youtube.domain.RecipeBlueprint
 import org.opensources.umai.youtube.domain.RecipeIngredients
 import org.opensources.umai.youtube.domain.RecipePageSource
 import org.opensources.umai.youtube.domain.RuleRecipeBuilder
-import org.opensources.umai.youtube.domain.YouTubeFailure
-import org.opensources.umai.youtube.domain.YouTubeLinks
 import org.opensources.umai.youtube.domain.VideoSource
 import org.opensources.umai.youtube.domain.VideoWatcher
 import org.opensources.umai.youtube.domain.WatchProgress
+import org.opensources.umai.youtube.domain.YouTubeFailure
+import org.opensources.umai.youtube.domain.YouTubeLinks
 import org.opensources.umai.youtube.domain.YouTubeResult
 
 /** Where an import from a video stands. */
@@ -152,19 +153,9 @@ class VideoRecipeImporter(
         )
     }
 
-    private suspend fun create(blueprint: RecipeBlueprint): ApiResult<String> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return when (
-            val result = apiCall {
-                api.createRecipeFromJson(ScrapeRecipeDataDto(data = schema(blueprint).toString(), url = blueprint.video.watchUrl))
-            }
-        ) {
-            is ApiResult.Failure -> result
-            is ApiResult.Success -> result.value.trim().trim('"').takeIf { it.isNotBlank() }
-                ?.let { ApiResult.Success(it) }
-                ?: ApiResult.Failure(NetworkError.InvalidResponse)
-        }
-    }
+    private suspend fun create(blueprint: RecipeBlueprint): ApiResult<String> = apiProvider.call {
+        createRecipeFromJson(ScrapeRecipeDataDto(data = schema(blueprint).toString(), url = blueprint.video.watchUrl))
+    }.asSlug()
 
     /**
      * Mealie keeps the steps of a schema.org recipe as text, and their titles

@@ -1,7 +1,7 @@
 package org.opensources.umai.planning.domain
 
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -10,6 +10,7 @@ import org.opensources.umai.llm.domain.LlmFailure
 import org.opensources.umai.llm.domain.LlmMedia
 import org.opensources.umai.llm.domain.LlmOutcome
 import org.opensources.umai.llm.domain.LlmRequest
+import org.opensources.umai.llm.domain.ModelAnswer
 
 /**
  * What a nutrition label says: its values for 100 of [unit], and [portion],
@@ -51,8 +52,6 @@ class NutritionLabelReader(private val model: LanguageModel) {
 
     internal companion object {
 
-        private val json = Json { ignoreUnknownKeys = true }
-
         /** About twenty tokens a row, for the longest tables. */
         private const val MAX_ANSWER_TOKENS = 400
 
@@ -92,7 +91,7 @@ class NutritionLabelReader(private val model: LanguageModel) {
 
         /** The reading in [answer], `null` when it holds no value at all. */
         fun parse(answer: String): LabelReading? {
-            val root = runCatching { json.parseToJsonElement(answer) }.getOrNull() as? JsonObject ?: return null
+            val root = ModelAnswer.objectOrNull(answer) ?: return null
             val columns = (root["columns"] as? JsonArray).orEmpty().mapNotNull { it.text() }
             val rows = (root["rows"] as? JsonArray).orEmpty().mapNotNull { element ->
                 val row = element as? JsonObject ?: return@mapNotNull null
@@ -104,9 +103,7 @@ class NutritionLabelReader(private val model: LanguageModel) {
             return LabelTable(columns, rows).reading()
         }
 
-        private fun JsonArray?.orEmpty(): List<kotlinx.serialization.json.JsonElement> = this ?: emptyList()
-
-        private fun kotlinx.serialization.json.JsonElement.text(): String? = (this as? JsonPrimitive)?.contentOrNull
+        private fun JsonElement.text(): String? = (this as? JsonPrimitive)?.contentOrNull
     }
 }
 

@@ -16,29 +16,27 @@ import org.opensources.umai.R
 import org.opensources.umai.search.domain.OrganizerEntry
 import org.opensources.umai.search.domain.OrganizerKind
 import org.opensources.umai.search.domain.RecipeFilters
+import kotlin.reflect.KClass
 
 /** Type-safe routes; Navigation Compose serializes them with kotlinx.serialization. */
 @Serializable
-data object SetupRoute
+data object HomeDestination
 
 @Serializable
-data object HomeRoute
+data object PlanningDestination
 
 @Serializable
-data object PlanningRoute
-
-@Serializable
-data object SearchRoute
+data object SearchDestination
 
 /**
  * A search opened on one category, tag or tool of a recipe; [kind] is an
  * [OrganizerKind] name.
  *
- * It is a destination of its own rather than arguments of [SearchRoute]: the
+ * It is a destination of its own rather than arguments of [SearchDestination]: the
  * search tab keeps its saved state, and the two never restore each other.
  */
 @Serializable
-data class OrganizerSearchRoute(val kind: String, val id: String) {
+data class OrganizerSearchDestination(val kind: String, val id: String) {
 
     val filters: RecipeFilters
         get() = OrganizerKind.entries.firstOrNull { it.name == kind }
@@ -46,7 +44,7 @@ data class OrganizerSearchRoute(val kind: String, val id: String) {
             ?: RecipeFilters.None
 
     companion object {
-        fun of(entry: OrganizerEntry) = OrganizerSearchRoute(entry.kind.name, entry.organizer.id)
+        fun of(entry: OrganizerEntry) = OrganizerSearchDestination(entry.kind.name, entry.organizer.id)
     }
 }
 
@@ -56,57 +54,57 @@ data class OrganizerSearchRoute(val kind: String, val id: String) {
  * search field the picker was opened from stood, so its own field starts there.
  */
 @Serializable
-data class PlanRecipePickerRoute(val date: String, val mealType: String, val fieldOriginY: Float)
+data class PlanRecipePickerDestination(val date: String, val mealType: String, val fieldOriginY: Float)
 
 /** Adds a product eaten on [date], ISO-8601, to the plan, with its nutrition. */
 @Serializable
-data class PlanFoodRoute(val date: String)
+data class PlanFoodDestination(val date: String)
 
 @Serializable
-data object ShoppingRoute
+data object ShoppingDestination
 
 /** The in-store view of one shopping list: big rows, one tap per item. */
 @Serializable
-data class ShoppingModeRoute(val listId: String)
+data class ShoppingModeDestination(val listId: String)
 
 @Serializable
-data object ProfileRoute
+data object ProfileDestination
 
 @Serializable
-data object AppSettingsRoute
+data object AppSettingsDestination
 
 @Serializable
-data object MealieSettingsRoute
+data object MealieSettingsDestination
 
 /** [url] fills the address in, as when a page is shared to the app. */
 @Serializable
-data class RecipeImportRoute(val url: String? = null)
+data class RecipeImportDestination(val url: String? = null)
 
 @Serializable
-data object ProvidersRoute
+data object ProvidersDestination
 
 @Serializable
-data object LocalAiSettingsRoute
+data object LocalAiSettingsDestination
 
 /** The course the automatic planning sees in each category and tag. */
 @Serializable
-data object DishCoursesRoute
+data object DishCoursesDestination
 
 @Serializable
-data class ProviderRoute(val id: String)
+data class ProviderDestination(val id: String)
 
 /** [draftId] resumes an unfinished recipe; `null` starts a new one. */
 @Serializable
-data class RecipeCreateRoute(val draftId: String? = null)
+data class RecipeCreateDestination(val draftId: String? = null)
 
 @Serializable
-data object RecipeDraftsRoute
+data object RecipeDraftsDestination
 
 @Serializable
-data class RecipeRoute(val slug: String)
+data class RecipeDestination(val slug: String)
 
 @Serializable
-data class RecipeEditRoute(val slug: String)
+data class RecipeEditDestination(val slug: String)
 
 /**
  * [servings] carries the number of servings the reader selected on the recipe
@@ -115,7 +113,7 @@ data class RecipeEditRoute(val slug: String)
  * on: the one a timer was started from, when the cooking mode is reopened by it.
  */
 @Serializable
-data class CookingRoute(val slug: String, val servings: Int = 0, val step: Int = 0)
+data class CookingDestination(val slug: String, val servings: Int = 0, val step: Int = 0)
 
 /**
  * The four tabs that sit on either side of the central search button.
@@ -131,10 +129,10 @@ enum class TopLevelTab(
     val icon: ImageVector,
     val route: Any,
 ) {
-    HOME(R.string.nav_home, Icons.Rounded.Home, Icons.Outlined.Home, HomeRoute),
-    PLANNING(R.string.nav_planning, Icons.Rounded.CalendarMonth, Icons.Outlined.CalendarMonth, PlanningRoute),
-    SHOPPING(R.string.nav_shopping, Icons.Rounded.ShoppingCart, Icons.Outlined.ShoppingCart, ShoppingRoute),
-    PROFILE(R.string.nav_profile, Icons.Rounded.AccountCircle, Icons.Outlined.AccountCircle, ProfileRoute);
+    HOME(R.string.nav_home, Icons.Rounded.Home, Icons.Outlined.Home, HomeDestination),
+    PLANNING(R.string.nav_planning, Icons.Rounded.CalendarMonth, Icons.Outlined.CalendarMonth, PlanningDestination),
+    SHOPPING(R.string.nav_shopping, Icons.Rounded.ShoppingCart, Icons.Outlined.ShoppingCart, ShoppingDestination),
+    PROFILE(R.string.nav_profile, Icons.Rounded.AccountCircle, Icons.Outlined.AccountCircle, ProfileDestination);
 
     companion object {
         /** Left of the search button, then right of it. */
@@ -151,4 +149,24 @@ data class ProfileTabInfo(
     val displayName: String?,
     val avatarUrl: String?,
     val initials: String,
+)
+
+/**
+ * The destinations that own the whole screen, without the tab bar: a new
+ * reader or form is added here.
+ */
+val FullScreenDestinations: List<KClass<*>> = listOf(
+    RecipeDestination::class,
+    CookingDestination::class,
+    AppSettingsDestination::class,
+    MealieSettingsDestination::class,
+    RecipeImportDestination::class,
+    ProvidersDestination::class,
+    ProviderDestination::class,
+    RecipeCreateDestination::class,
+    RecipeEditDestination::class,
+    RecipeDraftsDestination::class,
+    PlanRecipePickerDestination::class,
+    PlanFoodDestination::class,
+    ShoppingModeDestination::class,
 )

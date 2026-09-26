@@ -160,15 +160,26 @@ class ProfileRepositoryTest {
 
         // The account is read back so the new cache key reaches the session.
         assertEquals("/api/users/self", fake.takeRequest().url.encodedPath)
-        assertEquals("abc", (refreshed as ApiResult.Success).value.cacheKey)
+        assertEquals("abc", (refreshed as ProfileRepository.AvatarUpdate.Updated).user.cacheKey)
     }
 
     @Test
     fun `a picture that cannot be read never reaches the server`() = runTest {
         val result = repository().updateAvatar("u1", "content://picker/1", CropRegion.Full)
 
-        assertEquals(NetworkError.InvalidResponse, (result as ApiResult.Failure).error)
+        assertEquals(ProfileRepository.AvatarUpdate.PictureUnreadable, result)
         assertEquals(0, fake.server.requestCount)
+    }
+
+    @Test
+    fun `a refused avatar is reported with the error of the server`() = runTest {
+        fake.enqueueError(413)
+
+        val cropper = FakeCropper(EncodedImage("jpeg".toByteArray(), EncodedImage.JPEG, "jpg"))
+        val result = repository(cropper).updateAvatar("u1", "content://picker/1", CropRegion.Full)
+
+        assertEquals(413, ((result as ProfileRepository.AvatarUpdate.Failed).error as NetworkError.Http).code)
+        assertEquals(1, fake.server.requestCount)
     }
 
     private companion object {

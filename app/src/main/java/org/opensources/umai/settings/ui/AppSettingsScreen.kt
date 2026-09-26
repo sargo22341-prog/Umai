@@ -35,7 +35,7 @@ import org.opensources.umai.core.settings.RecipeSection
 import org.opensources.umai.core.settings.ThemeMode
 
 @Composable
-fun AppSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun AppSettingsRoute(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val container = LocalAppContainer.current
     val viewModel: AppSettingsViewModel = viewModel(factory = AppSettingsViewModel.factory(container))
     val preferences by viewModel.preferences.collectAsStateWithLifecycle()

@@ -2,6 +2,7 @@ package org.opensources.umai.speech.domain
 
 import androidx.annotation.StringRes
 import org.opensources.umai.R
+import org.opensources.umai.core.download.DownloadableFile
 
 /**
  * A Whisper model, as whisper.cpp publishes it on Hugging Face (MIT): it
@@ -11,12 +12,12 @@ import org.opensources.umai.R
 data class SpeechModel(
     val id: String,
     val name: String,
-    val url: String,
-    val fileName: String,
-    val sizeBytes: Long,
-    val sha256: String,
+    override val url: String,
+    override val fileName: String,
+    override val sizeBytes: Long,
+    override val sha256: String,
     @param:StringRes val descriptionRes: Int,
-) {
+) : DownloadableFile {
     val license: String get() = "MIT"
 }
 

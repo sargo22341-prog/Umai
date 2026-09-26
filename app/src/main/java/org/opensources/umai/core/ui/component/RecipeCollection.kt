@@ -1,7 +1,6 @@
 package org.opensources.umai.core.ui.component
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
@@ -99,7 +98,5 @@ fun LazyListState.isNearEnd(threshold: Int = 4): Boolean {
     }
     return state.value
 }
-
-val RecipeGridPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
 
 val RecipeGridArrangement = Arrangement.spacedBy(RecipeGridSpacing)

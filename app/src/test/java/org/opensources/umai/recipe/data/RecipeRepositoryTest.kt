@@ -15,6 +15,7 @@ import org.opensources.umai.core.network.query
 import org.opensources.umai.core.network.queryValues
 import org.opensources.umai.recipe.domain.CalorieFilter
 import org.opensources.umai.recipe.domain.CalorieTag
+import org.opensources.umai.recipe.domain.OwnRating
 import org.opensources.umai.search.domain.AddedWithin
 import org.opensources.umai.search.domain.RecipeFilters
 import org.opensources.umai.search.domain.RecipeSort
@@ -243,20 +244,28 @@ class RecipeRepositoryTest {
     }
 
     @Test
-    fun `the reader's own rating is read for the recipe`() = runTest {
-        fake.enqueueJson("""{"recipeId":"r1","rating":4.0,"isFavorite":false}""")
+    fun `the reader's own rating and favourite are read in one request`() = runTest {
+        fake.enqueueJson("""{"recipeId":"r1","rating":4.0,"isFavorite":true}""")
 
         val rating = repository.ownRating("r1")
 
-        assertEquals(4, (rating as ApiResult.Success).value)
+        assertEquals(OwnRating(stars = 4, isFavorite = true), (rating as ApiResult.Success).value)
         assertEquals("/api/users/self/ratings/r1", fake.takeRequest().url.encodedPath)
+        assertEquals(1, fake.server.requestCount)
     }
 
     @Test
-    fun `a recipe the reader never rated has no rating rather than an error`() = runTest {
+    fun `a favourite never rated has no stars`() = runTest {
+        fake.enqueueJson("""{"recipeId":"r1","rating":null,"isFavorite":true}""")
+
+        assertEquals(OwnRating(stars = null, isFavorite = true), (repository.ownRating("r1") as ApiResult.Success).value)
+    }
+
+    @Test
+    fun `a recipe the reader never rated nor liked is neither, rather than an error`() = runTest {
         fake.enqueueError(404)
 
-        assertEquals(null, (repository.ownRating("r1") as ApiResult.Success).value)
+        assertEquals(OwnRating.None, (repository.ownRating("r1") as ApiResult.Success).value)
     }
 
     @Test

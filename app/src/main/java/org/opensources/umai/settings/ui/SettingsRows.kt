@@ -39,11 +39,11 @@ internal fun <T> SettingsChoiceRow(
     title: String,
     options: List<T>,
     selected: T,
-    labelOf: @Composable (T) -> String,
     onSelect: (T) -> Unit,
     enabled: Boolean = true,
     supportingText: String? = null,
     scopeNote: String? = null,
+    labelOf: @Composable (T) -> String,
 ) {
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         Text(text = title, style = MaterialTheme.typography.bodyLarge)

@@ -10,7 +10,6 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
-import org.opensources.umai.core.model.RecipeAsset
 import org.opensources.umai.core.network.dto.RecipeDetailDto
 import org.opensources.umai.core.network.dto.RecipeIngredientDto
 import org.opensources.umai.recipe.domain.DraftFood
@@ -29,7 +28,7 @@ import org.opensources.umai.recipe.domain.newReferenceId
  * Mealie gave no reference gets one, so the steps can point at it.
  */
 internal fun RecipeDetailDto.toEditableDraft(): RecipeDraft {
-    val photos = RecipeMediaFiles.stepPhotos(assets.map { RecipeAsset(it.name, it.icon, it.fileName) })
+    val photos = RecipeMediaFiles.stepPhotos(assets.map { it.toDomain() })
     return RecipeDraft(
         id = slug,
         name = name.orEmpty(),
@@ -196,6 +195,3 @@ private fun organizersFor(selected: List<DraftOrganizer>, current: JsonElement?)
         },
     )
 }
-
-private fun JsonArray?.orEmpty(): List<JsonElement> = this ?: emptyList()
-

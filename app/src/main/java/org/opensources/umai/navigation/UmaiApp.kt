@@ -1,82 +1,77 @@
 package org.opensources.umai.navigation
 
+import androidx.compose.animation.EnterTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
-import org.opensources.umai.core.ui.component.NoticePill
-import org.opensources.umai.recipe.ui.RecipeEditScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavBackStackEntry
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
-import androidx.lifecycle.viewmodel.compose.viewModel
-import org.opensources.umai.core.di.AppContainer
-import org.opensources.umai.core.di.LocalAppContainer
-import org.opensources.umai.core.session.ServerSession
-import org.opensources.umai.core.session.SessionState
-import org.opensources.umai.core.ui.component.LoadingView
+import kotlinx.coroutines.delay
 import org.opensources.umai.cooking.data.CookingStepRequest
 import org.opensources.umai.cooking.ui.ActiveTimerPills
 import org.opensources.umai.cooking.ui.ActiveTimersViewModel
-import org.opensources.umai.cooking.ui.CookingScreen
-import org.opensources.umai.home.ui.HomeScreen
-import org.opensources.umai.planning.ui.FoodEntryRoute
-import org.opensources.umai.planning.ui.PlanningScreen
-import org.opensources.umai.profile.ui.ProfileScreen
+import org.opensources.umai.cooking.ui.CookingRoute
+import org.opensources.umai.core.di.AppContainer
+import org.opensources.umai.core.di.LocalAppContainer
+import org.opensources.umai.core.model.MealType
+import org.opensources.umai.core.session.ServerSession
+import org.opensources.umai.core.session.SessionState
+import org.opensources.umai.core.ui.component.LoadingView
+import org.opensources.umai.home.ui.HomeRoute
 import org.opensources.umai.llm.ui.LocalAiRoute
 import org.opensources.umai.planning.ui.DishTypesRoute
-import org.opensources.umai.provider.ui.ProviderScreen
-import org.opensources.umai.provider.ui.ProvidersScreen
-import org.opensources.umai.recipe.ui.RecipeCreateScreen
-import org.opensources.umai.recipe.ui.RecipeDetailScreen
-import org.opensources.umai.recipe.ui.RecipeDraftsScreen
-import org.opensources.umai.recipe.ui.RecipeImportScreen
+import org.opensources.umai.planning.ui.FoodEntryRoute
+import org.opensources.umai.planning.ui.PlanRecipePickerRoute
+import org.opensources.umai.planning.ui.PlanningRoute
+import org.opensources.umai.profile.ui.ProfileRoute
+import org.opensources.umai.provider.ui.ProviderRoute
+import org.opensources.umai.provider.ui.ProvidersRoute
 import org.opensources.umai.recipe.data.ImportRequest
-import org.opensources.umai.search.ui.SearchScreen
-import org.opensources.umai.settings.ui.AppSettingsScreen
-import org.opensources.umai.settings.ui.MealieSettingsScreen
-import org.opensources.umai.setup.ui.SetupScreen
-import org.opensources.umai.shopping.ui.ShoppingModeScreen
-import org.opensources.umai.shopping.ui.ShoppingScreen
-import org.opensources.umai.planning.ui.PlanRecipePickerScreen
-import org.opensources.umai.core.model.MealType
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
+import org.opensources.umai.recipe.ui.RecipeCreateRoute
+import org.opensources.umai.recipe.ui.RecipeDetailRoute
+import org.opensources.umai.recipe.ui.RecipeDraftsRoute
+import org.opensources.umai.recipe.ui.RecipeEditRoute
+import org.opensources.umai.recipe.ui.RecipeImportRoute
+import org.opensources.umai.search.ui.SearchRoute
+import org.opensources.umai.settings.ui.AppSettingsRoute
+import org.opensources.umai.settings.ui.MealieSettingsRoute
+import org.opensources.umai.setup.ui.SetupRoute
+import org.opensources.umai.shopping.ui.ShoppingModeRoute
+import org.opensources.umai.shopping.ui.ShoppingRoute
 import java.time.LocalDate
 
 /**
  * Root of the UI. Until an instance is configured (or after its token has been
  * refused) the setup screen replaces the whole navigation graph, so the user
  * never reaches an empty Home.
- */
-/**
+ *
  * [sharedUrl] is a recipe page shared to the app from another one: it opens the
  * import as soon as an instance is available, then [onSharedUrlHandled] clears it.
  * [cookingRequest] likewise opens the cooking mode a timer notification asks for,
@@ -97,7 +92,7 @@ fun UmaiApp(
 
     when (val state = sessionState) {
         SessionState.Loading -> Box(modifier = modifier.fillMaxSize()) { LoadingView() }
-        SessionState.NotConfigured, is SessionState.Expired -> SetupScreen(modifier = modifier)
+        SessionState.NotConfigured, is SessionState.Expired -> SetupRoute(modifier = modifier)
         is SessionState.Active -> MainNavigation(
             session = state.session,
             sharedUrl = sharedUrl,
@@ -130,12 +125,12 @@ private fun MainNavigation(
     val destination = backStackEntry?.destination
 
     val selectedTab = TopLevelTab.entries.firstOrNull { it.matches(destination) }
-    val searchSelected = destination?.hasRoute(SearchRoute::class) == true ||
-        destination?.hasRoute(OrganizerSearchRoute::class) == true
+    val searchSelected = destination?.hasRoute(SearchDestination::class) == true ||
+        destination?.hasRoute(OrganizerSearchDestination::class) == true
 
     LaunchedEffect(sharedUrl) {
         if (sharedUrl != null) {
-            navController.navigate(RecipeImportRoute(sharedUrl))
+            navController.navigate(RecipeImportDestination(sharedUrl))
             onSharedUrlHandled()
         }
     }
@@ -151,7 +146,7 @@ private fun MainNavigation(
         when (importRequest) {
             null -> return@LaunchedEffect
             ImportRequest.OpenImport -> navController.openImport()
-            is ImportRequest.OpenRecipe -> navController.navigate(RecipeRoute(importRequest.slug))
+            is ImportRequest.OpenRecipe -> navController.navigate(RecipeDestination(importRequest.slug))
         }
         onImportRequestHandled()
     }
@@ -173,7 +168,7 @@ private fun MainNavigation(
                     selected = selectedTab,
                     searchSelected = searchSelected,
                     onSelect = { navController.switchTab(it.route) },
-                    onSearch = { navController.switchTab(SearchRoute) },
+                    onSearch = { navController.switchTab(SearchDestination) },
                     profile = container.profileTabInfo(session),
                 )
             }
@@ -190,7 +185,7 @@ private fun MainNavigation(
         ) {
             NavHost(
                 navController = navController,
-                startDestination = HomeRoute,
+                startDestination = HomeDestination,
                 // Painted in the app theme: the window behind follows the system theme, and pixel
                 // rounding may leave a hairline between the two sliding screens.
                 modifier = Modifier
@@ -203,65 +198,65 @@ private fun MainNavigation(
                 // The back gesture has its own transitions (a fade and shrink by default): the same
                 // as a tap on back, the recipe picker of the meal plan sinking over the week.
                 predictivePopEnterTransition = {
-                    if (initialState.destination.hasRoute(PlanRecipePickerRoute::class)) {
+                    if (initialState.destination.hasRoute(PlanRecipePickerDestination::class)) {
                         EnterTransition.None
                     } else {
                         screenPopEnter()
                     }
                 },
                 predictivePopExitTransition = {
-                    if (initialState.destination.hasRoute(PlanRecipePickerRoute::class)) sinkExit() else screenPopExit()
+                    if (initialState.destination.hasRoute(PlanRecipePickerDestination::class)) sinkExit() else screenPopExit()
                 },
             ) {
-                composable<HomeRoute> {
-                    HomeScreen(
-                        onRecipeClick = { navController.navigate(RecipeRoute(it)) },
-                        onSearchClick = { navController.switchTab(SearchRoute) },
+                composable<HomeDestination> {
+                    HomeRoute(
+                        onRecipeClick = { navController.navigate(RecipeDestination(it)) },
+                        onSearchClick = { navController.switchTab(SearchDestination) },
                     )
                 }
 
-                composable<SearchRoute> {
-                    SearchScreen(onRecipeClick = { navController.navigate(RecipeRoute(it)) })
+                composable<SearchDestination> {
+                    SearchRoute(onRecipeClick = { navController.navigate(RecipeDestination(it)) })
                 }
 
-                composable<OrganizerSearchRoute> { entry ->
-                    val route: OrganizerSearchRoute = entry.toRoute()
-                    SearchScreen(
-                        onRecipeClick = { navController.navigate(RecipeRoute(it)) },
+                composable<OrganizerSearchDestination> { entry ->
+                    val route: OrganizerSearchDestination = entry.toRoute()
+                    SearchRoute(
+                        onRecipeClick = { navController.navigate(RecipeDestination(it)) },
                         initialFilters = route.filters,
                     )
                 }
 
-                composable<PlanningRoute>(
+                composable<PlanningDestination>(
                     // The recipe picker rises over the week, which stays in place underneath.
                     exitTransition = {
-                        if (targetState.destination.hasRoute(PlanRecipePickerRoute::class)) {
-                            ExitTransition.KeepUntilTransitionsFinished
+                        if (targetState.destination.hasRoute(PlanRecipePickerDestination::class)) {
+                            stayUnderneath()
                         } else {
                             screenExit()
                         }
                     },
                     popEnterTransition = {
-                        if (initialState.destination.hasRoute(PlanRecipePickerRoute::class)) {
+                        if (initialState.destination.hasRoute(PlanRecipePickerDestination::class)) {
                             EnterTransition.None
                         } else {
                             screenPopEnter()
                         }
                     },
                 ) {
-                    PlanningScreen(
-                        onRecipeClick = { navController.navigate(RecipeRoute(it)) },
-                        onOpenDishTypes = { navController.navigate(DishCoursesRoute) },
+                    PlanningRoute(
+                        onRecipeClick = { navController.navigate(RecipeDestination(it)) },
+                        onOpenDishTypes = { navController.navigate(DishCoursesDestination) },
                         onMealsPlanned = { notice = AppNotice.MEAL_PLAN_CREATED },
                         onSearchRecipe = { date, type, fieldOriginY ->
-                            navController.navigate(PlanRecipePickerRoute(date.toString(), type.apiValue, fieldOriginY))
+                            navController.navigate(PlanRecipePickerDestination(date.toString(), type.apiValue, fieldOriginY))
                         },
-                        onAddFood = { date -> navController.navigate(PlanFoodRoute(date.toString())) },
+                        onAddFood = { date -> navController.navigate(PlanFoodDestination(date.toString())) },
                     )
                 }
 
-                composable<PlanFoodRoute> { entry ->
-                    val route: PlanFoodRoute = entry.toRoute()
+                composable<PlanFoodDestination> { entry ->
+                    val route: PlanFoodDestination = entry.toRoute()
                     FoodEntryRoute(
                         date = LocalDate.parse(route.date),
                         onBack = { navController.popIfCurrent(entry) },
@@ -273,13 +268,13 @@ private fun MainNavigation(
                     )
                 }
 
-                composable<PlanRecipePickerRoute>(
+                composable<PlanRecipePickerDestination>(
                     // The picker animates its own entrance, from the field of the sheet it replaces.
                     enterTransition = { EnterTransition.None },
                     popExitTransition = { sinkExit() },
                 ) { entry ->
-                    val route: PlanRecipePickerRoute = entry.toRoute()
-                    PlanRecipePickerScreen(
+                    val route: PlanRecipePickerDestination = entry.toRoute()
+                    PlanRecipePickerRoute(
                         date = LocalDate.parse(route.date),
                         mealType = MealType.fromApi(route.mealType),
                         fieldOriginY = route.fieldOriginY,
@@ -288,41 +283,41 @@ private fun MainNavigation(
                     )
                 }
 
-                composable<ShoppingRoute> {
-                    ShoppingScreen(onStartShoppingMode = { navController.navigate(ShoppingModeRoute(it)) })
+                composable<ShoppingDestination> {
+                    ShoppingRoute(onStartShoppingMode = { navController.navigate(ShoppingModeDestination(it)) })
                 }
 
-                composable<ShoppingModeRoute> { entry ->
-                    val route: ShoppingModeRoute = entry.toRoute()
-                    ShoppingModeScreen(
+                composable<ShoppingModeDestination> { entry ->
+                    val route: ShoppingModeDestination = entry.toRoute()
+                    ShoppingModeRoute(
                         listId = route.listId,
                         onExit = { navController.popIfCurrent(entry) },
                     )
                 }
 
-                composable<ProfileRoute> {
-                    ProfileScreen(
-                        onOpenAppSettings = { navController.navigate(AppSettingsRoute) },
-                        onOpenMealieSettings = { navController.navigate(MealieSettingsRoute) },
-                        onImportRecipe = { navController.navigate(RecipeImportRoute()) },
-                        onOpenProviders = { navController.navigate(ProvidersRoute) },
-                        onOpenLocalAi = { navController.navigate(LocalAiSettingsRoute) },
-                        onCreateRecipe = { navController.navigate(RecipeCreateRoute()) },
-                        onOpenDrafts = { navController.navigate(RecipeDraftsRoute) },
+                composable<ProfileDestination> {
+                    ProfileRoute(
+                        onOpenAppSettings = { navController.navigate(AppSettingsDestination) },
+                        onOpenMealieSettings = { navController.navigate(MealieSettingsDestination) },
+                        onImportRecipe = { navController.navigate(RecipeImportDestination()) },
+                        onOpenProviders = { navController.navigate(ProvidersDestination) },
+                        onOpenLocalAi = { navController.navigate(LocalAiSettingsDestination) },
+                        onCreateRecipe = { navController.navigate(RecipeCreateDestination()) },
+                        onOpenDrafts = { navController.navigate(RecipeDraftsDestination) },
                     )
                 }
 
-                composable<AppSettingsRoute> {
-                    AppSettingsScreen(onBack = { navController.popBackStack() })
+                composable<AppSettingsDestination> {
+                    AppSettingsRoute(onBack = { navController.popBackStack() })
                 }
 
-                composable<MealieSettingsRoute> {
-                    MealieSettingsScreen(onBack = { navController.popBackStack() })
+                composable<MealieSettingsDestination> {
+                    MealieSettingsRoute(onBack = { navController.popBackStack() })
                 }
 
-                composable<RecipeImportRoute> { entry ->
-                    val route: RecipeImportRoute = entry.toRoute()
-                    RecipeImportScreen(
+                composable<RecipeImportDestination> { entry ->
+                    val route: RecipeImportDestination = entry.toRoute()
+                    RecipeImportRoute(
                         initialUrl = route.url,
                         onBack = { navController.popIfCurrent(entry) },
                         onImported = { imported ->
@@ -331,36 +326,36 @@ private fun MainNavigation(
                                 imported.notice?.let { notice = AppNotice.of(it) }
                             }
                         },
-                        onOpenRecipe = { navController.navigate(RecipeRoute(it)) },
+                        onOpenRecipe = { navController.navigate(RecipeDestination(it)) },
                     )
                 }
 
-                composable<DishCoursesRoute> {
+                composable<DishCoursesDestination> {
                     DishTypesRoute(onBack = { navController.popBackStack() })
                 }
 
-                composable<LocalAiSettingsRoute> {
+                composable<LocalAiSettingsDestination> {
                     LocalAiRoute(onBack = { navController.popBackStack() })
                 }
 
-                composable<ProvidersRoute> {
-                    ProvidersScreen(
+                composable<ProvidersDestination> {
+                    ProvidersRoute(
                         onBack = { navController.popBackStack() },
-                        onOpenProvider = { navController.navigate(ProviderRoute(it)) },
+                        onOpenProvider = { navController.navigate(ProviderDestination(it)) },
                     )
                 }
 
-                composable<ProviderRoute> { entry ->
-                    val route: ProviderRoute = entry.toRoute()
-                    ProviderScreen(
+                composable<ProviderDestination> { entry ->
+                    val route: ProviderDestination = entry.toRoute()
+                    ProviderRoute(
                         providerId = route.id,
                         onBack = { navController.popIfCurrent(entry) },
                     )
                 }
 
-                composable<RecipeCreateRoute> { entry ->
-                    val route: RecipeCreateRoute = entry.toRoute()
-                    RecipeCreateScreen(
+                composable<RecipeCreateDestination> { entry ->
+                    val route: RecipeCreateDestination = entry.toRoute()
+                    RecipeCreateRoute(
                         draftId = route.draftId,
                         onLeft = { draftSaved ->
                             if (navController.popIfCurrent(entry) && draftSaved) {
@@ -376,34 +371,34 @@ private fun MainNavigation(
                     )
                 }
 
-                composable<RecipeDraftsRoute> {
-                    RecipeDraftsScreen(
+                composable<RecipeDraftsDestination> {
+                    RecipeDraftsRoute(
                         onBack = { navController.popBackStack() },
-                        onOpenDraft = { navController.navigate(RecipeCreateRoute(it)) },
+                        onOpenDraft = { navController.navigate(RecipeCreateDestination(it)) },
                     )
                 }
 
-                composable<RecipeRoute> { entry ->
-                    val route: RecipeRoute = entry.toRoute()
+                composable<RecipeDestination> { entry ->
+                    val route: RecipeDestination = entry.toRoute()
                     val recipeUpdated by entry.savedStateHandle
                         .getStateFlow(RECIPE_UPDATED, false)
                         .collectAsStateWithLifecycle()
-                    RecipeDetailScreen(
+                    RecipeDetailRoute(
                         slug = route.slug,
                         recipeUpdated = recipeUpdated,
                         onRecipeUpdateSeen = { entry.savedStateHandle[RECIPE_UPDATED] = false },
                         onBack = { navController.popBackStack() },
                         onStartCooking = { slug, servings ->
-                            navController.navigate(CookingRoute(slug, servings))
+                            navController.navigate(CookingDestination(slug, servings))
                         },
-                        onEdit = { navController.navigate(RecipeEditRoute(it)) },
-                        onOrganizerClick = { navController.navigate(OrganizerSearchRoute.of(it)) },
+                        onEdit = { navController.navigate(RecipeEditDestination(it)) },
+                        onOrganizerClick = { navController.navigate(OrganizerSearchDestination.of(it)) },
                     )
                 }
 
-                composable<RecipeEditRoute> { entry ->
-                    val route: RecipeEditRoute = entry.toRoute()
-                    RecipeEditScreen(
+                composable<RecipeEditDestination> { entry ->
+                    val route: RecipeEditDestination = entry.toRoute()
+                    RecipeEditRoute(
                         slug = route.slug,
                         onBack = { navController.popIfCurrent(entry) },
                         onSaved = { slug ->
@@ -421,9 +416,9 @@ private fun MainNavigation(
                     )
                 }
 
-                composable<CookingRoute> { entry ->
-                    val route: CookingRoute = entry.toRoute()
-                    CookingScreen(
+                composable<CookingDestination> { entry ->
+                    val route: CookingDestination = entry.toRoute()
+                    CookingRoute(
                         slug = route.slug,
                         servings = route.servings,
                         step = route.step,
@@ -447,7 +442,7 @@ private fun MainNavigation(
             ) {
                 // The cooking mode shows its timers itself; every other screen gets
                 // them as pills, on the left, clear of the buttons on the right.
-                if (destination?.hasRoute(CookingRoute::class) != true) {
+                if (destination?.hasRoute(CookingDestination::class) != true) {
                     ActiveTimerPills(
                         state = timers,
                         onOpen = { navController.openCooking(it.recipe.slug, it.recipe.servings, it.stepIndex) },
@@ -466,121 +461,17 @@ private fun MainNavigation(
 }
 
 private fun TopLevelTab.matches(destination: NavDestination?): Boolean = when (this) {
-    TopLevelTab.HOME -> destination?.hasRoute(HomeRoute::class) == true
-    TopLevelTab.PLANNING -> destination?.hasRoute(PlanningRoute::class) == true
-    TopLevelTab.SHOPPING -> destination?.hasRoute(ShoppingRoute::class) == true
-    TopLevelTab.PROFILE -> destination?.hasRoute(ProfileRoute::class) == true
+    TopLevelTab.HOME -> destination?.hasRoute(HomeDestination::class) == true
+    TopLevelTab.PLANNING -> destination?.hasRoute(PlanningDestination::class) == true
+    TopLevelTab.SHOPPING -> destination?.hasRoute(ShoppingDestination::class) == true
+    TopLevelTab.PROFILE -> destination?.hasRoute(ProfileDestination::class) == true
 }
 
 /**
  * Readers and forms own the whole screen: the tab bar would only steal vertical
  * space and show no tab as selected.
  */
-private fun NavDestination?.isFullScreen(): Boolean = this != null && (
-    hasRoute(RecipeRoute::class) ||
-        hasRoute(CookingRoute::class) ||
-        hasRoute(AppSettingsRoute::class) ||
-        hasRoute(MealieSettingsRoute::class) ||
-        hasRoute(RecipeImportRoute::class) ||
-        hasRoute(ProvidersRoute::class) ||
-        hasRoute(ProviderRoute::class) ||
-        hasRoute(RecipeCreateRoute::class) ||
-        hasRoute(RecipeEditRoute::class) ||
-        hasRoute(RecipeDraftsRoute::class) ||
-        hasRoute(PlanRecipePickerRoute::class) ||
-        hasRoute(PlanFoodRoute::class) ||
-        hasRoute(ShoppingModeRoute::class)
-    )
-
-/**
- * Switching tabs keeps a single entry per tab on the back stack and restores
- * the scroll position of the tab being returned to.
- */
-private fun NavHostController.switchTab(route: Any) {
-    navigate(route) {
-        popUpTo(graph.startDestinationId) { saveState = true }
-        launchSingleTop = true
-        restoreState = true
-    }
-}
-
-/**
- * After a recipe has been created the form must not stay on the back stack:
- * going back from the new recipe returns to the profile page.
- */
-private fun NavHostController.openCreatedRecipe(slug: String) {
-    navigate(RecipeRoute(slug)) {
-        popUpTo(ProfileRoute) { inclusive = false }
-    }
-}
-
-/**
- * The import replaces itself with the recipe it created: it may have been
- * opened by a page shared from another app, over any screen.
- */
-private fun NavHostController.openImportedRecipe(entry: NavBackStackEntry, slug: String) {
-    navigate(RecipeRoute(slug)) {
-        popUpTo(entry.destination.id) { inclusive = true }
-    }
-}
-
-/**
- * A screen that closes itself once its work is done asks for it from an
- * effect, which runs again after a rotation: only the screen on top may pop,
- * so it never closes the one below by mistake.
- */
-private fun NavHostController.isCurrent(entry: NavBackStackEntry): Boolean =
-    currentBackStackEntry?.id == entry.id
-
-private fun NavHostController.popIfCurrent(entry: NavBackStackEntry): Boolean =
-    isCurrent(entry) && popBackStack()
-
-/**
- * Back on the recipe page the editor was opened from, once it closed: that
- * page reloads, or after a rename is replaced by the page at the new address,
- * since the old one no longer exists on Mealie.
- */
-private fun NavHostController.showSavedRecipe(editedSlug: String, savedSlug: String) {
-    if (savedSlug == editedSlug) {
-        currentBackStackEntry?.savedStateHandle?.set(RECIPE_UPDATED, true)
-    } else {
-        navigate(RecipeRoute(savedSlug)) {
-            popUpTo<RecipeRoute> { inclusive = true }
-        }
-    }
-}
-
-/**
- * Once the editor closed on a deleted recipe, its page, under it, goes too:
- * it would show a recipe that no longer exists.
- */
-private fun NavHostController.leaveDeletedRecipe(slug: String) {
-    val below = currentBackStackEntry ?: return
-    if (below.destination.hasRoute(RecipeRoute::class) && below.toRoute<RecipeRoute>().slug == slug) popBackStack()
-}
-
-/**
- * Opens the cooking mode of a recipe at a step, as a timer asks: it replaces
- * the cooking mode on screen, if any, rather than stacking a second one.
- */
-private fun NavHostController.openCooking(slug: String, servings: Int, step: Int) {
-    navigate(CookingRoute(slug, servings, step)) {
-        popUpTo<CookingRoute> { inclusive = true }
-    }
-}
-
-/**
- * Opens the import, where it runs or tells how it ended: it replaces the
- * import on screen, if any, rather than stacking a second one.
- */
-private fun NavHostController.openImport() {
-    navigate(RecipeImportRoute()) {
-        popUpTo<RecipeImportRoute> { inclusive = true }
-    }
-}
-
-/** Set on the recipe page's entry when the editor saved changes to it. */
-private const val RECIPE_UPDATED = "recipe_updated"
+private fun NavDestination?.isFullScreen(): Boolean = this != null && FullScreenDestinations.any { hasRoute(it) }
 
 private const val NOTICE_MILLIS = 2_500L
 

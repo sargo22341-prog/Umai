@@ -65,7 +65,7 @@ import org.opensources.umai.youtube.domain.YouTubeFailure
  * permission to post it is asked for when an import starts.
  */
 @Composable
-fun RecipeImportScreen(
+fun RecipeImportRoute(
     initialUrl: String?,
     onBack: () -> Unit,
     onImported: (ImportedRecipe) -> Unit,

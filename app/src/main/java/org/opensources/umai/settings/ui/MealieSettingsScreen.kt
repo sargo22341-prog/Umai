@@ -48,7 +48,7 @@ import org.opensources.umai.core.ui.component.title
 import java.time.DayOfWeek
 
 @Composable
-fun MealieSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun MealieSettingsRoute(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val container = LocalAppContainer.current
     val viewModel: MealieSettingsViewModel =
         viewModel(factory = MealieSettingsViewModel.factory(container))

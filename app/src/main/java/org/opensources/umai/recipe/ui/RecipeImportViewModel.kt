@@ -15,7 +15,7 @@ import org.opensources.umai.core.di.AppContainer
 import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.llm.domain.LlmProgress
-import org.opensources.umai.provider.ProviderRegistry
+import org.opensources.umai.provider.domain.ProviderRegistry
 import org.opensources.umai.provider.data.ProviderSettings
 import org.opensources.umai.provider.data.importsMediaNow
 import org.opensources.umai.recipe.data.RecipeImportController
@@ -146,8 +146,6 @@ class RecipeImportViewModel(
 
     /** Stops an import on its way; a recipe already created on Mealie stays. */
     fun cancel() = imports.cancel()
-
-    fun dismissDuplicate() = form.update { it.copy(duplicate = null) }
 
     fun consumeImported() = form.update { it.copy(imported = null) }
 

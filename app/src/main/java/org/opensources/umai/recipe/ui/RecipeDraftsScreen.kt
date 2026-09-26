@@ -42,7 +42,7 @@ import java.time.format.FormatStyle
 
 /** The recipes started in the app but not published to Mealie yet. */
 @Composable
-fun RecipeDraftsScreen(
+fun RecipeDraftsRoute(
     onBack: () -> Unit,
     onOpenDraft: (String) -> Unit,
     modifier: Modifier = Modifier,

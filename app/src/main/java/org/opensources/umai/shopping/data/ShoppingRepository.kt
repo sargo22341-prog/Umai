@@ -6,8 +6,8 @@ import org.opensources.umai.core.model.ShoppingItem
 import org.opensources.umai.core.model.ShoppingList
 import org.opensources.umai.core.model.ShoppingListSummary
 import org.opensources.umai.core.network.ApiResult
-import org.opensources.umai.core.network.NetworkError
-import org.opensources.umai.core.network.apiCall
+import org.opensources.umai.core.network.api.MealieApi
+import org.opensources.umai.core.network.call
 import org.opensources.umai.core.network.dto.ShoppingListAddRecipeDto
 import org.opensources.umai.core.network.dto.ShoppingListCreateDto
 import org.opensources.umai.core.network.dto.ShoppingListDto
@@ -15,7 +15,6 @@ import org.opensources.umai.core.network.dto.ShoppingListItemCreateDto
 import org.opensources.umai.core.network.dto.ShoppingListItemDto
 import org.opensources.umai.core.network.dto.ShoppingListItemUpdateDto
 import org.opensources.umai.core.network.dto.ShoppingListSummaryDto
-import org.opensources.umai.core.network.api.MealieApi
 import org.opensources.umai.recipe.data.toDto
 
 /**
@@ -26,66 +25,45 @@ import org.opensources.umai.recipe.data.toDto
  */
 class ShoppingRepository(private val apiProvider: () -> MealieApi?) {
 
-    suspend fun lists(): ApiResult<List<ShoppingListSummary>> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return apiCall { api.shoppingLists().items.map { it.toDomain() } }
-    }
+    suspend fun lists(): ApiResult<List<ShoppingListSummary>> =
+        apiProvider.call { shoppingLists().items.map { it.toDomain() } }
 
-    suspend fun list(id: String): ApiResult<ShoppingList> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return apiCall { api.shoppingList(id).toDomain() }
-    }
+    suspend fun list(id: String): ApiResult<ShoppingList> = apiProvider.call { shoppingList(id).toDomain() }
 
-    suspend fun createList(name: String): ApiResult<ShoppingList> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return apiCall { api.createShoppingList(ShoppingListCreateDto(name)).toDomain() }
-    }
+    suspend fun createList(name: String): ApiResult<ShoppingList> =
+        apiProvider.call { createShoppingList(ShoppingListCreateDto(name)).toDomain() }
 
-    suspend fun deleteList(id: String): ApiResult<Unit> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return apiCall { api.deleteShoppingList(id) }
-    }
+    suspend fun deleteList(id: String): ApiResult<Unit> = apiProvider.call { deleteShoppingList(id) }
 
-    suspend fun addItem(listId: String, note: String, quantity: Double, position: Int): ApiResult<Unit> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        // The created item is re-read with the list, so the response is dropped.
-        return apiCall {
-            api.createShoppingItem(
+    suspend fun addItem(listId: String, note: String, quantity: Double, position: Int): ApiResult<Unit> =
+        apiProvider.call {
+            createShoppingItem(
                 ShoppingListItemCreateDto(
                     shoppingListId = listId,
                     note = note,
                     quantity = quantity,
                     position = position,
                 ),
-            ).let { }
+            )
         }
+
+    suspend fun updateItem(item: ShoppingItem): ApiResult<Unit> = apiProvider.call {
+        updateShoppingItem(
+            id = item.id,
+            body = ShoppingListItemUpdateDto(
+                shoppingListId = item.shoppingListId,
+                note = item.note,
+                quantity = item.quantity,
+                checked = item.checked,
+                position = item.position,
+                foodId = item.foodId,
+                unitId = item.unitId,
+                labelId = item.labelId,
+            ),
+        )
     }
 
-    suspend fun updateItem(item: ShoppingItem): ApiResult<Unit> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        // Mealie answers with the created/updated/deleted collection; the list
-        // is reloaded right after, so the response is dropped.
-        return apiCall {
-            api.updateShoppingItem(
-                id = item.id,
-                body = ShoppingListItemUpdateDto(
-                    shoppingListId = item.shoppingListId,
-                    note = item.note,
-                    quantity = item.quantity,
-                    checked = item.checked,
-                    position = item.position,
-                    foodId = item.foodId,
-                    unitId = item.unitId,
-                    labelId = item.labelId,
-                ),
-            ).let { }
-        }
-    }
-
-    suspend fun deleteItem(itemId: String): ApiResult<Unit> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return apiCall { api.deleteShoppingItem(itemId) }
-    }
+    suspend fun deleteItem(itemId: String): ApiResult<Unit> = apiProvider.call { deleteShoppingItem(itemId) }
 
     /**
      * Uses Mealie's own "add recipe ingredients to list" endpoint.
@@ -100,18 +78,15 @@ class ShoppingRepository(private val apiProvider: () -> MealieApi?) {
         recipeId: String,
         multiplier: Double,
         ingredients: List<RecipeIngredient>? = null,
-    ): ApiResult<ShoppingList> {
-        val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        return apiCall {
-            api.addRecipeToShoppingList(
-                listId = listId,
-                recipeId = recipeId,
-                body = ShoppingListAddRecipeDto(
-                    recipeIncrementQuantity = multiplier.takeIf { it > 0.0 } ?: 1.0,
-                    recipeIngredients = ingredients?.map { it.toDto() },
-                ),
-            ).toDomain()
-        }
+    ): ApiResult<ShoppingList> = apiProvider.call {
+        addRecipeToShoppingList(
+            listId = listId,
+            recipeId = recipeId,
+            body = ShoppingListAddRecipeDto(
+                recipeIncrementQuantity = multiplier.takeIf { it > 0.0 } ?: 1.0,
+                recipeIngredients = ingredients?.map { it.toDto() },
+            ),
+        ).toDomain()
     }
 }
 

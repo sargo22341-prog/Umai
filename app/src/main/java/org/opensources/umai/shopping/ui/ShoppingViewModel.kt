@@ -175,16 +175,6 @@ class ShoppingViewModel(
         }
     }
 
-    fun updateNote(item: ShoppingItem, note: String) {
-        val listId = _state.value.selectedListId ?: return
-        viewModelScope.launch {
-            when (val result = repository.updateItem(item.copy(note = note.trim()))) {
-                is ApiResult.Failure -> _state.update { it.copy(error = result.error) }
-                is ApiResult.Success -> selectList(listId)
-            }
-        }
-    }
-
     fun deleteItem(item: ShoppingItem) {
         val listId = _state.value.selectedListId ?: return
         viewModelScope.launch {

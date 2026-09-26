@@ -344,14 +344,14 @@ class CookingViewModelTest {
         vm.startTimer(Duration.ofSeconds(30))
         now = 31_000L
         timers.refresh()
-        val ringing = withTimeout(TIMEOUT_MS) { vm.state.first { it.ringingTimers.isNotEmpty() } }
-        assertEquals(listOf(1), ringing.ringingTimers.map { it.id })
+        val ringing = withTimeout(TIMEOUT_MS) { vm.state.first { it.timers.finished(it.now).isNotEmpty() } }
+        assertEquals(listOf(1), ringing.timers.finished(ringing.now).map { it.id })
 
         vm.dismissTimer(1)
         // The timers reach the state through a flow that also ticks the clock:
         // the change is awaited rather than read on the spot.
         val dismissed = withTimeout(TIMEOUT_MS) { vm.state.first { it.timers.isEmpty } }
-        assertTrue(dismissed.ringingTimers.isEmpty())
+        assertTrue(dismissed.timers.finished(dismissed.now).isEmpty())
     }
 
     @Test

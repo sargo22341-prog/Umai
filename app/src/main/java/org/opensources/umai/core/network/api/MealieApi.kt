@@ -11,7 +11,6 @@ import org.opensources.umai.core.network.dto.CreateRecipeDto
 import org.opensources.umai.core.network.dto.HouseholdPreferencesDto
 import org.opensources.umai.core.network.dto.HouseholdStatisticsDto
 import org.opensources.umai.core.network.dto.IngredientFoodListDto
-import org.opensources.umai.core.network.dto.LabelDto
 import org.opensources.umai.core.network.dto.MealPlanEntryDto
 import org.opensources.umai.core.network.dto.PaginationDto
 import org.opensources.umai.core.network.dto.PlanRuleDto
@@ -31,9 +30,7 @@ import org.opensources.umai.core.network.dto.ShoppingListAddRecipeDto
 import org.opensources.umai.core.network.dto.ShoppingListCreateDto
 import org.opensources.umai.core.network.dto.ShoppingListDto
 import org.opensources.umai.core.network.dto.ShoppingListItemCreateDto
-import org.opensources.umai.core.network.dto.ShoppingListItemDto
 import org.opensources.umai.core.network.dto.ShoppingListItemUpdateDto
-import org.opensources.umai.core.network.dto.ShoppingListItemsCollectionDto
 import org.opensources.umai.core.network.dto.ShoppingListSummaryDto
 import org.opensources.umai.core.network.dto.TagInDto
 import org.opensources.umai.core.network.dto.TimelineEventInDto
@@ -45,7 +42,6 @@ import org.opensources.umai.core.network.dto.UpdateImageResponseDto
 import org.opensources.umai.core.network.dto.UserRatingSummaryDto
 import org.opensources.umai.core.network.dto.UserRatingUpdateDto
 import org.opensources.umai.core.network.dto.UserRatingsDto
-import org.opensources.umai.core.network.dto.UserUpdateDto
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.Field
@@ -98,9 +94,6 @@ interface MealieApi {
     @GET("api/households/statistics")
     suspend fun householdStatistics(): HouseholdStatisticsDto
 
-    @PUT("api/users/{id}")
-    suspend fun updateUser(@Path("id") id: String, @Body body: UserUpdateDto)
-
     /** The part is named `profile`, as required by the OpenAPI body schema. */
     @Multipart
     @POST("api/users/{id}/image")
@@ -149,13 +142,6 @@ interface MealieApi {
     /** Creates a recipe from a schema.org Recipe given as JSON, and answers with its slug. */
     @POST("api/recipes/create/html-or-json")
     suspend fun createRecipeFromJson(@Body body: ScrapeRecipeDataDto): String
-
-    /** Takes the same shape as the detail response; sends the whole recipe. */
-    @PUT("api/recipes/{slug}")
-    suspend fun updateRecipe(
-        @Path("slug") slug: String,
-        @Body body: RecipeDetailDto,
-    ): RecipeDetailDto
 
     /**
      * The recipe exactly as Mealie holds it. An edit sends this document back
@@ -274,9 +260,6 @@ interface MealieApi {
     @GET("api/users/self/favorites")
     suspend fun favorites(): UserRatingsDto
 
-    @GET("api/users/self/ratings")
-    suspend fun ratings(): UserRatingsDto
-
     @GET("api/users/self/ratings/{recipeId}")
     suspend fun ownRating(@Path("recipeId") recipeId: String): UserRatingSummaryDto
 
@@ -342,14 +325,16 @@ interface MealieApi {
     @DELETE("api/households/shopping/lists/{id}")
     suspend fun deleteShoppingList(@Path("id") id: String)
 
+    /** Answers with the created item, which the list read again right after carries. */
     @POST("api/households/shopping/items")
-    suspend fun createShoppingItem(@Body body: ShoppingListItemCreateDto): ShoppingListItemDto
+    suspend fun createShoppingItem(@Body body: ShoppingListItemCreateDto)
 
+    /** Answers with the items it changed, which the list read again right after carries. */
     @PUT("api/households/shopping/items/{id}")
     suspend fun updateShoppingItem(
         @Path("id") id: String,
         @Body body: ShoppingListItemUpdateDto,
-    ): ShoppingListItemsCollectionDto
+    )
 
     @DELETE("api/households/shopping/items/{id}")
     suspend fun deleteShoppingItem(@Path("id") id: String)
@@ -360,12 +345,4 @@ interface MealieApi {
         @Path("recipeId") recipeId: String,
         @Body body: ShoppingListAddRecipeDto,
     ): ShoppingListDto
-
-    @GET("api/groups/labels")
-    suspend fun labels(
-        @Query("page") page: Int = 1,
-        @Query("perPage") perPage: Int = 100,
-        @Query("orderBy") orderBy: String? = "name",
-        @Query("orderDirection") orderDirection: String? = "asc",
-    ): PaginationDto<LabelDto>
 }

@@ -42,6 +42,16 @@ jobs:
           chmod +x gradlew
           ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:compileDebugAndroidTestKotlin --console=plain
 
+      - name: Vérifier l'absence de Google Play Services, Firebase et Maps
+        run: |
+          # AGENTS.md §2 : l'app tourne sans GMS (GrapheneOS). Le graphe de la release fait foi,
+          # même quand R8 renomme les classes.
+          ./gradlew :app:dependencies --configuration releaseRuntimeClasspath --console=plain -q > "$RUNNER_TEMP/deps.txt"
+          if grep -E "com\.google\.android\.gms|com\.google\.firebase|com\.google\.android\.maps" "$RUNNER_TEMP/deps.txt"; then
+            echo "::error::Une dépendance tire Google Play Services, Firebase ou Maps."
+            exit 1
+          fi
+
       - name: Conserver les rapports de tests et de Lint
         if: failure()
         uses: actions/upload-artifact@v7
@@ -113,6 +123,14 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew :app:assembleRelease --console=plain
+
+      - name: Vérifier l'APK sans Google Play Services
+        run: |
+          apk=$(ls app/build/outputs/apk/release/*-release-unsigned.apk)
+          if unzip -l "$apk" | grep -E "com/google/android/gms|com/google/firebase|com/google/android/maps"; then
+            echo "::error::L'APK release embarque Google Play Services, Firebase ou Maps."
+            exit 1
+          fi
 
       - name: Signer et vérifier l'APK
         id: apk

@@ -15,6 +15,10 @@ import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.network.api.MealieApi
 import org.opensources.umai.core.network.apiCall
+import org.opensources.umai.core.network.fetchAllPages
+import org.opensources.umai.core.network.toPaged
+import org.opensources.umai.core.network.valueOr
+import org.opensources.umai.core.network.valueOrNull
 import org.opensources.umai.planning.domain.CourseClassifier
 import org.opensources.umai.planning.domain.CourseVocabulary
 import org.opensources.umai.planning.domain.DishCourse
@@ -62,14 +66,8 @@ class DishPoolRepository(
     ): ApiResult<DishPool> {
         val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
         onPhase(DishPoolPhase.READING_RECIPES)
-        val recipes = when (val result = allRecipes(api, queryFilter = null)) {
-            is ApiResult.Failure -> return result
-            is ApiResult.Success -> result.value
-        }
-        val history = when (val result = history(api, today)) {
-            is ApiResult.Failure -> return result
-            is ApiResult.Success -> result.value
-        }
+        val recipes = allRecipes(api, queryFilter = null).valueOr { return it }
+        val history = history(api, today).valueOr { return it }
         val rules = rules(api)
         val userCourses = courses.userCourses.first()
         val modelCourses = courses.modelCourses()
@@ -101,12 +99,7 @@ class DishPoolRepository(
             // The model loads while the dishes are read, when some of them will need it.
             if (sampled.any { placed[it.id] == null }) launch { modelClassifier.prepare() }
             details(api, sampled)
-        }.let { result ->
-            when (result) {
-                is ApiResult.Failure -> return result
-                is ApiResult.Success -> result.value
-            }
-        }
+        }.valueOr { return it }
 
         val unplaced = details.filter { placed[it.id] == null }
         val decided = if (unplaced.isEmpty()) {
@@ -135,7 +128,7 @@ class DishPoolRepository(
      */
     suspend fun ingredientsOf(recipes: List<RecipeSummary>): Set<String> {
         val api = apiProvider() ?: return emptySet()
-        val read = (details(api, recipes.distinctBy { it.id }) as? ApiResult.Success)?.value.orEmpty()
+        val read = details(api, recipes.distinctBy { it.id }).valueOrNull().orEmpty()
         return read.flatMap { IngredientKeys.keysOf(it.ingredients) }.toSet()
     }
 
@@ -149,57 +142,33 @@ class DishPoolRepository(
         else -> DishCourse.MAIN
     }
 
-    private suspend fun allRecipes(api: MealieApi, queryFilter: String?): ApiResult<List<RecipeSummary>> {
-        val recipes = mutableListOf<RecipeSummary>()
-        var page = 1
-        while (page <= MAX_PAGES) {
-            val result = apiCall {
-                api.recipes(page = page, perPage = PAGE_SIZE, orderBy = "name", orderDirection = "asc", queryFilter = queryFilter)
-            }
-            when (result) {
-                is ApiResult.Failure -> return result
-                is ApiResult.Success -> {
-                    recipes += result.value.items.mapNotNull { it.toDomain() }
-                    if (page >= result.value.totalPages) break
-                }
-            }
-            page++
+    private suspend fun allRecipes(api: MealieApi, queryFilter: String?): ApiResult<List<RecipeSummary>> = apiCall {
+        fetchAllPages(MAX_PAGES) { page ->
+            api.recipes(page = page, perPage = PAGE_SIZE, orderBy = "name", orderDirection = "asc", queryFilter = queryFilter)
+                .toPaged { it.toDomain() }
         }
-        return ApiResult.Success(recipes)
     }
 
     private class History(val counts: Map<String, Map<MealType, Int>>, val lastPlanned: Map<String, LocalDate>)
 
     /** How each recipe was planned over the last weeks, and when it last was as a meal. */
-    private suspend fun history(api: MealieApi, today: LocalDate): ApiResult<History> {
-        val entries = mutableListOf<Triple<String, MealType, LocalDate>>()
-        var page = 1
-        while (page <= MAX_PAGES) {
-            val result = apiCall {
-                api.mealPlans(
-                    startDate = ApiDates.format(today.minusWeeks(HISTORY_WEEKS)),
-                    endDate = ApiDates.format(today.minusDays(1)),
-                    page = page,
-                )
+    private suspend fun history(api: MealieApi, today: LocalDate): ApiResult<History> = apiCall {
+        val entries = fetchAllPages(MAX_PAGES) { page ->
+            api.mealPlans(
+                startDate = ApiDates.format(today.minusWeeks(HISTORY_WEEKS)),
+                endDate = ApiDates.format(today.minusDays(1)),
+                page = page,
+            ).toPaged { entry ->
+                val id = entry.recipeId ?: entry.recipe?.id ?: return@toPaged null
+                val date = ApiDates.parseDate(entry.date) ?: return@toPaged null
+                Triple(id, MealType.fromApi(entry.entryType), date)
             }
-            when (result) {
-                is ApiResult.Failure -> return result
-                is ApiResult.Success -> {
-                    result.value.items.forEach { entry ->
-                        val id = entry.recipeId ?: entry.recipe?.id ?: return@forEach
-                        val date = ApiDates.parseDate(entry.date) ?: return@forEach
-                        entries += Triple(id, MealType.fromApi(entry.entryType), date)
-                    }
-                    if (page >= result.value.totalPages) break
-                }
-            }
-            page++
         }
         val counts = entries.groupBy { it.first }.mapValues { (_, meals) -> meals.groupingBy { it.second }.eachCount() }
         val lastPlanned = entries.filter { CourseClassifier.courseOf(it.second) == DishCourse.MAIN }
             .groupBy { it.first }
             .mapValues { (_, meals) -> meals.maxOf { it.third } }
-        return ApiResult.Success(History(counts, lastPlanned))
+        History(counts, lastPlanned)
     }
 
     /**
@@ -208,12 +177,12 @@ class DishPoolRepository(
      * would reject it too; without the permission to read rules, there are none.
      */
     private suspend fun rules(api: MealieApi): List<PlanRule> {
-        val dtos = (apiCall { api.mealPlanRules() } as? ApiResult.Success)?.value?.items.orEmpty()
+        val dtos = apiCall { api.mealPlanRules() }.valueOrNull()?.items.orEmpty()
         return dtos.mapNotNull { dto ->
             val type = dto.entryType.takeIf { it != UNSET }?.let(MealType::fromApi)
             if (type != null && type != MealType.LUNCH && type != MealType.DINNER) return@mapNotNull null
             val filter = dto.queryFilterString.trim().takeIf { it.isNotEmpty() } ?: return@mapNotNull null
-            val matching = (allRecipes(api, filter) as? ApiResult.Success)?.value ?: return@mapNotNull null
+            val matching = allRecipes(api, filter).valueOrNull() ?: return@mapNotNull null
             PlanRule(
                 day = dto.day.takeIf { it != UNSET }?.let { day -> DayOfWeek.entries.firstOrNull { it.name.equals(day, true) } },
                 type = type,
@@ -228,7 +197,7 @@ class DishPoolRepository(
         val results = recipes.map { summary ->
             async { gate.withPermit { apiCall { api.recipe(summary.slug) } } }
         }.awaitAll()
-        val read = results.mapNotNull { (it as? ApiResult.Success)?.value?.toDomain() }
+        val read = results.mapNotNull { it.valueOrNull()?.toDomain() }
         val failure = results.firstNotNullOfOrNull { it as? ApiResult.Failure }
         if (read.isEmpty() && failure != null) failure else ApiResult.Success(read)
     }

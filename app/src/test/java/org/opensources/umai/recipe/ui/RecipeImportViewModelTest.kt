@@ -24,7 +24,7 @@ import org.junit.Before
 import org.junit.Test
 import org.opensources.umai.core.image.EncodedImage
 import org.opensources.umai.core.network.FakeMealieServer
-import org.opensources.umai.provider.ProviderRegistry
+import org.opensources.umai.provider.domain.ProviderRegistry
 import org.opensources.umai.provider.data.ProviderMediaImporter
 import org.opensources.umai.provider.data.ProviderSettings
 import org.opensources.umai.provider.jow.JowProvider
@@ -88,7 +88,7 @@ class RecipeImportViewModelTest {
     ) = RecipeImportController(
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
         repository = RecipeEditRepository(apiProvider = { fake.api() }),
-        calorieTags = CalorieTagRepository { fake.api() },
+        calorieTags = CalorieTagRepository(apiProvider = { fake.api() }, instanceKey = { "instance" }),
         providers = ProviderRegistry(listOf(JowProvider)),
         providerSettings = providerSettings(importsMedia),
         mediaImporter = ProviderMediaImporter(

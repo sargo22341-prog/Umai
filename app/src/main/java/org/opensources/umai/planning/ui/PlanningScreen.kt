@@ -47,10 +47,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -59,7 +59,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import org.opensources.umai.R
 import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.format.currentLocale
-import org.opensources.umai.core.format.localizedName
 import org.opensources.umai.core.format.rememberDateFormatter
 import org.opensources.umai.core.model.MealPlanEntry
 import org.opensources.umai.core.model.MealType
@@ -79,7 +78,7 @@ import java.time.format.FormatStyle
  * Mealie. The week opens on today, highlighted and scrolled into view.
  */
 @Composable
-fun PlanningScreen(
+fun PlanningRoute(
     onRecipeClick: (String) -> Unit,
     onSearchRecipe: (LocalDate, MealType, Float) -> Unit,
     onAddFood: (LocalDate) -> Unit,
@@ -524,12 +523,3 @@ private fun MealEntryCard(
 /** Width of one day, and how much of the previous day stays visible. */
 private val DayColumnWidth = 264.dp
 private val DayPeekWidth = 56.dp
-
-/** "Yesterday", "Today", "Tomorrow", then the localized day name. */
-@Composable
-fun LocalDate.label(today: LocalDate = LocalDate.now()): String = when (this) {
-    today.minusDays(1) -> stringResource(R.string.planning_yesterday)
-    today -> stringResource(R.string.planning_today)
-    today.plusDays(1) -> stringResource(R.string.planning_tomorrow)
-    else -> dayOfWeek.localizedName()
-}

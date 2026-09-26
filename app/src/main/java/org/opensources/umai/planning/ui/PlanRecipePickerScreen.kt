@@ -57,7 +57,7 @@ import java.time.format.FormatStyle
  * own: tapping a result puts it on the meal plan and comes back to the week.
  */
 @Composable
-fun PlanRecipePickerScreen(
+fun PlanRecipePickerRoute(
     date: LocalDate,
     mealType: MealType,
     fieldOriginY: Float,

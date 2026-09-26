@@ -4,13 +4,11 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
-import java.io.IOException
+import org.opensources.umai.core.settings.safeData
 
 private val Context.recentDataStore: DataStore<Preferences> by preferencesDataStore(name = "umai_recent")
 
@@ -32,17 +30,12 @@ class RecentRecipesStore(context: Context) : RecentRecipes {
 
     private val dataStore = context.applicationContext.recentDataStore
 
-    val slugs: Flow<List<String>> = dataStore.data
-        .catch { cause -> if (cause is IOException) emit(emptyPreferences()) else throw cause }
-        .map { prefs ->
-            prefs[KeySlugs]?.split(SEPARATOR)?.filter { it.isNotBlank() }.orEmpty()
-        }
+    val slugs: Flow<List<String>> = dataStore.safeData.map { slugsOf(it) }
 
     suspend fun remember(slug: String) {
         if (slug.isBlank()) return
         dataStore.edit { prefs ->
-            val current = prefs[KeySlugs]?.split(SEPARATOR)?.filter { it.isNotBlank() }.orEmpty()
-            val updated = (listOf(slug) + current.filterNot { it == slug }).take(MAX_ENTRIES)
+            val updated = (listOf(slug) + slugsOf(prefs).filterNot { it == slug }).take(MAX_ENTRIES)
             prefs[KeySlugs] = updated.joinToString(SEPARATOR)
         }
     }
@@ -50,21 +43,23 @@ class RecentRecipesStore(context: Context) : RecentRecipes {
     override suspend fun rename(oldSlug: String, newSlug: String) {
         if (oldSlug == newSlug || newSlug.isBlank()) return
         dataStore.edit { prefs ->
-            val current = prefs[KeySlugs]?.split(SEPARATOR)?.filter { it.isNotBlank() }.orEmpty()
-            prefs[KeySlugs] = current.map { if (it == oldSlug) newSlug else it }.distinct().joinToString(SEPARATOR)
+            prefs[KeySlugs] = slugsOf(prefs).map { if (it == oldSlug) newSlug else it }.distinct().joinToString(SEPARATOR)
         }
     }
 
     override suspend fun forget(slug: String) {
         dataStore.edit { prefs ->
-            val current = prefs[KeySlugs]?.split(SEPARATOR)?.filter { it.isNotBlank() }.orEmpty()
-            prefs[KeySlugs] = current.filterNot { it == slug }.joinToString(SEPARATOR)
+            prefs[KeySlugs] = slugsOf(prefs).filterNot { it == slug }.joinToString(SEPARATOR)
         }
     }
 
+    /** The history belongs to the instance it was read from. */
     suspend fun clear() {
         dataStore.edit { it.remove(KeySlugs) }
     }
+
+    private fun slugsOf(prefs: Preferences): List<String> =
+        prefs[KeySlugs]?.split(SEPARATOR)?.filter { it.isNotBlank() }.orEmpty()
 
     private companion object {
         const val MAX_ENTRIES = 12

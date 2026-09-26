@@ -7,7 +7,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.FakeMealieServer
 import org.opensources.umai.core.network.MealieClientFactory
 import org.opensources.umai.core.network.NetworkError
@@ -22,14 +21,16 @@ class AuthRepositoryTest {
     fun setUp() {
         fake = FakeMealieServer()
         holder = FakeSessionHolder()
-        repository = AuthRepository(
-            session = holder,
-            clientBuilder = { token ->
-                val client = MealieClientFactory.okHttpClient({ token })
-                client to { baseUrl: String -> MealieClientFactory.api(baseUrl, client) }
-            },
-        )
+        repository = repositoryFor(holder)
     }
+
+    private fun repositoryFor(holder: SessionHolder) = AuthRepository(
+        session = holder,
+        apiFor = { baseUrl, token -> MealieClientFactory.api(baseUrl, MealieClientFactory.okHttpClient({ token })) },
+        clock = { now },
+    )
+
+    private var now = 0L
 
     @After
     fun tearDown() = fake.shutdown()
@@ -37,25 +38,20 @@ class AuthRepositoryTest {
     private val baseUrl: String get() = fake.baseUrl.toString()
 
     @Test
-    fun `probing a Mealie instance returns its version`() = runTest {
-        fake.enqueueJson(APP_INFO)
-        val result = repository.probe(baseUrl)
-        assertEquals("v3.27.0", (result as ApiResult.Success).value)
-        assertEquals("/api/app/about", fake.takeRequest().url.encodedPath)
-    }
-
-    @Test
     fun `a host that is not Mealie is reported as such`() = runTest {
         fake.enqueueJson("""{"production":true,"version":"","demoStatus":false}""")
-        val result = repository.probe(baseUrl)
-        assertEquals(NetworkError.NotMealie, (result as ApiResult.Failure).error)
+
+        val result = repository.connectWithApiToken(baseUrl, "long-lived-token")
+
+        assertEquals(NetworkError.NotMealie, (result as AuthRepository.ConnectResult.Failure).error)
+        assertEquals(1, fake.server.requestCount)
     }
 
     @Test
     fun `an unreachable host is reported before any credential is sent`() = runTest {
         fake.shutdown()
-        val result = repository.probe(baseUrl)
-        assertTrue(result is ApiResult.Failure)
+        val result = repository.connectWithPassword(baseUrl, "hiroo", "hunter2")
+        assertEquals(NetworkError.Unreachable, (result as AuthRepository.ConnectResult.Failure).error)
     }
 
     @Test
@@ -173,6 +169,72 @@ class AuthRepositoryTest {
         repository.signOut()
         assertTrue(holder.signedOut)
     }
+
+    @Test
+    fun `a password session gets a fresh token, then waits before asking again`() = runTest {
+        val holder = signedIn(AuthMode.PASSWORD)
+        val repository = repositoryFor(holder)
+        fake.enqueueJson("""{"access_token":"fresh-token"}""")
+
+        assertTrue(repository.refreshIfDue())
+        assertEquals("fresh-token", holder.activeSession()?.token)
+        val refresh = fake.takeRequest()
+        assertEquals("POST", refresh.method)
+        assertEquals("/api/auth/refresh", refresh.url.encodedPath)
+
+        now += 60 * 60 * 1000L
+        assertFalse(repository.refreshIfDue())
+        assertEquals(1, fake.server.requestCount)
+
+        now += 12 * 60 * 60 * 1000L
+        fake.enqueueJson("""{"access_token":"fresher-token"}""")
+        assertTrue(repository.refreshIfDue())
+        assertEquals("fresher-token", holder.activeSession()?.token)
+    }
+
+    @Test
+    fun `an API token is never refreshed`() = runTest {
+        val repository = repositoryFor(signedIn(AuthMode.API_TOKEN))
+
+        assertFalse(repository.refreshIfDue())
+        assertEquals(0, fake.server.requestCount)
+    }
+
+    @Test
+    fun `a failed refresh keeps the token and is tried again next time`() = runTest {
+        val holder = signedIn(AuthMode.PASSWORD)
+        val repository = repositoryFor(holder)
+        fake.enqueueError(500)
+        fake.enqueueJson("""{"access_token":"fresh-token"}""")
+
+        assertFalse(repository.refreshIfDue())
+        assertEquals("old-token", holder.activeSession()?.token)
+        assertTrue(repository.refreshIfDue())
+        assertEquals("fresh-token", holder.activeSession()?.token)
+    }
+
+    @Test
+    fun `a refreshed token never lands on a session that changed meanwhile`() = runTest {
+        val holder = FakeSessionHolder(session(AuthMode.PASSWORD).copy(token = "another-token"))
+
+        assertFalse(holder.replaceToken(previous = "old-token", token = "fresh-token"))
+        assertEquals("another-token", holder.activeSession()?.token)
+    }
+
+    private fun session(mode: AuthMode) = ServerSession(
+        baseUrl = baseUrl,
+        token = "old-token",
+        authMode = mode,
+        username = "hiroo",
+        userId = "1",
+        userDisplayName = "hiroo",
+        serverVersion = "v3.27.0",
+    )
+
+    private fun signedIn(mode: AuthMode) = FakeSessionHolder(
+        session = session(mode),
+        api = fake.api("old-token"),
+    )
 
     @Test
     fun `url normalization is shared with the setup screen`() {

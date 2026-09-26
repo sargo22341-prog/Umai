@@ -50,7 +50,7 @@ import org.opensources.umai.search.domain.OrganizerEntry
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RecipeDetailScreen(
+fun RecipeDetailRoute(
     slug: String,
     recipeUpdated: Boolean,
     onRecipeUpdateSeen: () -> Unit,
@@ -122,7 +122,7 @@ fun RecipeDetailScreen(
         )
     }
 
-    RecipeDetailScaffold(
+    RecipeDetailScreen(
         state = state,
         scrollBehavior = scrollBehavior,
         snackbarHostState = snackbarHostState,
@@ -164,7 +164,7 @@ fun RecipeDetailScreen(
 /** Stateless recipe page, driven by [RecipeDetailUiState]. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun RecipeDetailScaffold(
+fun RecipeDetailScreen(
     state: RecipeDetailUiState,
     scrollBehavior: TopAppBarScrollBehavior,
     snackbarHostState: SnackbarHostState,

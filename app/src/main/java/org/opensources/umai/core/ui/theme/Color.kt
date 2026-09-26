@@ -32,7 +32,6 @@ internal object ClaudePalette {
     val CharcoalRaised = Color(0xFF262624)
     val CharcoalHigh = Color(0xFF30302E)
     val CharcoalPeak = Color(0xFF3A3A37)
-    val CharcoalEdge = Color(0xFF454440)
 
     // Ink
     val InkStrong = Color(0xFF1B1A19)
