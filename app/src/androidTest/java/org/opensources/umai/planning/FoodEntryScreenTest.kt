@@ -20,13 +20,17 @@ import org.junit.runner.RunWith
 import org.opensources.umai.R
 import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.ui.theme.UmaiTheme
+import org.opensources.umai.planning.domain.FoodProduct
 import org.opensources.umai.planning.domain.FoodUnit
 import org.opensources.umai.planning.domain.Nutrient
+import org.opensources.umai.planning.domain.NutritionFacts
 import org.opensources.umai.planning.ui.FoodEntryActions
+import org.opensources.umai.planning.ui.FoodEntryMode
 import org.opensources.umai.planning.ui.FoodEntryScreen
 import org.opensources.umai.planning.ui.FoodEntryStep
 import org.opensources.umai.planning.ui.FoodEntryUiState
 import org.opensources.umai.planning.ui.LabelIssue
+import org.opensources.umai.planning.ui.LookupIssue
 import java.time.LocalDate
 
 /** Adding a snack or a drink to the plan: product, nutrition facts, portion. */
@@ -48,6 +52,8 @@ class FoodEntryScreenTest {
         var added = false
         var next = false
         var value: Pair<Nutrient, String>? = null
+        var mode: FoodEntryMode? = null
+        var searched = false
     }
 
     private fun render(state: FoodEntryUiState, recorded: Recorded = Recorded()) {
@@ -60,6 +66,11 @@ class FoodEntryScreenTest {
                         onPrevious = {},
                         onNext = { recorded.next = true },
                         onAdd = { recorded.added = true },
+                        onModeChange = { recorded.mode = it },
+                        onBarcodeChange = {},
+                        onScanBarcode = {},
+                        onSearchBarcode = { recorded.searched = true },
+                        onCancelSearch = {},
                         onNameChange = { recorded.name = it },
                         onMealTypeChange = { recorded.mealType = it },
                         onPhotoPicked = { _, _ -> },
@@ -78,9 +89,59 @@ class FoodEntryScreenTest {
     }
 
     @Test
+    fun theProductIsLookedUpByItsBarcodeByDefault() {
+        val recorded = Recorded()
+        render(FoodEntryUiState(date = day, barcode = "3560070565313"), recorded)
+
+        rule.onNodeWithText(string(R.string.food_barcode_scan)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.food_name)).assertDoesNotExist()
+        rule.onNodeWithText(string(R.string.create_next)).assertIsNotEnabled()
+        rule.onNodeWithText(string(R.string.food_barcode_search)).performClick()
+        rule.onNodeWithText(string(R.string.food_mode_manual)).performClick()
+
+        assertTrue(recorded.searched)
+        assertEquals(FoodEntryMode.MANUAL, recorded.mode)
+    }
+
+    @Test
+    fun aProductFoundShowsWhereItComesFromAndCanBeAdded() {
+        val found = FoodProduct(
+            barcode = "3560070565313",
+            name = "CLASSIC' Jambon Beurre",
+            unit = FoodUnit.GRAM,
+            per100 = NutritionFacts(mapOf(Nutrient.ENERGY to 238.0)),
+            portion = 125.0,
+            imageUrl = null,
+        )
+        render(FoodEntryUiState(date = day, found = found, name = found.name))
+
+        rule.onNodeWithText(string(R.string.food_found_title)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.food_found_energy, 238, "g")).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.food_found_source)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.create_next)).assertIsEnabled()
+    }
+
+    @Test
+    fun aProductNotFoundIsDescribedByHand() {
+        render(FoodEntryUiState(date = day, mode = FoodEntryMode.MANUAL, lookupIssue = LookupIssue.NOT_FOUND))
+
+        rule.onNodeWithText(string(R.string.food_lookup_not_found)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.food_name)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.food_barcode_scan)).assertDoesNotExist()
+    }
+
+    @Test
+    fun aBarcodeBeingLookedUpCanBeCancelled() {
+        render(FoodEntryUiState(date = day, searching = true))
+
+        rule.onNodeWithText(string(R.string.food_barcode_searching)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.action_cancel)).assertIsDisplayed()
+    }
+
+    @Test
     fun theProductNeedsANameToGoOn() {
         val recorded = Recorded()
-        render(FoodEntryUiState(date = day), recorded)
+        render(FoodEntryUiState(date = day, mode = FoodEntryMode.MANUAL), recorded)
 
         rule.onNodeWithText(string(R.string.create_next)).assertIsNotEnabled()
         rule.onNode(hasSetTextAction() and hasText(string(R.string.food_name))).performTextInput("Cola")
@@ -93,9 +154,9 @@ class FoodEntryScreenTest {
     @Test
     fun theProductPhotoIsOptional() {
         val recorded = Recorded()
-        render(FoodEntryUiState(date = day, name = "Cola"), recorded)
+        render(FoodEntryUiState(date = day, mode = FoodEntryMode.MANUAL, name = "Cola"), recorded)
 
-        rule.onNodeWithText(string(R.string.food_photo)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.food_photo)).performScrollTo().assertIsDisplayed()
         rule.onNodeWithText(string(R.string.create_next)).assertIsEnabled().performClick()
 
         assertTrue(recorded.next)

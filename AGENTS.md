@@ -40,6 +40,7 @@ Avant de coder : lire ce fichier, parcourir le dépôt, et consulter `.context/`
 | YouTube | NewPipeExtractor (JitPack), sur le client OkHttp « sites externes » |
 | IA locale | LiteRT-LM (TPU Tensor → CPU → GPU, derrière `AiEngine`), modèles `.litertlm` téléchargés à part |
 | Transcription | whisper.cpp (CPU, JNI, compilé depuis ses sources par CMake), modèles `ggml` téléchargés à part |
+| Codes-barres | ZXing core, sur une photo de l'appareil photo ; produits cherchés dans Open Food Facts (client « sites externes ») |
 | Stockage | DataStore Preferences + Android Keystore |
 | Injection | `AppContainer` écrit à la main (§4) |
 

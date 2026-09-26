@@ -12,15 +12,21 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.opensources.umai.core.di.AppContainer
 import org.opensources.umai.core.image.CropRegion
+import org.opensources.umai.core.image.PhotoDownloader
 import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.llm.domain.LlmFailure
+import org.opensources.umai.planning.data.BarcodePictures
 import org.opensources.umai.planning.data.LabelPictures
 import org.opensources.umai.planning.data.MealPlanRepository
+import org.opensources.umai.planning.data.OpenFoodFactsRepository
 import org.opensources.umai.planning.data.PlanPhotos
+import org.opensources.umai.planning.domain.Barcodes
+import org.opensources.umai.planning.domain.FoodLookup
 import org.opensources.umai.planning.domain.FoodNote
 import org.opensources.umai.planning.domain.FoodNoteLabels
+import org.opensources.umai.planning.domain.FoodProduct
 import org.opensources.umai.planning.domain.FoodUnit
 import org.opensources.umai.planning.domain.LabelOutcome
 import org.opensources.umai.planning.domain.NutritionFacts
@@ -32,6 +38,27 @@ import kotlin.math.roundToInt
 
 /** The stages of adding a food to the plan. */
 enum class FoodEntryStep { PRODUCT, NUTRITION, PORTION }
+
+/** How the product is described: found by its barcode, or typed. */
+enum class FoodEntryMode { AUTO, MANUAL }
+
+/** Why the barcode did not give the product. */
+enum class LookupIssue {
+    /** No barcode was found on the picture. */
+    UNREADABLE,
+
+    /** The digits typed are not a barcode: wrong length, or a mistyped digit. */
+    INVALID_CODE,
+
+    /** Open Food Facts does not know the product: it is typed instead. */
+    NOT_FOUND,
+
+    /** Open Food Facts knows the product, not its nutrition: the rest is typed. */
+    NO_NUTRITION,
+
+    /** Open Food Facts could not be reached. */
+    FAILED,
+}
 
 /** Why the label was not read. */
 enum class LabelIssue {
@@ -53,6 +80,14 @@ enum class LabelIssue {
 data class FoodEntryUiState(
     val date: LocalDate,
     val step: FoodEntryStep = FoodEntryStep.PRODUCT,
+    val mode: FoodEntryMode = FoodEntryMode.AUTO,
+    /** The barcode, as scanned or typed. */
+    val barcode: String = "",
+    /** While the barcode is read on its photo, then looked up. */
+    val searching: Boolean = false,
+    val lookupIssue: LookupIssue? = null,
+    /** The product found by its barcode, whose details fill the form. */
+    val found: FoodProduct? = null,
     val name: String = "",
     val mealType: MealType = MealType.SNACK,
     /** The photo of the product, framed and kept on the phone once the food is added. */
@@ -92,9 +127,12 @@ data class FoodEntryUiState(
 
     val calories: Int? get() = portion[Nutrient.ENERGY]?.roundToInt()
 
-    val canGoOn: Boolean get() = step != FoodEntryStep.PRODUCT || name.isNotBlank()
+    val canGoOn: Boolean get() = step != FoodEntryStep.PRODUCT || (name.isNotBlank() && !searching)
 
-    val busy: Boolean get() = saving || processingPhoto || readingLabel
+    /** In automatic mode, the form waits for a product found before asking for the rest. */
+    val showsProductForm: Boolean get() = mode == FoodEntryMode.MANUAL || found != null
+
+    val busy: Boolean get() = saving || processingPhoto || readingLabel || searching
 
     val canSave: Boolean get() = name.isNotBlank() && !busy
 }
@@ -105,9 +143,12 @@ data class FoodAdded(val photoKept: Boolean)
 /**
  * Adds to the plan something eaten that is not a recipe: a snack, a drink.
  *
- * The nutrition label is photographed and read by the on-device model, and its
- * photo forgotten at once; the values can also be typed. The food becomes a
- * note of the Mealie plan, which carries the calories of the quantity eaten.
+ * By default the product is found by its barcode, scanned or typed, in Open
+ * Food Facts, which gives its name, nutrition, portion and photo; a product it
+ * does not know is typed instead. Typed, the nutrition label can be
+ * photographed and read by the on-device model, and its photo forgotten at
+ * once. The food becomes a note of the Mealie plan, which carries the calories
+ * of the quantity eaten.
  */
 class FoodEntryViewModel(
     date: LocalDate,
@@ -115,6 +156,9 @@ class FoodEntryViewModel(
     private val photos: PlanPhotos,
     private val labelPictures: LabelPictures,
     private val labelReader: NutritionLabelReader,
+    private val barcodePictures: BarcodePictures,
+    private val products: OpenFoodFactsRepository,
+    private val photoDownloader: PhotoDownloader,
     /** How the app writes decimals: values read on a label are filled in as the user would type them. */
     private val decimalSeparator: Char = '.',
 ) : ViewModel() {
@@ -123,6 +167,7 @@ class FoodEntryViewModel(
     val state: StateFlow<FoodEntryUiState> = _state.asStateFlow()
 
     private var readJob: Job? = null
+    private var searchJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -132,6 +177,82 @@ class FoodEntryViewModel(
     }
 
     fun setName(name: String) = _state.update { it.copy(name = name) }
+
+    fun setMode(mode: FoodEntryMode) = _state.update { it.copy(mode = mode, lookupIssue = null) }
+
+    fun setBarcode(text: String) = _state.update { it.copy(barcode = text, lookupIssue = null) }
+
+    /** Reads the barcode on the picture at [sourceUri], then looks the product up. */
+    fun scanBarcode(sourceUri: String) = search {
+        barcodePictures.read(sourceUri) ?: return@search fail(LookupIssue.UNREADABLE)
+    }
+
+    /** Looks up the product of the barcode typed. */
+    fun searchBarcode() = search {
+        Barcodes.normalize(_state.value.barcode) ?: return@search fail(LookupIssue.INVALID_CODE)
+    }
+
+    fun cancelSearch() {
+        searchJob?.cancel()
+        _state.update { it.copy(searching = false) }
+    }
+
+    /** [barcode] gives the code to look up, or `null` once it has reported why there is none. */
+    private fun search(barcode: suspend () -> String?) {
+        if (_state.value.searching) return
+        _state.update { it.copy(searching = true, lookupIssue = null) }
+        searchJob = viewModelScope.launch {
+            val code = barcode() ?: return@launch
+            _state.update { it.copy(barcode = code) }
+            when (val lookup = products.product(code)) {
+                is FoodLookup.Found -> fill(lookup.product)
+                FoodLookup.NotFound -> _state.update {
+                    it.copy(searching = false, lookupIssue = LookupIssue.NOT_FOUND, mode = FoodEntryMode.MANUAL)
+                }
+                is FoodLookup.Failed -> fail(LookupIssue.FAILED)
+            }
+        }
+    }
+
+    private fun fail(issue: LookupIssue): String? {
+        _state.update { it.copy(searching = false, lookupIssue = issue) }
+        return null
+    }
+
+    /**
+     * Fills the form with what Open Food Facts gives, over what was there:
+     * the product scanned is the one being added. Without its calories, the
+     * rest of the form is typed.
+     */
+    private suspend fun fill(product: FoodProduct) {
+        val complete = product.per100[Nutrient.ENERGY] != null
+        _state.update { current ->
+            current.copy(
+                searching = false,
+                found = product,
+                mode = if (complete) FoodEntryMode.AUTO else FoodEntryMode.MANUAL,
+                lookupIssue = if (complete) null else LookupIssue.NO_NUTRITION,
+                name = product.name.ifBlank { current.name },
+                unit = product.unit,
+                values = product.per100.values.mapValues { (_, value) -> numberText(value) },
+                quantity = product.portion?.let(::numberText).orEmpty(),
+            )
+        }
+        // The photo of the database stands in for one the user did not take.
+        val url = product.imageUrl ?: return
+        if (_state.value.photoPath != null) return
+        _state.update { it.copy(processingPhoto = true) }
+        val path = photoDownloader.download(url)?.let { photos.keep(it) }
+        _state.update { current ->
+            // A photo taken meanwhile wins.
+            if (path == null || current.photoPath != null) {
+                path?.let(photos::discard)
+                current.copy(processingPhoto = false)
+            } else {
+                current.copy(processingPhoto = false, photoPath = path)
+            }
+        }
+    }
 
     fun setMealType(type: MealType) = _state.update { it.copy(mealType = type) }
 
@@ -262,6 +383,9 @@ class FoodEntryViewModel(
                     photos = container.planPhotos,
                     labelPictures = container.labelPictures,
                     labelReader = NutritionLabelReader(container.localLanguageModel),
+                    barcodePictures = container.barcodePictures,
+                    products = container.openFoodFacts,
+                    photoDownloader = container.externalPhotoDownloader,
                     decimalSeparator = if (container.localeController.appLanguage() == "fr") ',' else '.',
                 )
             }

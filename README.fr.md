@@ -57,8 +57,9 @@ Fonctionnalités principales :
   d'un jour ou de la semaine : un plat à midi et un le soir (jamais de dessert ni de boisson),
   choisis pour partager leurs ingrédients, dans le respect des règles de planning de Mealie ; les
   **calories de chaque jour**, une portion par recette, et les **produits** pris à côté (un snack,
-  une boisson) ajoutés en trois étapes : nom et photo facultative, étiquette nutritionnelle
-  photographiée et lue par l'IA locale (ou saisie), quantité consommée ;
+  une boisson) : par défaut, le code-barres est scanné et le produit, ses valeurs nutritionnelles
+  et sa photo viennent d'[Open Food Facts](https://fr.openfoodfacts.org) ; sinon, à la main, avec
+  l'étiquette nutritionnelle photographiée et lue par l'IA locale (ou saisie) ;
 - **listes de courses** : plusieurs listes, articles regroupés par étiquette, envoi des ingrédients
   d'une recette vers une liste (ajustés aux portions choisies), et un **mode courses** aux grandes
   lignes cochées d'un seul appui ;
@@ -188,7 +189,9 @@ avec son code source. Il est fourni sans aucune garantie. Texte complet : [`LICE
 
 L'application lit YouTube avec [NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor),
 lui-même sous GPL-3.0-or-later ; toutes les autres dépendances sont sous une licence compatible
-avec la GPLv3 (Apache 2.0, MIT, BSD, MPL 2.0).
+avec la GPLv3 (Apache 2.0, MIT, BSD, MPL 2.0). Les codes-barres sont lus avec
+[ZXing](https://github.com/zxing/zxing) (Apache 2.0), et les produits cherchés dans
+[Open Food Facts](https://fr.openfoodfacts.org), dont les données sont sous Open Database License.
 
 umai est un projet indépendant, sans lien avec Mealie. Les recettes visibles sur les captures
 appartiennent à leurs auteurs respectifs.

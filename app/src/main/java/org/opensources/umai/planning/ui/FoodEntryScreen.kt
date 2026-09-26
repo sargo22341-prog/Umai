@@ -56,6 +56,11 @@ class FoodEntryActions(
     val onPrevious: () -> Unit,
     val onNext: () -> Unit,
     val onAdd: () -> Unit,
+    val onModeChange: (FoodEntryMode) -> Unit,
+    val onBarcodeChange: (String) -> Unit,
+    val onScanBarcode: (sourceUri: String) -> Unit,
+    val onSearchBarcode: () -> Unit,
+    val onCancelSearch: () -> Unit,
     val onNameChange: (String) -> Unit,
     val onMealTypeChange: (MealType) -> Unit,
     val onPhotoPicked: (sourceUri: String, region: CropRegion) -> Unit,
@@ -71,8 +76,8 @@ class FoodEntryActions(
 
 /**
  * Adds a food to one day of the plan in three stages, as a recipe is written:
- * the product, its nutrition facts, the portion eaten. The back gesture goes
- * one stage back, then leaves.
+ * the product, found by its barcode or described by hand, its nutrition facts,
+ * the portion eaten. The back gesture goes one stage back, then leaves.
  */
 @Composable
 fun FoodEntryRoute(
@@ -101,6 +106,11 @@ fun FoodEntryRoute(
             onPrevious = { viewModel.previous() },
             onNext = viewModel::next,
             onAdd = { viewModel.save(labels) },
+            onModeChange = viewModel::setMode,
+            onBarcodeChange = viewModel::setBarcode,
+            onScanBarcode = viewModel::scanBarcode,
+            onSearchBarcode = viewModel::searchBarcode,
+            onCancelSearch = viewModel::cancelSearch,
             onNameChange = viewModel::setName,
             onMealTypeChange = viewModel::setMealType,
             onPhotoPicked = viewModel::setPhoto,

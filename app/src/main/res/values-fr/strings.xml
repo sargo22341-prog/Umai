@@ -794,5 +794,21 @@
     <string name="food_quantity_hint">La quantité d\'une canette ou d\'un paquet est souvent imprimée à côté de son tableau nutritionnel.</string>
     <string name="food_calories_total">%1$s kcal pour cette portion</string>
     <string name="food_calories_missing">Sans l\'énergie pour 100 %1$s ni la quantité consommée, le produit est ajouté sans calories.</string>
+    <string name="food_mode_auto">Automatique</string>
+    <string name="food_mode_manual">Manuel</string>
+    <string name="food_barcode_intro">Scannez le code-barres : le produit, ses valeurs nutritionnelles et sa photo viennent d\'Open Food Facts, la base ouverte des produits alimentaires.</string>
+    <string name="food_barcode_scan">Scanner le code-barres</string>
+    <string name="food_barcode_field">Code-barres</string>
+    <string name="food_barcode_search">Rechercher</string>
+    <string name="food_barcode_searching">Recherche du produit…</string>
+    <string name="food_lookup_unreadable">Aucun code-barres n\'a pu être lu sur la photo. Réessayez de plus près, les barres bien nettes, ou saisissez ses chiffres.</string>
+    <string name="food_lookup_invalid">Ce n\'est pas un code-barres valide : vérifiez ses chiffres.</string>
+    <string name="food_lookup_not_found">Open Food Facts ne connaît pas ce produit : décrivez-le à la main.</string>
+    <string name="food_lookup_no_nutrition">Open Food Facts n\'a pas les valeurs nutritionnelles de ce produit : complétez-les à la main.</string>
+    <string name="food_lookup_failed">Open Food Facts n\'a pas pu être joint. Réessayez, ou décrivez le produit à la main.</string>
+    <string name="food_found_title">Trouvé sur Open Food Facts</string>
+    <string name="food_found_energy">%1$s kcal pour 100 %2$s</string>
+    <string name="food_found_source">Données d\'Open Food Facts, sous licence Open Database License.</string>
+    <string name="food_values_from_database">Valeurs d\'Open Food Facts : vérifiez-les sur l\'emballage.</string>
     <string name="notice_food_added_without_photo">Ajouté au planning, sans sa photo</string>
 </resources>

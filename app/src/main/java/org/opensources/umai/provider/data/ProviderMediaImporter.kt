@@ -1,11 +1,7 @@
 package org.opensources.umai.provider.data
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import org.opensources.umai.core.image.EncodedImage
+import org.opensources.umai.core.image.PhotoDownloader
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.network.api.MealieApi
@@ -15,12 +11,6 @@ import org.opensources.umai.provider.ProviderRegistry
 import org.opensources.umai.recipe.data.RecipeMediaRepository
 import org.opensources.umai.recipe.data.toDomain
 import org.opensources.umai.recipe.domain.RecipeMediaFiles
-
-/** Downloads a picture published by a provider. */
-fun interface PhotoDownloader {
-    /** The picture at [url], `null` when it cannot be had or is not a picture. */
-    suspend fun download(url: String): EncodedImage?
-}
 
 /**
  * Brings to a freshly imported recipe the media its provider publishes: the
@@ -60,37 +50,5 @@ class ProviderMediaImporter(
             .filterKeys { number -> number !in photos && number <= recipe.steps.size }
             .forEach { (number, url) -> downloader.download(url)?.let { media.saveStepPhoto(slug, number, it) } }
         return ApiResult.Success(Unit)
-    }
-}
-
-/**
- * Downloads provider pictures with a client of its own: the requests go to the
- * provider, never to Mealie, and carry none of its credentials.
- */
-class HttpPhotoDownloader(private val client: OkHttpClient) : PhotoDownloader {
-
-    override suspend fun download(url: String): EncodedImage? = withContext(Dispatchers.IO) {
-        runCatching {
-            client.newCall(Request.Builder().url(url).build()).execute().use { response ->
-                val type = response.body.contentType()
-                if (!response.isSuccessful || type?.type != "image") return@use null
-                val length = response.body.contentLength()
-                if (length > MAX_BYTES) return@use null
-                val bytes = response.body.bytes().takeIf { it.isNotEmpty() && it.size <= MAX_BYTES } ?: return@use null
-                val extension = when (type.subtype.lowercase()) {
-                    "jpeg", "jpg", "pjpeg" -> "jpg"
-                    "png" -> "png"
-                    "webp" -> "webp"
-                    "gif" -> "gif"
-                    "avif" -> "avif"
-                    else -> return@use null
-                }
-                EncodedImage(bytes, mediaType = "${type.type}/${type.subtype}", extension = extension)
-            }
-        }.getOrNull()
-    }
-
-    private companion object {
-        const val MAX_BYTES = 15L * 1024 * 1024
     }
 }

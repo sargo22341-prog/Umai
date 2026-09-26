@@ -46,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -492,6 +493,8 @@ private fun MealEntryCard(
                     } else {
                         null
                     },
+                    // A product is shown whole: its package is often tall.
+                    contentScale = if (recipe == null) ContentScale.Fit else ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(96.dp)

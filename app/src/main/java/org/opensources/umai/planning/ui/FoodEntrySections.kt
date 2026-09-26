@@ -1,6 +1,5 @@
 package org.opensources.umai.planning.ui
 
-import android.content.ActivityNotFoundException
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -42,13 +41,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import org.opensources.umai.R
-import org.opensources.umai.core.image.CameraCapture
 import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.ui.component.CropFrame
 import org.opensources.umai.core.ui.component.ImagePicker
@@ -59,10 +57,19 @@ import org.opensources.umai.planning.domain.Nutrient
 import org.opensources.umai.recipe.ui.labelRes
 import java.io.File
 
-/** The name of the product, the meal it is part of, and its photo if the user wants one. */
+/**
+ * How the product is described, automatic by its barcode or manual; then its
+ * name, the meal it is part of, and its photo if the user wants one.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ProductSection(state: FoodEntryUiState, actions: FoodEntryActions) {
+    ModeSelector(state, actions)
+    state.lookupIssue?.let { LookupIssueBanner(it) }
+    if (state.mode == FoodEntryMode.AUTO && state.found == null) BarcodeSection(state, actions)
+    FoundProductCard(state)
+    if (!state.showsProductForm) return
+
     OutlinedTextField(
         value = state.name,
         onValueChange = actions.onNameChange,
@@ -116,6 +123,8 @@ private fun ProductPhoto(state: FoodEntryUiState, actions: FoodEntryActions) {
                 url = photo?.let { Uri.fromFile(File(it)).toString() },
                 contentDescription = stringResource(R.string.food_photo_description, state.name),
                 modifier = Modifier.fillMaxSize(),
+                // A package photographed for Open Food Facts is often tall: it is shown whole.
+                contentScale = ContentScale.Fit,
                 placeholderIconSize = 48.dp,
             )
             if (state.processingPhoto) {
@@ -159,6 +168,9 @@ private fun ProductPhoto(state: FoodEntryUiState, actions: FoodEntryActions) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NutritionSection(state: FoodEntryUiState, actions: FoodEntryActions) {
+    if (state.found != null && state.mode == FoodEntryMode.AUTO) {
+        HelperText(stringResource(R.string.food_values_from_database))
+    }
     if (state.canReadLabel) {
         LabelCapture(state, actions)
     } else {
@@ -193,15 +205,8 @@ internal fun NutritionSection(state: FoodEntryUiState, actions: FoodEntryActions
 
 @Composable
 private fun LabelCapture(state: FoodEntryUiState, actions: FoodEntryActions) {
-    val context = LocalContext.current
-    var cameraOutput by rememberSaveable { mutableStateOf<String?>(null) }
     var cameraUnavailable by rememberSaveable { mutableStateOf(false) }
-
-    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
-        val output = cameraOutput
-        cameraOutput = null
-        if (saved && output != null) actions.onReadLabel(output)
-    }
+    val takePhoto = rememberPhotoTaker(onTaken = actions.onReadLabel)
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let { actions.onReadLabel(it.toString()) }
     }
@@ -221,17 +226,7 @@ private fun LabelCapture(state: FoodEntryUiState, actions: FoodEntryActions) {
     } else {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
             Button(
-                onClick = {
-                    cameraUnavailable = false
-                    val target = CameraCapture.newPhotoUri(context)
-                    cameraOutput = target.toString()
-                    try {
-                        camera.launch(target)
-                    } catch (_: ActivityNotFoundException) {
-                        cameraOutput = null
-                        cameraUnavailable = true
-                    }
-                },
+                onClick = { cameraUnavailable = !takePhoto() },
                 modifier = Modifier.weight(1f),
             ) {
                 Icon(Icons.Outlined.DocumentScanner, contentDescription = null)
@@ -335,7 +330,7 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun HelperText(text: String) {
+internal fun HelperText(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodySmall,
@@ -344,7 +339,7 @@ private fun HelperText(text: String) {
 }
 
 @Composable
-private fun ErrorText(text: String) {
+internal fun ErrorText(text: String) {
     Text(text = text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
 }
 

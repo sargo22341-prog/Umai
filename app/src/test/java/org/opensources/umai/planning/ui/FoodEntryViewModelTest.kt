@@ -17,7 +17,9 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import okhttp3.OkHttpClient
 import org.opensources.umai.core.image.CropRegion
+import org.opensources.umai.core.image.EncodedImage
 import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.network.FakeMealieServer
 import org.opensources.umai.core.network.NetworkError
@@ -28,6 +30,7 @@ import org.opensources.umai.llm.domain.LlmProgress
 import org.opensources.umai.llm.domain.LlmRequest
 import org.opensources.umai.planning.data.FakePlanPhotos
 import org.opensources.umai.planning.data.MealPlanRepository
+import org.opensources.umai.planning.data.OpenFoodFactsRepository
 import org.opensources.umai.planning.domain.FoodNoteLabels
 import org.opensources.umai.planning.domain.FoodUnit
 import org.opensources.umai.planning.domain.NutritionLabelReader
@@ -68,12 +71,22 @@ class FoodEntryViewModelTest {
         model: LanguageModel = Model(ready = true, outcome = LlmOutcome.Success(COLA)),
         photos: FakePlanPhotos = FakePlanPhotos(),
         picture: ByteArray? = byteArrayOf(1, 2, 3),
+        scanned: String? = "3560070565313",
+        downloaded: EncodedImage? = PRODUCT_PHOTO,
     ) = FoodEntryViewModel(
         date = day,
         mealPlanRepository = MealPlanRepository { fake.api() },
         photos = photos,
         labelPictures = { picture },
         labelReader = NutritionLabelReader(model),
+        barcodePictures = { scanned },
+        products = OpenFoodFactsRepository(
+            client = OkHttpClient(),
+            userAgent = "umai/test",
+            language = { "fr" },
+            baseUrl = fake.baseUrl,
+        ),
+        photoDownloader = { downloaded },
         decimalSeparator = ',',
     )
 
@@ -85,6 +98,8 @@ class FoodEntryViewModelTest {
         val vm = viewModel()
 
         assertEquals(FoodEntryStep.PRODUCT, vm.state.value.step)
+        assertEquals(FoodEntryMode.AUTO, vm.state.value.mode)
+        assertFalse(vm.state.value.showsProductForm)
         assertEquals(MealType.SNACK, vm.state.value.mealType)
         vm.next()
         assertEquals(FoodEntryStep.PRODUCT, vm.state.value.step)
@@ -96,6 +111,95 @@ class FoodEntryViewModelTest {
         assertTrue(vm.previous())
         assertTrue(vm.previous())
         assertFalse(vm.previous())
+    }
+
+    @Test
+    fun `a barcode scanned fills the product from Open Food Facts, with its photo`() = runBlocking {
+        val photos = FakePlanPhotos()
+        fake.enqueueJson(SANDWICH)
+        val vm = viewModel(photos = photos)
+
+        vm.scanBarcode("content://barcode")
+        val state = vm.await { it.found != null && !it.processingPhoto }
+
+        assertEquals(FoodEntryMode.AUTO, state.mode)
+        assertTrue(state.showsProductForm)
+        assertEquals("3560070565313", state.barcode)
+        assertEquals("CLASSIC' Jambon Beurre", state.name)
+        assertEquals(FoodUnit.GRAM, state.unit)
+        assertEquals("238", state.values[Nutrient.ENERGY])
+        assertEquals("4,7", state.values[Nutrient.SATURATED_FAT])
+        assertEquals("125", state.quantity)
+        assertEquals(298, state.calories)
+        assertEquals("pending.jpg", state.photoPath)
+        assertEquals(listOf(PRODUCT_PHOTO), photos.kept)
+        assertEquals("/api/v2/product/3560070565313", fake.takeRequest().url.encodedPath)
+    }
+
+    @Test
+    fun `a photo already taken is not replaced by the one of the database`() = runBlocking {
+        val photos = FakePlanPhotos()
+        fake.enqueueJson(SANDWICH)
+        val vm = viewModel(photos = photos)
+        vm.setPhoto("content://photo", CropRegion.Full)
+
+        vm.scanBarcode("content://barcode")
+        vm.await { it.found != null && !it.processingPhoto }
+
+        assertTrue(photos.kept.isEmpty())
+    }
+
+    @Test
+    fun `a product Open Food Facts does not know is described by hand`() = runBlocking {
+        fake.enqueueJson("""{"status":0,"status_verbose":"product not found"}""", code = 404)
+        val vm = viewModel()
+
+        vm.scanBarcode("content://barcode")
+        val state = vm.await { !it.searching && it.lookupIssue != null }
+
+        assertEquals(LookupIssue.NOT_FOUND, state.lookupIssue)
+        assertEquals(FoodEntryMode.MANUAL, state.mode)
+        assertTrue(state.showsProductForm)
+    }
+
+    @Test
+    fun `a product without nutrition keeps its name and has the rest typed`() = runBlocking {
+        fake.enqueueJson("""{"status":1,"product":{"product_name":"Madeleines","nutriments":{}}}""")
+        val vm = viewModel(downloaded = null)
+
+        vm.scanBarcode("content://barcode")
+        val state = vm.await { !it.searching && it.lookupIssue != null }
+
+        assertEquals(LookupIssue.NO_NUTRITION, state.lookupIssue)
+        assertEquals(FoodEntryMode.MANUAL, state.mode)
+        assertEquals("Madeleines", state.name)
+    }
+
+    @Test
+    fun `a photo without a barcode, or digits that are not one, are told apart`() = runBlocking {
+        val unreadable = viewModel(scanned = null)
+        unreadable.scanBarcode("content://barcode")
+        assertEquals(LookupIssue.UNREADABLE, unreadable.await { !it.searching }.lookupIssue)
+
+        val mistyped = viewModel()
+        mistyped.setBarcode("3560070565314")
+        mistyped.searchBarcode()
+        assertEquals(LookupIssue.INVALID_CODE, mistyped.await { !it.searching }.lookupIssue)
+        assertEquals(0, fake.server.requestCount)
+    }
+
+    @Test
+    fun `a barcode typed is looked up, and a failure lets the user try again`() = runBlocking {
+        fake.enqueueError(503)
+        val vm = viewModel()
+        vm.setBarcode("3560 0705 65313")
+
+        vm.searchBarcode()
+        val state = vm.await { !it.searching && it.lookupIssue != null }
+
+        assertEquals(LookupIssue.FAILED, state.lookupIssue)
+        assertEquals(FoodEntryMode.AUTO, state.mode)
+        assertEquals("/api/v2/product/3560070565313", fake.takeRequest().url.encodedPath)
     }
 
     @Test
@@ -242,6 +346,15 @@ class FoodEntryViewModelTest {
                {"name": "Glucides", "values": ["10.6 g", "35 g"]},
                {"name": "dont sucres", "values": ["10.6 g", "35 g"]}
              ]}
+        """
+
+        val PRODUCT_PHOTO = EncodedImage(byteArrayOf(9), mediaType = "image/jpeg", extension = "jpg")
+
+        const val SANDWICH = """
+            {"code":"3560070565313","status":1,"product":{
+              "product_name":"CLASSIC' Jambon Beurre","serving_quantity":125,"serving_quantity_unit":"g",
+              "image_front_url":"https://images.example/front.jpg",
+              "nutriments":{"energy-kcal_100g":238,"fat_100g":10,"saturated-fat_100g":4.7}}}
         """
 
         const val CREATED = """

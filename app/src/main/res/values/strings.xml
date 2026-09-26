@@ -783,5 +783,21 @@
     <string name="food_quantity_hint">The quantity of a can or a pack is often printed next to its nutrition table.</string>
     <string name="food_calories_total">%1$s kcal for this portion</string>
     <string name="food_calories_missing">Without the energy per 100 %1$s and the quantity eaten, the product is added without calories.</string>
+    <string name="food_mode_auto">Automatic</string>
+    <string name="food_mode_manual">Manual</string>
+    <string name="food_barcode_intro">Scan the barcode: the product, its nutrition and its photo come from Open Food Facts, the open food database.</string>
+    <string name="food_barcode_scan">Scan the barcode</string>
+    <string name="food_barcode_field">Barcode</string>
+    <string name="food_barcode_search">Search</string>
+    <string name="food_barcode_searching">Looking the product up…</string>
+    <string name="food_lookup_unreadable">No barcode could be read on the photo. Try again closer, with the bars sharp, or type its digits.</string>
+    <string name="food_lookup_invalid">This is not a valid barcode: check its digits.</string>
+    <string name="food_lookup_not_found">Open Food Facts does not know this product: describe it by hand.</string>
+    <string name="food_lookup_no_nutrition">Open Food Facts has no nutrition facts for this product: complete them by hand.</string>
+    <string name="food_lookup_failed">Open Food Facts could not be reached. Try again, or describe the product by hand.</string>
+    <string name="food_found_title">Found on Open Food Facts</string>
+    <string name="food_found_energy">%1$s kcal per 100 %2$s</string>
+    <string name="food_found_source">Data from Open Food Facts, under the Open Database License.</string>
+    <string name="food_values_from_database">Values from Open Food Facts: check them against the package.</string>
     <string name="notice_food_added_without_photo">Added to the meal plan, without its photo</string>
 </resources>

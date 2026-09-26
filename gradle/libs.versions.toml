@@ -17,6 +17,7 @@ media3 = "1.11.1"
 # JitPack serves each release as both "v0.26.5" and "0.26.5" (same jar); the
 # plain form is the one dependencyUpdates can compare with later releases.
 newpipeExtractor = "0.26.5"
+zxing = "3.5.4"
 # Held at 0.14.0 on purpose: it is built from the same LiteRT source as the Google Tensor
 # dispatch library that LiteRT publishes (v2.1.6, FetchTensorDispatch in app/build.gradle.kts).
 # Later versions refuse that library or crash the TPU in native code: see docs/local-ai.md.
@@ -66,6 +67,7 @@ media3-exoplayer-hls = { module = "androidx.media3:media3-exoplayer-hls", versio
 media3-ui-compose = { module = "androidx.media3:media3-ui-compose", version.ref = "media3" }
 
 newpipe-extractor = { module = "com.github.TeamNewPipe:NewPipeExtractor", version.ref = "newpipeExtractor" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 
 litertlm-android = { module = "com.google.ai.edge.litertlm:litertlm-android", version.ref = "litertlm" }
 

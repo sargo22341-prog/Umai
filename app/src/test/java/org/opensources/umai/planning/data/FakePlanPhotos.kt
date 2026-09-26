@@ -1,6 +1,7 @@
 package org.opensources.umai.planning.data
 
 import org.opensources.umai.core.image.CropRegion
+import org.opensources.umai.core.image.EncodedImage
 import org.opensources.umai.core.model.MealPlanEntry
 import java.time.LocalDate
 
@@ -16,6 +17,14 @@ class FakePlanPhotos(
     val deleted = mutableListOf<Int>()
 
     override suspend fun frame(sourceUri: String, region: CropRegion): String? = framedPath
+
+    /** The pictures kept as they came, such as a product photo downloaded. */
+    val kept = mutableListOf<EncodedImage>()
+
+    override suspend fun keep(image: EncodedImage): String? {
+        kept += image
+        return framedPath
+    }
 
     override suspend fun attach(path: String, entry: MealPlanEntry): Boolean {
         if (attaches) attached[entry.id] = entry.date to path

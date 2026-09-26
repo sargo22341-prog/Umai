@@ -4,6 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.opensources.umai.core.image.CropRegion
+import org.opensources.umai.core.image.EncodedImage
 import org.opensources.umai.core.image.ImageCropper
 import org.opensources.umai.core.model.MealPlanEntry
 import java.io.File
@@ -21,6 +22,9 @@ interface PlanPhotos {
 
     /** Crops [sourceUri] to [region] into a photo not yet tied to an entry; its path, `null` on failure. */
     suspend fun frame(sourceUri: String, region: CropRegion): String?
+
+    /** Keeps [image], already framed, as a photo not yet tied to an entry; its path, `null` on failure. */
+    suspend fun keep(image: EncodedImage): String?
 
     /** Ties the framed photo at [path] to [entry]; false when it could not be kept. */
     suspend fun attach(path: String, entry: MealPlanEntry): Boolean
@@ -44,22 +48,23 @@ class DevicePlanPhotos(
 
     private val directory = File(context.applicationContext.filesDir, DIRECTORY)
 
-    override suspend fun frame(sourceUri: String, region: CropRegion): String? {
-        val image = cropper.crop(sourceUri, region, MAX_SIDE) ?: return null
-        return withContext(Dispatchers.IO) {
-            runCatching {
-                directory.mkdirs()
-                // One food is added at a time: a photo framed before and never kept is left over.
-                directory.listFiles { file -> file.name.startsWith(PENDING) }?.forEach { it.delete() }
-                val file = File(directory, "$PENDING${UUID.randomUUID()}.jpg")
-                file.writeBytes(image.bytes)
-                file.absolutePath
-            }.getOrNull()
-        }
+    override suspend fun frame(sourceUri: String, region: CropRegion): String? =
+        cropper.crop(sourceUri, region, MAX_SIDE)?.let { keep(it) }
+
+    override suspend fun keep(image: EncodedImage): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            directory.mkdirs()
+            // One food is added at a time: a photo framed before and never kept is left over.
+            directory.listFiles { file -> file.name.startsWith(PENDING) }?.forEach { it.delete() }
+            val file = File(directory, "$PENDING${UUID.randomUUID()}.${image.extension}")
+            file.writeBytes(image.bytes)
+            file.absolutePath
+        }.getOrNull()
     }
 
     override suspend fun attach(path: String, entry: MealPlanEntry): Boolean = withContext(Dispatchers.IO) {
         val source = File(path).takeIf { it.isOwned() && it.isFile } ?: return@withContext false
+        // The photo is shown from its file, whatever its format: the name only has to be found again.
         source.renameTo(fileOf(entry.date, entry.id))
     }
 

@@ -51,8 +51,9 @@ Main features:
   search and its filters, or a note; **automatic planning** of a day or of the week: a dish at
   lunch and one at dinner (never a dessert or a drink), chosen to share their ingredients,
   following Mealie's meal plan rules; the **calories of each day**, one serving per recipe, and
-  **products** eaten on the side (a snack, a drink) added in three steps: name and optional photo,
-  nutrition label photographed and read by the local AI (or typed), quantity eaten;
+  **products** eaten on the side (a snack, a drink): by default, the barcode is scanned and the
+  product, its nutrition and its photo come from [Open Food Facts](https://world.openfoodfacts.org);
+  otherwise, by hand, with the nutrition label photographed and read by the local AI (or typed);
 - **shopping lists**: several lists, items grouped by label, send the ingredients of a recipe to a
   list (scaled to the chosen servings), and a **shopping mode** with large rows ticked in one tap;
 - **recipe creation and editing**: import from a web page (Mealie parses it), with the video and
@@ -175,7 +176,9 @@ with no warranty. Full text: [`LICENSE`](LICENSE).
 
 The app reads YouTube with [NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor),
 itself under GPL-3.0-or-later; every other dependency is under a license compatible with the GPLv3
-(Apache 2.0, MIT, BSD, MPL 2.0).
+(Apache 2.0, MIT, BSD, MPL 2.0). Barcodes are read with [ZXing](https://github.com/zxing/zxing)
+(Apache 2.0), and products looked up in [Open Food Facts](https://world.openfoodfacts.org), whose
+data is under the Open Database License.
 
 umai is an independent project, not affiliated with Mealie. The recipes shown in the screenshots
 belong to their respective authors.

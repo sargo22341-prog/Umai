@@ -15,6 +15,7 @@ import org.opensources.umai.cooking.data.SystemTimerAlarm
 import org.opensources.umai.cooking.data.SystemTimerHost
 import org.opensources.umai.cooking.data.TimerNotifications
 import org.opensources.umai.core.image.DeviceImageCropper
+import org.opensources.umai.core.image.HttpPhotoDownloader
 import org.opensources.umai.core.network.LocalNetworkAccess
 import org.opensources.umai.core.network.MealieMedia
 import org.opensources.umai.core.session.AuthRepository
@@ -32,15 +33,16 @@ import org.opensources.umai.llm.data.ModelInstaller
 import org.opensources.umai.llm.data.TpuCrashGuard
 import org.opensources.umai.organizer.data.OrganizerRepository
 import org.opensources.umai.planning.data.DishCourseStore
+import org.opensources.umai.planning.data.DeviceBarcodePictures
 import org.opensources.umai.planning.data.DeviceLabelPictures
 import org.opensources.umai.planning.data.DevicePlanPhotos
 import org.opensources.umai.planning.data.DishPoolRepository
 import org.opensources.umai.planning.data.MealPlanRepository
+import org.opensources.umai.planning.data.OpenFoodFactsRepository
 import org.opensources.umai.planning.data.RecipeCaloriesRepository
 import org.opensources.umai.planning.domain.ModelCourseClassifier
 import org.opensources.umai.profile.data.ProfileRepository
 import org.opensources.umai.provider.ProviderRegistry
-import org.opensources.umai.provider.data.HttpPhotoDownloader
 import org.opensources.umai.provider.data.ProviderMediaImporter
 import org.opensources.umai.provider.data.ProviderSettingsStore
 import org.opensources.umai.provider.jow.JowProvider
@@ -133,12 +135,22 @@ class AppContainer(context: Context) {
     /** Removing a provider is removing its line here, and its package. */
     val providerRegistry = ProviderRegistry(listOf(JowProvider, Site750gProvider, MarmitonProvider))
     val providerSettings = ProviderSettingsStore(appContext)
+    /** Pictures published by other websites: a recipe provider, a food database. */
+    val externalPhotoDownloader = HttpPhotoDownloader(externalHttpClient)
     val providerMediaImporter = ProviderMediaImporter(
         apiProvider = apiProvider,
         registry = providerRegistry,
         media = recipeMediaRepository,
-        downloader = HttpPhotoDownloader(externalHttpClient),
+        downloader = externalPhotoDownloader,
     )
+
+    /** Products found by their barcode, for the foods added to the plan. */
+    val openFoodFacts = OpenFoodFactsRepository(
+        client = externalHttpClient,
+        userAgent = "umai/${BuildConfig.VERSION_NAME} (https://github.com/sargo22341-prog/umai)",
+        language = localeController::appLanguage,
+    )
+    val barcodePictures = DeviceBarcodePictures(appContext)
 
     /**
      * Monotonic, and counting while the device sleeps: the cooking timers are
