@@ -643,6 +643,14 @@
     <string name="local_ai_model_tight">Gros pour ce téléphone : il peut ne pas se charger quand d\'autres applications occupent la mémoire.</string>
     <string name="local_ai_model_installed">Installé</string>
     <string name="local_ai_download">Télécharger</string>
+    <string name="speech_section">Transcription de la parole</string>
+    <string name="speech_intro">Whisper écrit, sur ce téléphone, ce qui est dit dans une vidéo sans sous-titres, pour en placer les étapes. Sans lui, une telle vidéo n\'est pas écoutée. Ce modèle se choisit à part du modèle de langage ci-dessus.</string>
+    <string name="speech_model_base">Le plus rapide : une minute de parole en 12 secondes environ sur un Pixel 10, avec quelques mots mal compris en français.</string>
+    <string name="speech_model_small">Un français presque sans faute : une minute de parole en 40 secondes environ sur un Pixel 10.</string>
+    <string name="speech_model_turbo">Le plus précis, mais lent : une minute de parole prend 3 minutes environ sur un Pixel 10.</string>
+    <string name="speech_model_meta">%1$s Mo · %2$s</string>
+    <string name="speech_download_progress">%1$s sur %2$s Mo</string>
+    <string name="speech_download_description">Modèle de transcription pour umai</string>
     <string name="local_ai_custom_hint">Tout modèle d\'instruction au format LiteRT-LM, par l\'adresse de son fichier, comme un lien de téléchargement Hugging Face. Il tourne sur le GPU ou le processeur, et remplace le modèle installé.</string>
     <string name="local_ai_custom_label">Adresse d\'un fichier .litertlm</string>
     <string name="local_ai_custom_invalid">Une adresse https qui se termine par le nom du fichier .litertlm</string>

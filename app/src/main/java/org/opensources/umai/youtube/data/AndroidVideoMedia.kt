@@ -162,7 +162,7 @@ class AndroidVideoMedia : VideoMedia {
             pendingSize -= size
             val start = pieceStart
             pieceStart += size.toDouble() / rate
-            return SoundPiece(start, pieceStart, SpeechSound.wav(SpeechSound.resample(samples, rate)))
+            return SoundPiece(start, pieceStart, SpeechSound.resample(samples, rate))
         }
     }
 

@@ -1,11 +1,15 @@
 package org.opensources.umai.llm
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -13,8 +17,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.opensources.umai.R
+import org.opensources.umai.core.download.InstallFailure
 import org.opensources.umai.core.ui.theme.UmaiTheme
-import org.opensources.umai.llm.data.InstallFailure
 import org.opensources.umai.llm.data.ActiveBackend
 import org.opensources.umai.llm.data.InstallState
 import org.opensources.umai.llm.data.LlmBenchmark
@@ -27,6 +31,10 @@ import org.opensources.umai.llm.domain.TensorChip
 import org.opensources.umai.llm.ui.LocalAiScreen
 import org.opensources.umai.llm.ui.LocalAiScreenActions
 import org.opensources.umai.llm.ui.LocalAiUiState
+import org.opensources.umai.llm.ui.SpeechScreenActions
+import org.opensources.umai.speech.data.SpeechSettings
+import org.opensources.umai.speech.domain.SpeechModel
+import org.opensources.umai.speech.domain.SpeechModelCatalog
 
 /** Choosing, downloading and testing the on-device language model. */
 @RunWith(AndroidJUnit4::class)
@@ -40,6 +48,7 @@ class LocalAiScreenTest {
     private fun string(id: Int, vararg args: Any) = context.getString(id, *args)
 
     private val downloads = mutableListOf<LocalModel>()
+    private val speechDownloads = mutableListOf<SpeechModel>()
     private var benchmarks = 0
 
     private fun render(state: LocalAiUiState) {
@@ -57,6 +66,12 @@ class LocalAiScreenTest {
                         onCustomUrlChange = {},
                         onDownloadCustom = {},
                         onBenchmark = { benchmarks++ },
+                        speech = SpeechScreenActions(
+                            onDownload = { speechDownloads += it },
+                            onCancelDownload = {},
+                            onDelete = {},
+                            onDismissFailure = {},
+                        ),
                     ),
                 )
             }
@@ -157,4 +172,36 @@ class LocalAiScreenTest {
     }
 
     private fun decimal(value: Double) = String.format(context.resources.configuration.locales[0], "%.1f", value)
+
+    @Test
+    fun theWhisperSizesAreOfferedWithTheOneForThisPhone() {
+        render(LocalAiUiState(deviceMemoryBytes = 12_000_000_000L))
+        val list = rule.onNode(hasScrollAction())
+
+        list.performScrollToNode(hasText(string(R.string.speech_section)))
+        rule.onNodeWithText(string(R.string.speech_section)).assertIsDisplayed()
+        list.performScrollToNode(hasText(string(R.string.speech_model_small)))
+        rule.onNodeWithText(string(R.string.speech_model_small)).assertIsDisplayed()
+        list.performScrollToNode(hasText(string(R.string.speech_model_turbo)))
+        rule.onNodeWithText("Whisper Large v3 Turbo").assertIsDisplayed()
+
+        // Any size can be picked, not only the recommended one: the last card is Turbo.
+        rule.onAllNodesWithText(string(R.string.local_ai_download)).onLast().performClick()
+        assertEquals(listOf(SpeechModelCatalog.turbo), speechDownloads)
+    }
+
+    @Test
+    fun theInstalledWhisperModelIsMarked() {
+        render(
+            LocalAiUiState(
+                deviceMemoryBytes = 12_000_000_000L,
+                speech = SpeechSettings(installed = SpeechModelCatalog.small),
+            ),
+        )
+
+        rule.onNode(hasScrollAction()).performScrollToNode(hasText(string(R.string.local_ai_model_installed)))
+        rule.onNodeWithText(string(R.string.local_ai_model_installed)).assertIsDisplayed()
+        // The installed size is the only one without a download button.
+        rule.onNodeWithText(string(R.string.speech_model_small)).assertIsDisplayed()
+    }
 }

@@ -22,6 +22,10 @@ import org.opensources.umai.llm.domain.DeviceProfile
 import org.opensources.umai.llm.domain.LocalModel
 import org.opensources.umai.llm.domain.LocalModelCatalog
 import org.opensources.umai.llm.domain.TensorChip
+import org.opensources.umai.speech.data.SpeechInstallState
+import org.opensources.umai.speech.data.SpeechSettings
+import org.opensources.umai.speech.domain.SpeechModel
+import org.opensources.umai.speech.domain.SpeechModelCatalog
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LocalAiViewModelTest {
@@ -31,6 +35,9 @@ class LocalAiViewModelTest {
     private val active = MutableStateFlow<ActiveBackend?>(null)
     private val installed = mutableListOf<LocalModel>()
     private val benchmark = CompletableDeferred<LlmBenchmark?>()
+    private val speech = MutableStateFlow(SpeechSettings())
+    private val speechInstall = MutableStateFlow<SpeechInstallState>(SpeechInstallState.Idle)
+    private val speechInstalled = mutableListOf<SpeechModel>()
 
     @Before
     fun setUp() = Dispatchers.setMain(Dispatchers.Unconfined)
@@ -38,13 +45,15 @@ class LocalAiViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun viewModel(supported: Boolean = true) = LocalAiViewModel(
+    private fun viewModel(supported: Boolean = true, memory: Long = 16_000_000_000L) = LocalAiViewModel(
         supported = supported,
         device = DeviceProfile("Tensor G5", TensorChip.G5, tpuReachable = true),
-        deviceMemoryBytes = 16_000_000_000L,
+        deviceMemoryBytes = memory,
         settings = settings,
         install = install,
         active = active,
+        speech = speech,
+        speechInstall = speechInstall,
         actions = LocalAiActions(
             install = { installed += it },
             cancel = { install.value = InstallState.Idle },
@@ -52,6 +61,12 @@ class LocalAiViewModelTest {
             dismissFailure = { install.value = InstallState.Idle },
             setEnabled = { settings.value = settings.value.copy(enabled = it) },
             benchmark = { benchmark.await() },
+            speech = SpeechActions(
+                install = { speechInstalled += it },
+                cancel = { speechInstall.value = SpeechInstallState.Idle },
+                uninstall = { speech.value = SpeechSettings() },
+                dismissFailure = { speechInstall.value = SpeechInstallState.Idle },
+            ),
         ),
     )
 
@@ -140,5 +155,44 @@ class LocalAiViewModelTest {
     @Test
     fun `a phone that cannot run the model says so`() {
         assertFalse(viewModel(supported = false).state.value.supported)
+    }
+
+    @Test
+    fun `Whisper Small is recommended from 6 GB of memory, Base below`() {
+        // A Pixel 6 Pro has 12 GB, a Pixel 10 Pro XL 16 GB.
+        assertEquals(SpeechModelCatalog.small, viewModel(memory = 12_000_000_000L).state.value.speechRecommended)
+        assertEquals(SpeechModelCatalog.base, viewModel(memory = 4_000_000_000L).state.value.speechRecommended)
+    }
+
+    @Test
+    fun `every Whisper size is offered, and the one picked is downloaded`() {
+        val vm = viewModel()
+
+        assertEquals(listOf("Whisper Base", "Whisper Small", "Whisper Large v3 Turbo"), vm.state.value.speechModels.map { it.name })
+        vm.downloadSpeech(SpeechModelCatalog.turbo)
+
+        assertEquals(listOf(SpeechModelCatalog.turbo), speechInstalled)
+    }
+
+    @Test
+    fun `a Whisper download in progress blocks another one, and is followed`() {
+        val vm = viewModel()
+        speechInstall.value = SpeechInstallState.Downloading(SpeechModelCatalog.small, 10L, 100L, waiting = false)
+
+        vm.downloadSpeech(SpeechModelCatalog.base)
+
+        assertTrue(vm.state.value.speechBusy)
+        assertTrue(speechInstalled.isEmpty())
+    }
+
+    @Test
+    fun `the installed Whisper model is shown and can be deleted`() {
+        val vm = viewModel()
+        speech.value = SpeechSettings(installed = SpeechModelCatalog.small)
+        assertEquals(SpeechModelCatalog.small, vm.state.value.speech.installed)
+
+        vm.deleteSpeech()
+
+        assertNull(vm.state.value.speech.installed)
     }
 }

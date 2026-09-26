@@ -37,7 +37,7 @@ import org.opensources.umai.youtube.domain.YouTubeResult
 sealed interface VideoImportProgress {
     data object ReadingVideo : VideoImportProgress
 
-    /** Without captions, the language model listens to the video, or looks at it. */
+    /** Without captions, Whisper listens to the video, or the language model looks at it. */
     data class Watching(val progress: WatchProgress) : VideoImportProgress
 
     /** The language model reads the transcript; [progress] is `null` until it starts. */
@@ -74,8 +74,8 @@ sealed interface VideoImportOutcome {
  * Rebuilds a recipe from a YouTube video and writes it on Mealie, where
  * Mealie's own import stops at the title and the description.
  *
- * A video without captions is first listened to, or looked at, by the
- * language model ([VideoWatcher]), which gives the steps their times.
+ * A video without captions is first listened to by Whisper, or looked at by
+ * the language model ([VideoWatcher]), which gives the steps their times.
  *
  * When the description links to the written recipe, that page gives the
  * ingredients and their quantities; the video gives the steps and where they
@@ -110,12 +110,9 @@ class VideoRecipeImporter(
         // The first linked page that holds a recipe; the others are not read.
         // Read before the video is watched: its ingredients spare looking at the pictures.
         val page = DescriptionLinks.recipeLinks(read.description).firstNotNullOfOrNull { pages.read(it) }
-        val video = if (model.isReady()) {
-            val ingredientsKnown = RecipeIngredients.known(read, page).isNotEmpty()
-            watcher.complete(read, language(), ingredientsKnown) { onProgress(VideoImportProgress.Watching(it)) }
-        } else {
-            read
-        }
+        // Heard with Whisper, looked at with the language model: each only when installed.
+        val ingredientsKnown = RecipeIngredients.known(read, page).isNotEmpty()
+        val video = watcher.complete(read, language(), ingredientsKnown) { onProgress(VideoImportProgress.Watching(it)) }
 
         var modelFailure: LlmFailure? = null
         val blueprint = if (model.isReady() && (video.transcript.isNotEmpty() || video.description.isNotBlank())) {

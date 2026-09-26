@@ -90,7 +90,7 @@ class LocalLanguageModelTest {
     private fun request(userChars: Int = 100) =
         LlmRequest(system = "Sort.", user = "x".repeat(userChars), jsonSchema = "{}", maxTokens = 256)
 
-    private fun listening() = request().copy(media = LlmMedia.Sound(ByteArray(44)))
+    private fun looking() = request().copy(media = LlmMedia.Picture(ByteArray(8)))
 
     @After
     fun tearDown() = scope.cancel()
@@ -242,47 +242,36 @@ class LocalLanguageModelTest {
     }
 
     @Test
-    fun `a sound goes to the CPU with the audio part, never to the TPU build`() = runBlocking {
+    fun `a picture goes to the CPU with the vision part, never to the TPU build`() = runBlocking {
         val loader = FakeLoader()
         val llm = languageModel(loader)
 
-        assertEquals(LlmOutcome.Success("{\"on\":\"CPU\"}"), llm.generate(listening()))
+        assertEquals(LlmOutcome.Success("{\"on\":\"CPU\"}"), llm.generate(looking()))
         assertEquals(AiBackend.CPU to "/models/gemma-4-E2B-it.litertlm", loader.loads.single())
-        assertEquals(AiSense.HEARING, loader.senses.single())
+        assertEquals(AiSense.SIGHT, loader.senses.single())
     }
 
     @Test
-    fun `a backend without the audio part still answers text`() = runBlocking {
-        val loader = FakeLoader(failingSenses = setOf(AiBackend.CPU to AiSense.HEARING))
+    fun `a backend without the vision part still answers text`() = runBlocking {
+        val loader = FakeLoader(failingSenses = setOf(AiBackend.CPU to AiSense.SIGHT))
         val llm = languageModel(loader, device = DeviceProfile("Tensor G2", null, tpuReachable = false), installed = installed(chip = null))
 
-        assertEquals(LlmOutcome.Success("{\"on\":\"GPU\"}"), llm.generate(listening()))
+        assertEquals(LlmOutcome.Success("{\"on\":\"GPU\"}"), llm.generate(looking()))
         assertEquals(listOf(AiBackend.CPU, AiBackend.GPU), loader.loads.map { it.first })
 
-        // Text goes to the GPU, the fastest backend here, which the failed sound did not rule out.
+        // Text goes to the GPU, the fastest backend here, which the failed picture did not rule out.
         assertEquals(LlmOutcome.Success("{\"on\":\"GPU\"}"), llm.generate(request()))
     }
 
     @Test
-    fun `a model that hears nowhere says so`() = runBlocking {
-        val loader = FakeLoader(failingSenses = setOf(AiBackend.CPU to AiSense.HEARING, AiBackend.GPU to AiSense.HEARING))
+    fun `a model that sees nowhere says so`() = runBlocking {
+        val loader = FakeLoader(failingSenses = setOf(AiBackend.CPU to AiSense.SIGHT, AiBackend.GPU to AiSense.SIGHT))
         val llm = languageModel(loader)
 
-        assertEquals(LlmOutcome.Failure(LlmFailure.MEDIA_UNSUPPORTED), llm.generate(listening()))
-        // Nothing is tried again for the next sound.
+        assertEquals(LlmOutcome.Failure(LlmFailure.MEDIA_UNSUPPORTED), llm.generate(looking()))
+        // Nothing is tried again for the next picture.
         loader.loads.clear()
-        assertEquals(LlmOutcome.Failure(LlmFailure.MEDIA_UNSUPPORTED), llm.generate(listening()))
+        assertEquals(LlmOutcome.Failure(LlmFailure.MEDIA_UNSUPPORTED), llm.generate(looking()))
         assertTrue(loader.loads.isEmpty())
-    }
-
-    @Test
-    fun `an engine loaded to hear is loaded again to see`() = runBlocking {
-        val loader = FakeLoader()
-        val llm = languageModel(loader)
-
-        llm.generate(listening())
-        llm.generate(request().copy(media = LlmMedia.Picture(ByteArray(8))))
-
-        assertEquals(listOf(AiSense.HEARING, AiSense.SIGHT), loader.senses)
     }
 }

@@ -39,6 +39,7 @@ Avant de coder : lire ce fichier, parcourir le dépôt, et consulter `.context/`
 | Vidéo | Media3 ExoPlayer (+ HLS) |
 | YouTube | NewPipeExtractor (JitPack), sur le client OkHttp « sites externes » |
 | IA locale | LiteRT-LM (TPU Tensor → GPU → CPU, derrière `AiEngine`), modèles `.litertlm` téléchargés à part |
+| Transcription | whisper.cpp (CPU, JNI, compilé depuis ses sources par CMake), modèles `ggml` téléchargés à part |
 | Stockage | DataStore Preferences + Android Keystore |
 | Injection | `AppContainer` écrit à la main (§4) |
 
@@ -74,6 +75,12 @@ Pièges du build, déjà rencontrés — ne pas les réintroduire :
   ne suffit pas ; ses règles R8 (Rhino, protobuf-lite, `timeago.patterns`) sont dans
   `proguard-rules.pro`. Il n'expose que les chapitres posés par l'auteur, pas ceux que YouTube génère.
   Quand YouTube casse l'import, monter sa version plutôt que contourner. Détails : `docs/local-ai.md`.
+* whisper.cpp est compilé depuis ses sources, téléchargées à la compilation (release épinglée + SHA-256,
+  tâche `fetchWhisperSource`) et **jamais** copiées dans le dépôt. Seuls `CMakeLists.txt`, `cmake/`,
+  `ggml/`, `include/`, `src/` sont extraits : les *bindings* et exemples contiennent des projets Gradle
+  que l'extension Kotlin de l'IDE ouvre et verrouille. Il est compilé optimisé même en debug
+  (`-O0` : 30 s de parole en 2 min 40), sur **2 fils** (4 et 6 sont plus lents, mesuré). Détails :
+  `docs/local-ai.md`.
 * `jniLibs.useLegacyPackaging = true` est nécessaire : LiteRT-LM charge le dispatch TPU par son
   chemin dans le dossier des bibliothèques natives, vide si elles restent dans l'APK.
 * Ne jamais afficher un backend qui n'est pas prouvé : `DeviceAccelerators.missingDriver` vérifie
@@ -118,8 +125,9 @@ org.opensources.umai
 ├── provider/    data · ui · (un paquet par site)
 ├── youtube/     data · domain
 ├── llm/         data · domain · ui
+├── speech/      data · domain
 ├── navigation/
-└── core/        di · format · image · markdown · model · network(api, dto) · session · settings · ui(component, theme)
+└── core/        di · download · format · image · markdown · model · network(api, dto) · session · settings · ui(component, theme)
 ```
 
 * Une nouvelle fonctionnalité crée son propre paquet racine, avec ses sous-paquets

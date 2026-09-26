@@ -27,7 +27,6 @@ import org.opensources.umai.llm.domain.LlmMedia
 import org.opensources.umai.llm.domain.LlmRequest
 import org.opensources.umai.llm.domain.LocalModelCatalog
 import org.opensources.umai.llm.domain.ModelFile
-import org.opensources.umai.youtube.domain.SpeechSound
 import java.io.ByteArrayOutputStream
 import java.io.File
 
@@ -93,10 +92,6 @@ class LiteRtLmBackendTest {
     fun theCpuRunsTheModel() = run(universalFile(), AiBackend.CPU)
 
     private fun universalFile() = model.files.first { it.chip == null }
-
-    /** The model hears on the CPU: what a video without captions is transcribed with. */
-    @Test
-    fun theCpuHearsASound() = sense(AiSense.HEARING, LlmMedia.Sound(SpeechSound.wav(ShortArray(SpeechSound.RATE))))
 
     /** The model sees with its vision part on the GPU: what a video without speech is described with. */
     @Test

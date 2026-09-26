@@ -2,6 +2,7 @@ import java.net.URI
 import java.security.MessageDigest
 import java.util.Properties
 import java.util.zip.ZipInputStream
+import javax.inject.Inject
 
 plugins {
     alias(libs.plugins.android.application)
@@ -34,6 +35,20 @@ android {
         // would not run usefully on anything else.
         ndk {
             abiFilters += "arm64-v8a"
+        }
+
+        externalNativeBuild {
+            cmake {
+                arguments += "-DWHISPER_SOURCE_DIR=${layout.buildDirectory.dir("whisper-src").get().asFile.invariantSeparatorsPath}"
+            }
+        }
+    }
+
+    // whisper.cpp, built from the sources fetchWhisperSource downloads.
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
         }
     }
 
@@ -201,4 +216,56 @@ androidComponents {
     onVariants { variant ->
         variant.sources.jniLibs?.addGeneratedSourceDirectory(fetchTensorDispatch, FetchTensorDispatch::outputDir)
     }
+}
+
+/**
+ * Fetches the sources of whisper.cpp (MIT), which transcribes the speech of a
+ * video without captions on the phone's CPU: downloaded at a pinned release,
+ * checked against its hash, built by `src/main/cpp/CMakeLists.txt` and never
+ * committed.
+ */
+abstract class FetchWhisperSource : DefaultTask() {
+
+    @get:Input
+    abstract val url: Property<String>
+
+    @get:Input
+    abstract val sha256: Property<String>
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @get:Inject
+    abstract val archives: ArchiveOperations
+
+    @get:Inject
+    abstract val fileSystem: FileSystemOperations
+
+    @TaskAction
+    fun fetch() {
+        val archive = temporaryDir.resolve("whisper.tar.gz")
+        URI(url.get()).toURL().openStream().use { input -> archive.outputStream().use { input.copyTo(it) } }
+        val digest = MessageDigest.getInstance("SHA-256").digest(archive.readBytes())
+            .joinToString("") { "%02x".format(it) }
+        check(digest.equals(sha256.get(), ignoreCase = true)) { "Unexpected hash for ${url.get()}: $digest" }
+        fileSystem.sync {
+            from(archives.tarTree(archives.gzip(archive)))
+            into(outputDir)
+            // The archive holds one folder named after the release: its content is the source tree.
+            eachFile { relativePath = RelativePath(true, *relativePath.segments.drop(1).toTypedArray()) }
+            // Only what the native build reads: the bindings hold Gradle and other projects an IDE would open.
+            include("*/CMakeLists.txt", "*/LICENSE", "*/cmake/**", "*/ggml/**", "*/include/**", "*/src/**")
+            includeEmptyDirs = false
+        }
+    }
+}
+
+val fetchWhisperSource = tasks.register<FetchWhisperSource>("fetchWhisperSource") {
+    url.set("https://github.com/ggml-org/whisper.cpp/archive/refs/tags/v1.9.4.tar.gz")
+    sha256.set("57e280cee375ab02425b806ad5146b99f6eb9357e3c2b31357c8a6af2e2e44ae")
+    outputDir.set(layout.buildDirectory.dir("whisper-src"))
+}
+
+tasks.configureEach {
+    if (name.startsWith("configureCMake")) dependsOn(fetchWhisperSource)
 }

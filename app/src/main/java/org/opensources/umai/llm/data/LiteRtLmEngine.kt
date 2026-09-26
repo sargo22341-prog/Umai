@@ -64,15 +64,13 @@ class LiteRtLmLoader(
             AiBackend.GPU -> Backend.GPU()
             AiBackend.CPU -> Backend.CPU(threadCount = cpuThreads)
         }
-        // Only the part a request needs is loaded, from the file that holds
-        // it. The audio part runs on the CPU, as the runtime requires; the
-        // vision part on the GPU, where it reads a picture about twice as fast.
+        // The vision part is only loaded for a request with a picture, from the
+        // file that holds it, on the GPU, where it reads a picture about twice as fast.
         val engine = Engine(
             EngineConfig(
                 modelPath = path,
                 backend = runtimeBackend,
                 visionBackend = Backend.GPU().takeIf { sense == AiSense.SIGHT },
-                audioBackend = Backend.CPU(threadCount = cpuThreads).takeIf { sense == AiSense.HEARING },
                 // A TPU build runs with the context it was compiled with.
                 maxNumTokens = contextSize.takeUnless { backend == AiBackend.TPU },
                 maxNumImages = 1.takeIf { sense == AiSense.SIGHT },
@@ -147,7 +145,6 @@ private class LiteRtLmEngine(
         val finished = CountDownLatch(1)
         val media = when (val given = request.media) {
             null -> null
-            is LlmMedia.Sound -> Content.AudioBytes(given.wav)
             is LlmMedia.Picture -> Content.ImageBytes(given.jpeg)
         }
         conversation.sendMessageAsync(

@@ -16,6 +16,7 @@ import org.opensources.umai.recipe.data.RecipeEditRepository
 import org.opensources.umai.recipe.data.RecipeMediaRepository
 import org.opensources.umai.youtube.domain.BlueprintOrigin
 import org.opensources.umai.youtube.domain.ChapterMark
+import org.opensources.umai.youtube.domain.FakeTranscriber
 import org.opensources.umai.youtube.domain.FakeVideoMedia
 import org.opensources.umai.youtube.domain.RecipePage
 import org.opensources.umai.youtube.domain.ScriptedModel
@@ -51,7 +52,7 @@ class VideoRecipeImporterTest {
         youTube = source(video),
         pages = { url -> pagesAsked += url; pageContent[url] },
         model = model,
-        watcher = VideoWatcher(model, FakeVideoMedia()),
+        watcher = VideoWatcher(model, FakeTranscriber(ready = false), FakeVideoMedia()),
         apiProvider = { fake.api() },
         edits = RecipeEditRepository({ fake.api() }),
         media = RecipeMediaRepository { fake.api() },

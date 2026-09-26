@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 enum class AiBackend { TPU, GPU, CPU }
 
 /** A part of the model beyond text, loaded only when a request needs it. */
-enum class AiSense { HEARING, SIGHT }
+enum class AiSense { SIGHT }
 
 /** Speeds the runtime measured on the last answer. */
 data class AiSpeed(

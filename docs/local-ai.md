@@ -9,7 +9,7 @@ classique.
 
 | Fonction | Avec le modèle | Sans le modèle |
 |---|---|---|
-| Import d'une vidéo YouTube | Lit titre, description, chapitres et transcription horodatée ; sans sous-titres, **écoute** la vidéo, et sans parole **regarde** ses images (voir *Vidéos sans sous-titres*) ; écrit des étapes rédigées et titrées, le début de chaque étape dans la vidéo, et les ingrédients quand ni la page de recette ni la description ne les donnent. | Ingrédients de la page de recette ou de la description, étapes lues dans la description, sinon étapes = chapitres (texte tiré de la transcription), placées par les chapitres ou par alignement mots-transcription. |
+| Import d'une vidéo YouTube | Lit titre, description, chapitres et transcription horodatée ; sans sous-titres, fait **écouter** la vidéo par Whisper, et en dernier recours **regarde** ses images (voir *Vidéos sans sous-titres*) ; écrit des étapes rédigées et titrées, le début de chaque étape dans la vidéo, et les ingrédients quand ni la page de recette ni la description ne les donnent. | Ingrédients de la page de recette ou de la description, étapes lues dans la description, sinon étapes = chapitres (texte tiré de la transcription), placées par les chapitres ou par alignement mots-transcription. |
 | Planning automatique | Classe les recettes que rien ne situe (ni catégorie, ni tag, ni nom, ni historique). | Ces recettes sont jugées sur leurs ingrédients (sucré seul = dessert). |
 
 Restent volontairement **algorithmiques**, parce qu'un algorithme y est plus fiable qu'un modèle
@@ -171,10 +171,10 @@ supprimés au démarrage.
   (GPU et CPU seulement : une version TPU ne tourne que sur la puce pour laquelle elle est compilée).
 - Nouveau modèle au catalogue : `llm/domain/LocalModels.kt` (adresse, taille, SHA-256 donnés par
   l'API Hugging Face `https://huggingface.co/api/models/<dépôt>/tree/main`).
-- Le fichier universel contient aussi les parties **audio** et **vision** du modèle, chargées à la
-  demande, une à la fois (`AiSense`) : l'audio sur le CPU (exigé par le runtime), la vision sur le GPU
-  (deux fois plus rapide qu'au CPU). Un fichier TPU n'en a pas. Une partie qui ne se charge pas
-  n'écarte pas le backend pour le texte.
+- Le fichier universel contient aussi la partie **vision** du modèle, chargée à la demande
+  (`AiSense`), sur le GPU (deux fois plus rapide qu'au CPU). Un fichier TPU n'en a pas. Une partie
+  qui ne se charge pas n'écarte pas le backend pour le texte. Sa partie **audio** n'est plus
+  utilisée : la parole est écrite par Whisper (plus bas), plus juste et sans phrases inventées.
 - Vérifier le TPU sur un téléphone : mettre les fichiers dans
   `/sdcard/Android/data/org.opensources.umai.debug/files/models/` (téléchargés par l'app, ou
   `adb push`), puis `connectedDebugAndroidTest` (classe `LiteRtLmBackendTest`, ignorée sans eux).
@@ -215,15 +215,14 @@ Limites constatées :
 
 Idée reprise de [yt-transcript](https://github.com/plc/yt-transcript) (Whisper quand il n'y a pas
 de sous-titres) et de [pick-a-recipe](https://github.com/pickeld/pick-a-recipe) (Whisper et texte à
-l'écran lu par un modèle vision), mais **sur le téléphone**, avec le modèle déjà installé
-(`VideoWatcher`, `AndroidVideoMedia`) :
+l'écran lu par un modèle vision), mais **sur le téléphone** (`VideoWatcher`, `AndroidVideoMedia`) :
 
-1. **Écouter** — quand la vidéo n'a pas de sous-titres, ou que YouTube les refuse : la piste audio
-   **d'origine** (pas celle que YouTube double automatiquement dans une autre langue) est décodée
-   (`MediaExtractor` + `MediaCodec`), ramenée à 16 kHz mono en moyennant les échantillons (sans ce
-   filtre, la transcription française inventait des phrases), et donnée au modèle par tranches de
-   **30 s**, la plus longue qu'il entende d'un coup. Chaque tranche devient une ligne horodatée de la
-   transcription. Au-delà de 20 minutes, la suite n'est pas écoutée.
+1. **Écouter**, avec **Whisper** (voir *Transcription : Whisper*) — quand la vidéo n'a pas de
+   sous-titres, ou que YouTube les refuse : la piste audio **d'origine** (pas celle que YouTube double
+   automatiquement dans une autre langue) est décodée (`MediaExtractor` + `MediaCodec`), ramenée à
+   16 kHz mono en moyennant les échantillons, et donnée à Whisper par morceaux de **2 minutes**.
+   Chaque phrase entendue devient une ligne de la transcription, avec ses propres temps. Au-delà de
+   20 minutes, la suite n'est pas écoutée. Sans modèle Whisper installé, la vidéo n'est pas écoutée.
 2. **Regarder** — en dernier recours : quand rien n'est dit (ni sous-titres, ni parole entendue),
    qu'il n'y a pas de chapitres, et que ni la description ni la page de recette ne listent les
    ingrédients (la page est donc lue avant l'écoute) : une image au milieu de chaque tranche de **20 s** (30 images au plus, plus espacées sur
@@ -245,7 +244,8 @@ sous-titres refusés par YouTube) :
 
 | Étape | Où | Durée |
 |---|---|---|
-| Écoute, 10 tranches de 30 s | CPU (≈ 870 jetons lus, ≈ 110 écrits à 14–18/s par tranche) | 3 min 35 à 3 min 46 |
+| Écoute par Whisper Small (voir plus bas) | CPU, 2 fils | ≈ 3 min 15 |
+| *Écoute par Gemma, avant Whisper* | *CPU, 10 tranches de 30 s* | *3 min 35 à 3 min 46* |
 | Recette depuis la transcription entendue | TPU (1 731 jetons lus, 495 écrits) | 47 s |
 | Regard, 14 images (test sans le son) | CPU, vision au GPU (≈ 410 jetons lus par image) | 3 min 47 |
 | Recette depuis les images, puis placement | TPU | 42 s |
@@ -254,6 +254,51 @@ Avec la transcription entendue, les 7 étapes tombent là où elles sont dites (
 garniture 1:30, pâtons 2:00, étalage 2:30, farce 3:00, cuisson 4:00), et les portions (8) et les
 temps sont lus. Avec les images seules, 5 étapes cohérentes sont placées à 0:40, 1:20, 2:40, 3:00 et
 4:00 : moins précis, à corriger au besoin dans l'éditeur.
+
+### Transcription : Whisper
+
+La parole est écrite par **whisper.cpp** (MIT), un modèle spécialisé bien plus petit que Gemma :
+Gemma 4 E2B, généraliste, inventait des phrases et reformulait ; Whisper écrit ce qui est dit, avec
+les temps de chaque phrase. Il tourne sur le **CPU** (`speech/data/WhisperTranscriber.kt`).
+
+- **Build** : les sources de whisper.cpp sont téléchargées à la compilation, à une release épinglée,
+  vérifiées par SHA-256 (`fetchWhisperSource`, `app/build.gradle.kts`), jamais commitées ; seuls
+  `CMakeLists.txt`, `cmake/`, `ggml/`, `include/` et `src/` sont extraits (les *bindings* et les
+  exemples contiennent des projets Gradle que l'extension Kotlin de l'IDE ouvre et verrouille).
+  `app/src/main/cpp/CMakeLists.txt` les compile avec le pont JNI (`whisper_jni.cpp`), **optimisés
+  même en debug** : en `-O0`, 30 s de parole prenaient 2 min 40.
+- **Réglages mesurés** (Pixel 10 Pro XL, une minute de la vidéo ci-dessus, Small) :
+
+  | Réglage | Durée |
+  |---|---|
+  | 6 fils | 71 à 104 s |
+  | 4 fils | 62 à 68 s |
+  | **2 fils** | **43 s** |
+
+  Les fils de ggml s'attendent à chaque étape : plus il y en a, plus certains tombent sur des cœurs
+  lents. `flash_attn` est coupé (un jeton écrit environ un cinquième plus vite au CPU), et une
+  tranche à redécoder à plus haute température ne l'est qu'une fois (`best_of = 1`, au lieu de 5).
+  Des morceaux de 2 minutes plutôt que de 30 s : Whisper finit chaque morceau par une fenêtre pour
+  la dernière phrase, qui doublait le travail sur des morceaux de 30 s.
+- **Modèles** (Hugging Face `ggerganov/whisper.cpp`, MIT, quantifiés), un seul gardé à la fois,
+  choisi dans *Profil › IA locale › Transcription de la parole* :
+
+  | Modèle | Taille | 2 min de parole (Pixel 10 Pro XL) | Français |
+  |---|---|---|---|
+  | Base (`q5_1`) | 60 Mo | 24 s | quelques mots faux (« petits peintes farsissons ») |
+  | **Small** (`q5_1`, recommandé) | 190 Mo | 81 s | presque sans faute (« 250 millilitres de lait », « 400 g au total ») |
+  | Large v3 Turbo (`q5_0`) | 574 Mo | 356 s | le plus juste, ponctuation comprise |
+
+  Small est recommandé à partir de 6 Go de mémoire (`SpeechModelCatalog.recommendedFor`), Base
+  en dessous ; chacun peut prendre une autre taille. Mesures sur un **Pixel 10 Pro XL** seulement :
+  sur un Pixel 6 Pro (Tensor G1, 12 Go), Small tient en mémoire, mais sa vitesse n'a pas été mesurée.
+- Sur un son sans parole (musique, bruit), Whisper peut inventer une courte phrase (« Sous-titrage
+  ST' 501 » avec Turbo sur un son pur). Les segments que Whisper lui-même juge sans parole
+  (`no_speech_prob` > 0,6) sont écartés, et les étiquettes comme « [Musique] » retirées.
+- Vérifier sur un téléphone : mettre les modèles dans
+  `/sdcard/Android/data/org.opensources.umai.debug/files/models/`, puis `WhisperTranscriberTest`
+  (temps de chaque taille dans `adb logcat -s UmaiAiTest`). Pendant un import, chaque morceau
+  entendu est journalisé (`Whisper: 120,0 s heard in … ms`, `adb logcat -s UmaiAi`).
 
 ### Ingrédients
 

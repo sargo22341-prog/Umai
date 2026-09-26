@@ -13,3 +13,4 @@ liste des commits. Détails : [docs/release.md](docs/release.md).
 - Modifier une recette : nouvel onglet Vidéo pour placer ou corriger le début et la fin de chaque étape dans la vidéo, avec le lecteur à portée de main.
 - Import vidéo : la recette est de nouveau écrite sur le TPU des Pixel 10, bien plus vite, au lieu du GPU pour une vidéo courte.
 - Import vidéo : les images de la vidéo ne sont plus analysées quand la description ou la page de recette donne déjà les ingrédients.
+- Import vidéo : une vidéo sans sous-titres est maintenant écoutée par Whisper, plus juste et plus rapide que l'IA locale ; trois tailles au choix dans Profil › IA locale (Small recommandé).

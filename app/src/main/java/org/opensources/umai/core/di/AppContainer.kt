@@ -52,6 +52,9 @@ import org.opensources.umai.recipe.data.RecipeMediaRepository
 import org.opensources.umai.recipe.data.RecipeRepository
 import org.opensources.umai.recipe.data.VideoStreams
 import org.opensources.umai.shopping.data.ShoppingRepository
+import org.opensources.umai.speech.data.SpeechModelInstaller
+import org.opensources.umai.speech.data.SpeechSettingsStore
+import org.opensources.umai.speech.data.WhisperTranscriber
 import org.opensources.umai.youtube.data.AndroidVideoMedia
 import org.opensources.umai.youtube.data.MealieRecipePages
 import org.opensources.umai.youtube.data.VideoRecipeImporter
@@ -177,6 +180,17 @@ class AppContainer(context: Context) {
         scope = applicationScope,
     )
 
+    val speechSettings = SpeechSettingsStore(appContext)
+    val speechModelInstaller = SpeechModelInstaller(appContext, speechSettings, applicationScope)
+        .also { it.resume() }
+
+    /** Writes down the speech of a video without captions, when a Whisper model is installed. */
+    val speechTranscriber = WhisperTranscriber(
+        modelPath = speechModelInstaller::installedPath,
+        work = localAiWork,
+        scope = applicationScope,
+    )
+
     /** Reads YouTube videos without an account, for the import and the cooking mode. */
     val youTubeClient = YouTubeClient(externalHttpClient, language = localeController::appLanguage)
 
@@ -186,7 +200,7 @@ class AppContainer(context: Context) {
         youTube = youTubeClient,
         pages = MealieRecipePages(apiProvider, externalHttpClient),
         model = localLanguageModel,
-        watcher = VideoWatcher(localLanguageModel, AndroidVideoMedia()),
+        watcher = VideoWatcher(localLanguageModel, speechTranscriber, AndroidVideoMedia()),
         apiProvider = apiProvider,
         edits = recipeEditRepository,
         media = recipeMediaRepository,

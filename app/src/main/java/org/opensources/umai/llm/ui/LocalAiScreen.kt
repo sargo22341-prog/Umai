@@ -39,7 +39,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import org.opensources.umai.R
 import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.format.currentLocale
-import org.opensources.umai.llm.data.InstallFailure
+import org.opensources.umai.core.download.InstallFailure
 import org.opensources.umai.llm.data.InstallState
 import org.opensources.umai.llm.data.LlmBenchmark
 import org.opensources.umai.llm.domain.AiBackend
@@ -63,6 +63,12 @@ fun LocalAiRoute(onBack: () -> Unit, modifier: Modifier = Modifier) {
             onCustomUrlChange = viewModel::onCustomUrlChange,
             onDownloadCustom = viewModel::downloadCustom,
             onBenchmark = viewModel::runBenchmark,
+            speech = SpeechScreenActions(
+                onDownload = viewModel::downloadSpeech,
+                onCancelDownload = viewModel::cancelSpeechDownload,
+                onDelete = viewModel::deleteSpeech,
+                onDismissFailure = viewModel::dismissSpeechFailure,
+            ),
         ),
         modifier = modifier,
     )
@@ -79,6 +85,7 @@ class LocalAiScreenActions(
     val onCustomUrlChange: (String) -> Unit,
     val onDownloadCustom: () -> Unit,
     val onBenchmark: () -> Unit,
+    val speech: SpeechScreenActions,
 )
 
 /**
@@ -164,6 +171,8 @@ fun LocalAiScreen(state: LocalAiUiState, actions: LocalAiScreenActions, modifier
 
             item { SettingsSectionHeader(stringResource(R.string.local_ai_section_custom)) }
             item { CustomModelField(state, actions) }
+
+            speechModelItems(state, actions.speech)
         }
     }
 }
@@ -276,21 +285,21 @@ private fun InstallProgressCard(install: InstallState, actions: LocalAiScreenAct
 private fun InstallFailureCard(install: InstallState.Failed, actions: LocalAiScreenActions) {
     ModelCard {
         Text(
-            text = stringResource(
-                when (install.failure) {
-                    InstallFailure.NO_STORAGE -> R.string.local_ai_failure_storage
-                    InstallFailure.NOT_ENOUGH_SPACE -> R.string.local_ai_failure_space
-                    InstallFailure.DOWNLOAD_FAILED -> R.string.local_ai_failure_download
-                    InstallFailure.CORRUPTED -> R.string.local_ai_failure_corrupted
-                    InstallFailure.NOT_A_MODEL -> R.string.local_ai_failure_not_model
-                },
-                install.model.name,
-            ),
+            text = stringResource(failureMessage(install.failure), install.model.name),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.error,
         )
         TextButton(onClick = actions.onDismissFailure) { Text(stringResource(R.string.action_close)) }
     }
+}
+
+/** The message for [failure]; it takes the name of the model. */
+internal fun failureMessage(failure: InstallFailure): Int = when (failure) {
+    InstallFailure.NO_STORAGE -> R.string.local_ai_failure_storage
+    InstallFailure.NOT_ENOUGH_SPACE -> R.string.local_ai_failure_space
+    InstallFailure.DOWNLOAD_FAILED -> R.string.local_ai_failure_download
+    InstallFailure.CORRUPTED -> R.string.local_ai_failure_corrupted
+    InstallFailure.NOT_A_MODEL -> R.string.local_ai_failure_not_model
 }
 
 @Composable
@@ -376,7 +385,7 @@ private fun CustomModelField(state: LocalAiUiState, actions: LocalAiScreenAction
 }
 
 @Composable
-private fun ModelCard(content: @Composable () -> Unit) {
+internal fun ModelCard(content: @Composable () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
@@ -386,7 +395,7 @@ private fun ModelCard(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun Paragraph(text: String) {
+internal fun Paragraph(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodyMedium,

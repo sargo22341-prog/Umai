@@ -19,6 +19,10 @@ import org.opensources.umai.llm.data.LocalAiSettings
 import org.opensources.umai.llm.domain.DeviceProfile
 import org.opensources.umai.llm.domain.LocalModel
 import org.opensources.umai.llm.domain.LocalModelCatalog
+import org.opensources.umai.speech.data.SpeechInstallState
+import org.opensources.umai.speech.data.SpeechSettings
+import org.opensources.umai.speech.domain.SpeechModel
+import org.opensources.umai.speech.domain.SpeechModelCatalog
 
 data class LocalAiUiState(
     /** Whether LiteRT-LM runs on this phone at all. */
@@ -37,12 +41,19 @@ data class LocalAiUiState(
     val benchmarkFailed: Boolean = false,
     /** Memory of the phone, to judge which models fit. */
     val deviceMemoryBytes: Long = 0L,
+    val speech: SpeechSettings = SpeechSettings(),
+    val speechInstall: SpeechInstallState = SpeechInstallState.Idle,
+    val speechModels: List<SpeechModel> = SpeechModelCatalog.models,
 ) {
     val installed: LocalModel? get() = settings.installed
     val busy: Boolean get() = install is InstallState.Downloading || install is InstallState.Verifying
     val ready: Boolean get() = supported && settings.enabled && installed != null
 
     /** What this phone downloads for [model]: its TPU build too, on a Tensor chip that has one. */
+    val speechRecommended: SpeechModel get() = SpeechModelCatalog.recommendedFor(deviceMemoryBytes)
+    val speechBusy: Boolean
+        get() = speechInstall is SpeechInstallState.Downloading || speechInstall is SpeechInstallState.Verifying
+
     fun downloadSize(model: LocalModel): Long = model.sizeFor(device.tensorChip)
 
     fun hasTpuBuild(model: LocalModel): Boolean = device.tpuReachable && model.runsOnTpu(device.tensorChip)
@@ -65,6 +76,15 @@ class LocalAiActions(
     val dismissFailure: () -> Unit,
     val setEnabled: suspend (Boolean) -> Unit,
     val benchmark: suspend () -> LlmBenchmark?,
+    val speech: SpeechActions,
+)
+
+/** The same for the Whisper model. */
+class SpeechActions(
+    val install: suspend (SpeechModel) -> Unit,
+    val cancel: suspend () -> Unit,
+    val uninstall: suspend () -> Unit,
+    val dismissFailure: () -> Unit,
 )
 
 class LocalAiViewModel(
@@ -74,6 +94,8 @@ class LocalAiViewModel(
     settings: Flow<LocalAiSettings>,
     install: Flow<InstallState>,
     active: Flow<ActiveBackend?>,
+    speech: Flow<SpeechSettings>,
+    speechInstall: Flow<SpeechInstallState>,
     private val actions: LocalAiActions,
 ) : ViewModel() {
 
@@ -93,6 +115,11 @@ class LocalAiViewModel(
             }
         }
         viewModelScope.launch { active.collect { backend -> _state.update { it.copy(active = backend) } } }
+        viewModelScope.launch {
+            combine(speech, speechInstall) { s, i -> s to i }.collect { (s, i) ->
+                _state.update { it.copy(speech = s, speechInstall = i) }
+            }
+        }
     }
 
     fun download(model: LocalModel) {
@@ -134,6 +161,21 @@ class LocalAiViewModel(
         }
     }
 
+    fun downloadSpeech(model: SpeechModel) {
+        if (_state.value.speechBusy) return
+        viewModelScope.launch { actions.speech.install(model) }
+    }
+
+    fun cancelSpeechDownload() {
+        viewModelScope.launch { actions.speech.cancel() }
+    }
+
+    fun deleteSpeech() {
+        viewModelScope.launch { actions.speech.uninstall() }
+    }
+
+    fun dismissSpeechFailure() = actions.speech.dismissFailure()
+
     companion object {
         fun factory(container: AppContainer) = viewModelFactory {
             initializer {
@@ -144,6 +186,8 @@ class LocalAiViewModel(
                     settings = container.localAiSettings.settings,
                     install = container.modelInstaller.state,
                     active = container.localLanguageModel.active,
+                    speech = container.speechSettings.settings,
+                    speechInstall = container.speechModelInstaller.state,
                     actions = LocalAiActions(
                         install = container.modelInstaller::install,
                         cancel = container.modelInstaller::cancel,
@@ -151,6 +195,12 @@ class LocalAiViewModel(
                         dismissFailure = container.modelInstaller::dismissFailure,
                         setEnabled = { container.localAiSettings.setEnabled(it) },
                         benchmark = container.localLanguageModel::benchmark,
+                        speech = SpeechActions(
+                            install = container.speechModelInstaller::install,
+                            cancel = container.speechModelInstaller::cancel,
+                            uninstall = container.speechModelInstaller::uninstall,
+                            dismissFailure = container.speechModelInstaller::dismissFailure,
+                        ),
                     ),
                 )
             }

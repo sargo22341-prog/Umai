@@ -11,12 +11,12 @@ import org.opensources.umai.llm.domain.LanguageModel
 import org.opensources.umai.llm.domain.LlmMedia
 import org.opensources.umai.llm.domain.LlmOutcome
 import org.opensources.umai.llm.domain.LlmRequest
-import java.util.Locale
+import org.opensources.umai.speech.domain.SpeechTranscriber
 import kotlin.math.ceil
 import kotlin.math.max
 
-/** A piece of the sound track, from [start] to [end] seconds, as a WAV file of 16 kHz mono sound. */
-class SoundPiece(val start: Double, val end: Double, val wav: ByteArray)
+/** A piece of the sound track, from [start] to [end] seconds, as 16 kHz mono samples. */
+class SoundPiece(val start: Double, val end: Double, val samples: ShortArray)
 
 /** A picture of the video at [second], as a JPEG. */
 class VideoPicture(val second: Double, val jpeg: ByteArray)
@@ -37,19 +37,25 @@ data class WatchProgress(val seeing: Boolean, val done: Int, val total: Int)
 /**
  * Gives the language model the times it places the steps with when YouTube
  * gives none, as yt-transcript and pick-a-recipe do with Whisper and a
- * vision model — here on the phone, with the model already installed:
+ * vision model — here on the phone:
  *
  * - a video without captions, or whose captions YouTube refused, is listened
- *   to: its original sound track, in pieces of [PIECE_SECONDS], written down;
+ *   to by Whisper ([transcriber]): its original sound track, in pieces of
+ *   [PIECE_SECONDS], written down with the times of each sentence;
  * - a video where nothing is said, that has no chapters and whose ingredients
  *   nothing lists is looked at: one picture every [MIN_PICTURE_GAP] seconds, or
  *   fewer on a long video, each described.
  *
- * Each piece becomes a timed line of the transcript, which the recipe is then
- * rebuilt from as from captions. A model without audio or vision part, or a
- * sound or a picture file that cannot be read, leaves the video as it was.
+ * What is heard or seen becomes timed lines of the transcript, which the
+ * recipe is then rebuilt from as from captions. Without a speech model, a
+ * language model with a vision part, or a readable sound or picture file, the
+ * video is left as it was.
  */
-class VideoWatcher(private val model: LanguageModel, private val media: VideoMedia) {
+class VideoWatcher(
+    private val model: LanguageModel,
+    private val transcriber: SpeechTranscriber,
+    private val media: VideoMedia,
+) {
 
     /**
      * [language] is the one the pictures are described in: "fr" or "en".
@@ -65,12 +71,12 @@ class VideoWatcher(private val model: LanguageModel, private val media: VideoMed
     ): YouTubeVideo {
         var watched = video
         val soundUrl = video.soundUrl
-        if (video.transcript.isEmpty() && soundUrl != null) {
+        if (video.transcript.isEmpty() && soundUrl != null && transcriber.isReady()) {
             val heard = hear(video, soundUrl, onProgress)
             if (heard.isNotEmpty()) watched = watched.copy(transcript = heard, transcriptSource = TranscriptSource.HEARD)
         }
         val pictureUrl = video.pictureUrl
-        if (!watched.hasTimes && !ingredientsKnown && pictureUrl != null) {
+        if (!watched.hasTimes && !ingredientsKnown && pictureUrl != null && model.isReady()) {
             val seen = see(video, pictureUrl, language, onProgress)
             if (seen.isNotEmpty()) watched = watched.copy(transcript = seen, transcriptSource = TranscriptSource.SEEN)
         }
@@ -80,7 +86,6 @@ class VideoWatcher(private val model: LanguageModel, private val media: VideoMed
     private suspend fun hear(video: YouTubeVideo, url: String, onProgress: (WatchProgress) -> Unit): List<TranscriptCue> {
         val seconds = minOf(video.durationSeconds, MAX_HEARD_SECONDS)
         val total = ceil(seconds.toDouble() / PIECE_SECONDS).toInt()
-        val request = hearing(video.spokenLanguage)
         val cues = mutableListOf<TranscriptCue>()
         var done = 0
         var stopped = false
@@ -90,9 +95,16 @@ class VideoWatcher(private val model: LanguageModel, private val media: VideoMed
             // A sound file that stops being readable leaves what was heard so far.
             .catch { }
             .collect { piece ->
-                when (val outcome = model.generate(request.copy(media = LlmMedia.Sound(piece.wav)))) {
-                    is LlmOutcome.Success -> field(outcome.text, SPEECH)?.let { cues += TranscriptCue(piece.start, piece.end, it) }
-                    is LlmOutcome.Failure -> stopped = true
+                val said = transcriber.transcribe(piece.samples, video.spokenLanguage?.substringBefore('-'))
+                if (said == null) {
+                    stopped = true
+                } else {
+                    said.forEach { spoken ->
+                        val text = Transcript.clean(spoken.text)
+                        if (text.isNotEmpty()) {
+                            cues += TranscriptCue(piece.start + spoken.start, minOf(piece.start + spoken.end, piece.end), text)
+                        }
+                    }
                 }
                 onProgress(WatchProgress(seeing = false, done = ++done, total = total))
             }
@@ -132,34 +144,24 @@ class VideoWatcher(private val model: LanguageModel, private val media: VideoMed
     }
 
     companion object {
-        /** The longest the model hears at once. */
-        const val PIECE_SECONDS = 30
+        /**
+         * The sound handed to Whisper at once. It hears it in windows of 30
+         * seconds and ends each piece with a window for the last sentence: two
+         * minutes cost that window once where pieces of 30 seconds doubled the work.
+         */
+        const val PIECE_SECONDS = 120
 
-        /** About seven minutes of listening on a Pixel 10: longer videos are heard up to there. */
+        /** Longer videos are heard up to there. */
         const val MAX_HEARD_SECONDS = 20 * 60
 
         /** About twelve seconds a picture on a Pixel 10: a long video is looked at more sparsely. */
         const val MIN_PICTURE_GAP = 20.0
         const val MAX_PICTURES = 30
 
-        private const val SPEECH = "speech"
         private const val SHOWN = "shown"
-        private const val MAX_SPEECH_TOKENS = 400
         private const val MAX_SHOWN_TOKENS = 120
 
         private val json = Json { ignoreUnknownKeys = true }
-
-        internal fun hearing(spokenLanguage: String?): LlmRequest {
-            val spoken = spokenLanguage?.let { Locale.forLanguageTag(it).getDisplayLanguage(Locale.ENGLISH) }?.takeIf { it.isNotBlank() }
-            return LlmRequest(
-                system = """
-                    You write down what is said in a piece of the sound track of a cooking video, word for word, in the language spoken. Write only what is said: music and noises are not speech, and nothing is added. When nobody speaks, the speech is empty.
-                """.trimIndent(),
-                user = if (spoken != null) "Write down what is said. The video is in $spoken." else "Write down what is said.",
-                jsonSchema = schema(SPEECH, maxLength = 1_500),
-                maxTokens = MAX_SPEECH_TOKENS,
-            )
-        }
 
         internal fun seeing(language: String): LlmRequest {
             val writeIn = if (language == "fr") "French" else "English"
@@ -185,7 +187,7 @@ class VideoWatcher(private val model: LanguageModel, private val media: VideoMed
     }
 }
 
-/** Sound as the model hears it: 16 kHz, one channel, 16-bit samples. */
+/** Sound as Whisper hears it: 16 kHz, one channel, 16-bit samples. */
 object SpeechSound {
 
     const val RATE = 16_000
@@ -207,31 +209,4 @@ object SpeechSound {
             (sum / (to - from)).toInt().toShort()
         }
     }
-
-    /** A WAV file of [samples] at [RATE]. */
-    fun wav(samples: ShortArray): ByteArray {
-        val dataSize = samples.size * BYTES_PER_SAMPLE
-        val bytes = ByteArray(HEADER_SIZE + dataSize)
-        fun text(at: Int, value: String) = value.forEachIndexed { i, c -> bytes[at + i] = c.code.toByte() }
-        fun int(at: Int, value: Int) = repeat(4) { bytes[at + it] = (value shr (8 * it)).toByte() }
-        fun short(at: Int, value: Int) = repeat(2) { bytes[at + it] = (value shr (8 * it)).toByte() }
-        text(0, "RIFF")
-        int(4, HEADER_SIZE - 8 + dataSize)
-        text(8, "WAVE")
-        text(12, "fmt ")
-        int(16, 16)
-        short(20, 1)
-        short(22, 1)
-        int(24, RATE)
-        int(28, RATE * BYTES_PER_SAMPLE)
-        short(32, BYTES_PER_SAMPLE)
-        short(34, 16)
-        text(36, "data")
-        int(40, dataSize)
-        samples.forEachIndexed { i, sample -> short(HEADER_SIZE + i * BYTES_PER_SAMPLE, sample.toInt()) }
-        return bytes
-    }
-
-    private const val HEADER_SIZE = 44
-    private const val BYTES_PER_SAMPLE = 2
 }

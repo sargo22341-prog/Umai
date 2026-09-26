@@ -66,10 +66,10 @@ data class LlmBenchmark(
  * runs there; one that fails is skipped until the app restarts. A prompt too
  * long for the fixed context of a TPU build goes to the GPU or the CPU.
  *
- * A request with a sound or a picture goes to the file that holds the audio
- * and vision parts, which a TPU build has not: on the CPU first, which writes
- * a short answer four times faster than the GPU (see docs/local-ai.md). A
- * backend where those parts do not load still answers text.
+ * A request with a picture goes to the file that holds the vision part,
+ * which a TPU build has not: on the CPU first, which writes a short answer
+ * four times faster than the GPU (see docs/local-ai.md). A backend where that
+ * part does not load still answers text.
  *
  * The model is loaded on first use and unloaded after a minute without use:
  * it takes gigabytes of memory, which the rest of the phone needs back. One
@@ -206,7 +206,7 @@ class LocalLanguageModel(
 
     /**
      * The backends that may [sense], with the file that holds that part: the
-     * CPU first, then the GPU. A TPU build has neither part.
+     * CPU first, then the GPU. A TPU build has no such part.
      */
     private fun senseRoutes(model: InstalledModel, sense: AiSense): List<Route> =
         routes(model).filter { it.backend != AiBackend.TPU && (it.backend to sense) !in senseless }
@@ -279,7 +279,7 @@ class LocalLanguageModel(
         /** The turn markers the chat template wraps the prompt in. */
         private const val TEMPLATE_TOKENS = 64
 
-        /** What a picture or 30 seconds of sound take in the context, with room to spare. */
+        /** What a picture takes in the context, with room to spare. */
         private const val MEDIA_TOKENS = 1_000
 
         /** The schema is read too: it is the definition of the tool the model answers with. */
