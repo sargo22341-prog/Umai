@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -48,9 +49,15 @@ class ImagePickerState internal constructor(
     internal var choosingSource by choosing
     internal var pendingCrop by pending
     internal var cameraOutput by camera
+    internal var cameraRequested by mutableStateOf(false)
 
     fun open() {
         choosingSource = true
+    }
+
+    /** Goes straight to the camera, for a photo taken on the spot. */
+    fun openCamera() {
+        cameraRequested = true
     }
 }
 
@@ -96,6 +103,24 @@ fun ImagePicker(
         if (saved && output != null) state.pendingCrop = output
     }
 
+    fun takePhoto() {
+        val target: Uri = CameraCapture.newPhotoUri(context)
+        state.cameraOutput = target.toString()
+        try {
+            camera.launch(target)
+        } catch (_: ActivityNotFoundException) {
+            state.cameraOutput = null
+            onCameraUnavailable()
+        }
+    }
+
+    LaunchedEffect(state.cameraRequested) {
+        if (state.cameraRequested) {
+            state.cameraRequested = false
+            takePhoto()
+        }
+    }
+
     if (state.choosingSource) {
         ModalBottomSheet(onDismissRequest = { state.choosingSource = false }) {
             Column(modifier = Modifier.navigationBarsPadding().padding(bottom = 12.dp)) {
@@ -110,14 +135,7 @@ fun ImagePicker(
                 }
                 SourceRow(Icons.Outlined.PhotoCamera, stringResource(R.string.image_source_camera)) {
                     state.choosingSource = false
-                    val target: Uri = CameraCapture.newPhotoUri(context)
-                    state.cameraOutput = target.toString()
-                    try {
-                        camera.launch(target)
-                    } catch (_: ActivityNotFoundException) {
-                        state.cameraOutput = null
-                        onCameraUnavailable()
-                    }
+                    takePhoto()
                 }
                 SourceRow(Icons.Outlined.Folder, stringResource(R.string.image_source_files)) {
                     state.choosingSource = false

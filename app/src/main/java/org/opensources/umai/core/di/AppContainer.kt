@@ -32,8 +32,11 @@ import org.opensources.umai.llm.data.ModelInstaller
 import org.opensources.umai.llm.data.TpuCrashGuard
 import org.opensources.umai.organizer.data.OrganizerRepository
 import org.opensources.umai.planning.data.DishCourseStore
+import org.opensources.umai.planning.data.DeviceLabelPictures
+import org.opensources.umai.planning.data.DevicePlanPhotos
 import org.opensources.umai.planning.data.DishPoolRepository
 import org.opensources.umai.planning.data.MealPlanRepository
+import org.opensources.umai.planning.data.RecipeCaloriesRepository
 import org.opensources.umai.planning.domain.ModelCourseClassifier
 import org.opensources.umai.profile.data.ProfileRepository
 import org.opensources.umai.provider.ProviderRegistry
@@ -111,6 +114,9 @@ class AppContainer(context: Context) {
     val recentRecipesStore = RecentRecipesStore(appContext)
     val recipeImageFiles = DeviceRecipeImageFiles(appContext, imageCropper)
     val recipeDraftStore = RecipeDraftStore(appContext, recipeImageFiles)
+    val recipeCaloriesRepository = RecipeCaloriesRepository(apiProvider)
+    val planPhotos = DevicePlanPhotos(appContext, imageCropper)
+    val labelPictures = DeviceLabelPictures(appContext, imageCropper)
 
     val imageUrls = ImageUrlResolver(sessionManager)
 

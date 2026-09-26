@@ -604,7 +604,7 @@
     <!-- Local AI -->
     <string name="local_ai_title">Local AI</string>
     <string name="local_ai_summary">A language model that runs on the phone, for the smart features</string>
-    <string name="local_ai_intro">A language model downloaded once runs on this phone, without any online service: nothing you import or plan leaves the device. It rebuilds recipes from videos and recognizes dishes when planning meals. Every feature also works without it, with simpler rules.</string>
+    <string name="local_ai_intro">A language model downloaded once runs on this phone, without any online service: nothing you import or plan leaves the device. It rebuilds recipes from videos, recognizes dishes when planning meals and reads nutrition labels. Every feature also works without it, with simpler rules.</string>
     <string name="local_ai_unsupported">This phone cannot run the local AI: it needs a 64-bit ARM processor.</string>
     <string name="local_ai_enabled">Use the local AI</string>
     <string name="local_ai_enabled_summary">Turned off, the model stays downloaded and the features use their simple rules.</string>
@@ -747,4 +747,41 @@
     <string name="dish_course_dessert">Dessert</string>
     <string name="dish_course_drink">Drink</string>
     <string name="dish_course_other">Starter, side…</string>
+    <!-- Calories of the plan, and foods added to it (planning/ui) -->
+    <string name="planning_calories">%1$s kcal</string>
+    <plurals name="planning_calories_unknown">
+        <item quantity="one">+ %1$d entry without calories</item>
+        <item quantity="other">+ %1$d entries without calories</item>
+    </plurals>
+    <string name="planning_or_food">Or a product</string>
+    <string name="planning_add_food">Add a snack, a drink…</string>
+    <string name="nutrition_energy">Energy</string>
+    <string name="nutrition_salt">Salt</string>
+    <string name="food_title">Add a product</string>
+    <string name="food_step_product">Product</string>
+    <string name="food_step_nutrition">Nutrition facts</string>
+    <string name="food_step_portion">Portion</string>
+    <string name="food_name">Name</string>
+    <string name="food_name_placeholder">Cola, sandwich, apple…</string>
+    <string name="food_photo">Photo of the product (optional)</string>
+    <string name="food_photo_pick">Choose a picture</string>
+    <string name="food_photo_remove">Remove the photo</string>
+    <string name="food_photo_failed">The photo could not be read.</string>
+    <string name="food_photo_description">Photo of %1$s</string>
+    <string name="food_photo_local">Kept on this phone only: Mealie stores no picture on the meal plan.</string>
+    <string name="food_label_intro">Photograph the nutrition table: the local AI reads its values, then the photo is deleted.</string>
+    <string name="food_label_take">Photograph the label</string>
+    <string name="food_label_reading">Reading the label… This can take a minute.</string>
+    <string name="food_label_read">Values read from the label: check them before going on.</string>
+    <string name="food_label_no_model">To read labels, install a local AI model from Profile, Local AI. The values can be typed below.</string>
+    <string name="food_label_no_vision">The installed model cannot read pictures. Type the values below, or pick a model that sees pictures.</string>
+    <string name="food_label_picture_unreadable">The picture could not be opened.</string>
+    <string name="food_label_nothing">No nutrition table was found on the picture. Try again closer, or type the values below.</string>
+    <string name="food_label_failed">The label could not be read. Try again, or type the values below.</string>
+    <string name="food_values_for">Values for 100</string>
+    <string name="food_quantity">Quantity eaten</string>
+    <string name="food_quantity_hint">The quantity of a can or a pack is often printed next to its nutrition table.</string>
+    <string name="food_calories_total">%1$s kcal for this portion</string>
+    <string name="food_calories_missing">Without the energy per 100 %1$s and the quantity eaten, the product is added without calories.</string>
+    <string name="notice_food_added_without_photo">Added to the meal plan, without its photo</string>
 </resources>

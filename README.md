@@ -50,7 +50,9 @@ Main features:
 - **meal plan**: the week from Monday to Sunday, opened on today; add a recipe found with the full
   search and its filters, or a note; **automatic planning** of a day or of the week: a dish at
   lunch and one at dinner (never a dessert or a drink), chosen to share their ingredients,
-  following Mealie's meal plan rules;
+  following Mealie's meal plan rules; the **calories of each day**, one serving per recipe, and
+  **products** eaten on the side (a snack, a drink) added in three steps: name and optional photo,
+  nutrition label photographed and read by the local AI (or typed), quantity eaten;
 - **shopping lists**: several lists, items grouped by label, send the ingredients of a recipe to a
   list (scaled to the chosen servings), and a **shopping mode** with large rows ticked in one tap;
 - **recipe creation and editing**: import from a web page (Mealie parses it), with the video and

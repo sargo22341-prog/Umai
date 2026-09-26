@@ -613,7 +613,7 @@
     <!-- Local AI -->
     <string name="local_ai_title">IA locale</string>
     <string name="local_ai_summary">Un modèle de langage qui tourne sur le téléphone, pour les fonctions intelligentes</string>
-    <string name="local_ai_intro">Un modèle de langage téléchargé une fois tourne sur ce téléphone, sans aucun service en ligne : rien de ce que vous importez ou planifiez ne quitte l\'appareil. Il reconstruit les recettes à partir des vidéos et reconnaît les plats pour le planning. Toutes les fonctions marchent aussi sans lui, avec des règles plus simples.</string>
+    <string name="local_ai_intro">Un modèle de langage téléchargé une fois tourne sur ce téléphone, sans aucun service en ligne : rien de ce que vous importez ou planifiez ne quitte l\'appareil. Il reconstruit les recettes à partir des vidéos, reconnaît les plats pour le planning et lit les étiquettes nutritionnelles. Toutes les fonctions marchent aussi sans lui, avec des règles plus simples.</string>
     <string name="local_ai_unsupported">Ce téléphone ne peut pas faire tourner l\'IA locale : il lui faut un processeur ARM 64 bits.</string>
     <string name="local_ai_enabled">Utiliser l\'IA locale</string>
     <string name="local_ai_enabled_summary">Désactivée, le modèle reste téléchargé et les fonctions utilisent leurs règles simples.</string>
@@ -757,4 +757,42 @@
     <string name="dish_course_dessert">Dessert</string>
     <string name="dish_course_drink">Boisson</string>
     <string name="dish_course_other">Entrée, accompagnement…</string>
+    <!-- Calories du planning, et produits qui y sont ajoutés (planning/ui) -->
+    <string name="planning_calories">%1$s kcal</string>
+    <plurals name="planning_calories_unknown">
+        <item quantity="one">+ %1$d entrée sans calories</item>
+        <item quantity="many">+ %1$d entrées sans calories</item>
+        <item quantity="other">+ %1$d entrées sans calories</item>
+    </plurals>
+    <string name="planning_or_food">Ou un produit</string>
+    <string name="planning_add_food">Ajouter un snack, une boisson…</string>
+    <string name="nutrition_energy">Énergie</string>
+    <string name="nutrition_salt">Sel</string>
+    <string name="food_title">Ajouter un produit</string>
+    <string name="food_step_product">Produit</string>
+    <string name="food_step_nutrition">Valeurs nutritionnelles</string>
+    <string name="food_step_portion">Portion</string>
+    <string name="food_name">Nom</string>
+    <string name="food_name_placeholder">Cola, sandwich, pomme…</string>
+    <string name="food_photo">Photo du produit (facultative)</string>
+    <string name="food_photo_pick">Choisir une image</string>
+    <string name="food_photo_remove">Retirer la photo</string>
+    <string name="food_photo_failed">La photo n\'a pas pu être lue.</string>
+    <string name="food_photo_description">Photo de %1$s</string>
+    <string name="food_photo_local">Gardée sur ce téléphone uniquement : Mealie ne stocke pas d\'image dans le planning.</string>
+    <string name="food_label_intro">Photographiez le tableau nutritionnel : l\'IA locale en lit les valeurs, puis la photo est supprimée.</string>
+    <string name="food_label_take">Photographier l\'étiquette</string>
+    <string name="food_label_reading">Lecture de l\'étiquette… Cela peut prendre une minute.</string>
+    <string name="food_label_read">Valeurs lues sur l\'étiquette : vérifiez-les avant de continuer.</string>
+    <string name="food_label_no_model">Pour lire les étiquettes, installez un modèle d\'IA locale depuis Profil, IA locale. Les valeurs peuvent être saisies ci-dessous.</string>
+    <string name="food_label_no_vision">Le modèle installé ne lit pas les images. Saisissez les valeurs ci-dessous, ou choisissez un modèle qui voit les images.</string>
+    <string name="food_label_picture_unreadable">L\'image n\'a pas pu être ouverte.</string>
+    <string name="food_label_nothing">Aucun tableau nutritionnel n\'a été trouvé sur l\'image. Réessayez de plus près, ou saisissez les valeurs ci-dessous.</string>
+    <string name="food_label_failed">L\'étiquette n\'a pas pu être lue. Réessayez, ou saisissez les valeurs ci-dessous.</string>
+    <string name="food_values_for">Valeurs pour 100</string>
+    <string name="food_quantity">Quantité consommée</string>
+    <string name="food_quantity_hint">La quantité d\'une canette ou d\'un paquet est souvent imprimée à côté de son tableau nutritionnel.</string>
+    <string name="food_calories_total">%1$s kcal pour cette portion</string>
+    <string name="food_calories_missing">Sans l\'énergie pour 100 %1$s ni la quantité consommée, le produit est ajouté sans calories.</string>
+    <string name="notice_food_added_without_photo">Ajouté au planning, sans sa photo</string>
 </resources>

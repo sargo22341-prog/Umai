@@ -1,5 +1,6 @@
 package org.opensources.umai.planning
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -9,6 +10,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -53,6 +55,7 @@ class PlanningScreenTest {
         entries: Map<LocalDate, List<MealPlanEntry>> = emptyMap(),
         error: NetworkError? = null,
         firstDay: DayOfWeek = DayOfWeek.MONDAY,
+        recipeCalories: Map<String, Int?> = emptyMap(),
     ) = PlanningUiState(
         today = today,
         firstDay = firstDay,
@@ -60,6 +63,7 @@ class PlanningScreenTest {
         entriesByDay = entries,
         loading = false,
         error = error,
+        recipeCalories = recipeCalories,
     )
 
     private fun render(
@@ -69,6 +73,7 @@ class PlanningScreenTest {
         onRetry: () -> Unit = {},
         onSearchRecipe: (LocalDate, MealType, Float) -> Unit = { _, _, _ -> },
         onAddNote: (LocalDate, MealType, String) -> Unit = { _, _, _ -> },
+        onAddFood: (LocalDate) -> Unit = {},
     ) {
         rule.setContent {
             UmaiTheme {
@@ -83,6 +88,7 @@ class PlanningScreenTest {
                     addMealActions = AddMealActions(
                         onSearchRecipe = onSearchRecipe,
                         onAddNote = onAddNote,
+                        onAddFood = onAddFood,
                     ),
                     onDeleteEntry = onDeleteEntry,
                     recipeImageUrl = { null },
@@ -201,6 +207,39 @@ class PlanningScreenTest {
 
         assertEquals(MealType.LUNCH, searched?.second)
         assertTrue(searched?.first in state().days)
+    }
+
+    @Test
+    fun aDayShowsItsTotalAndWhatItLeavesOut() {
+        val entries = listOf(
+            TestData.planEntry(id = 1, date = today),
+            TestData.planEntry(id = 2, date = today, type = MealType.SNACK, recipe = null, title = "Cola", text = "139 kcal · 330 ml"),
+            TestData.planEntry(id = 3, date = today, type = MealType.LUNCH, recipe = null, title = "Restaurant"),
+        )
+        render(state(entries = mapOf(today to entries), recipeCalories = mapOf("r1" to 520)))
+
+        val unknown = context.resources.getQuantityString(R.plurals.planning_calories_unknown, 1, 1)
+        rule.onNodeWithText("${string(R.string.planning_calories, "659")} $unknown").assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.planning_calories, "139")).assertExists()
+        rule.onNodeWithText(string(R.string.planning_calories, "520")).assertExists()
+    }
+
+    @Test
+    fun aDayWithoutMealShowsNoTotal() {
+        render(state())
+
+        rule.onAllNodesWithText(string(R.string.planning_calories, "0"), substring = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun aProductIsAddedFromTheSheetForItsDay() {
+        var day: LocalDate? = null
+        render(state(), onAddFood = { day = it })
+
+        rule.onAllNodesWithText(string(R.string.planning_add_meal)).onFirst().performClick()
+        rule.onNodeWithText(string(R.string.planning_add_food)).performScrollTo().performClick()
+
+        assertTrue(day in state().days)
     }
 
     @Test

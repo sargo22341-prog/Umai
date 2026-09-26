@@ -23,6 +23,11 @@ object CameraCapture {
         return FileProvider.getUriForFile(context, "${context.packageName}$AUTHORITY_SUFFIX", file)
     }
 
+    /** Deletes the photos taken, for a photo that is only read and must not stay on the phone. */
+    fun clear(context: Context) {
+        File(context.cacheDir, DIRECTORY).listFiles()?.forEach { it.delete() }
+    }
+
     /** Must match `res/xml/image_paths.xml`. */
     private const val DIRECTORY = "camera"
 

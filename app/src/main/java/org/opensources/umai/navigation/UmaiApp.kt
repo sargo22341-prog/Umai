@@ -47,6 +47,7 @@ import org.opensources.umai.cooking.ui.ActiveTimerPills
 import org.opensources.umai.cooking.ui.ActiveTimersViewModel
 import org.opensources.umai.cooking.ui.CookingScreen
 import org.opensources.umai.home.ui.HomeScreen
+import org.opensources.umai.planning.ui.FoodEntryRoute
 import org.opensources.umai.planning.ui.PlanningScreen
 import org.opensources.umai.profile.ui.ProfileScreen
 import org.opensources.umai.llm.ui.LocalAiRoute
@@ -254,6 +255,20 @@ private fun MainNavigation(
                         onMealsPlanned = { notice = AppNotice.MEAL_PLAN_CREATED },
                         onSearchRecipe = { date, type, fieldOriginY ->
                             navController.navigate(PlanRecipePickerRoute(date.toString(), type.apiValue, fieldOriginY))
+                        },
+                        onAddFood = { date -> navController.navigate(PlanFoodRoute(date.toString())) },
+                    )
+                }
+
+                composable<PlanFoodRoute> { entry ->
+                    val route: PlanFoodRoute = entry.toRoute()
+                    FoodEntryRoute(
+                        date = LocalDate.parse(route.date),
+                        onBack = { navController.popIfCurrent(entry) },
+                        onAdded = { added ->
+                            if (navController.popIfCurrent(entry)) {
+                                notice = if (added.photoKept) AppNotice.RECIPE_PLANNED else AppNotice.FOOD_PLANNED_WITHOUT_PHOTO
+                            }
                         },
                     )
                 }
@@ -473,6 +488,7 @@ private fun NavDestination?.isFullScreen(): Boolean = this != null && (
         hasRoute(RecipeEditRoute::class) ||
         hasRoute(RecipeDraftsRoute::class) ||
         hasRoute(PlanRecipePickerRoute::class) ||
+        hasRoute(PlanFoodRoute::class) ||
         hasRoute(ShoppingModeRoute::class)
     )
 

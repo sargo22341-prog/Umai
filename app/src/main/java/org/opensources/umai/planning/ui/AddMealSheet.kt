@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.LocalCafe
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,6 +26,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -62,12 +64,14 @@ class AddMealActions(
      */
     val onSearchRecipe: (LocalDate, MealType, Float) -> Unit,
     val onAddNote: (LocalDate, MealType, String) -> Unit,
+    /** Opens the form that adds a product, such as a snack or a drink, with its nutrition. */
+    val onAddFood: (LocalDate) -> Unit,
 )
 
 /**
  * Adds an entry to one day of the meal plan: a recipe searched for on its own
- * screen or, as Mealie also allows, a free-text note for a meal that is not a
- * recipe.
+ * screen, a product with its nutrition, or, as Mealie also allows, a
+ * free-text note for a meal that is not a recipe.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -145,6 +149,25 @@ fun AddMealSheet(
                         }
                     },
                 )
+            }
+
+            HorizontalDivider()
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SectionTitle(stringResource(R.string.planning_or_food))
+                OutlinedButton(
+                    onClick = {
+                        actions.onAddFood(date)
+                        onDismiss()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Outlined.LocalCafe, contentDescription = null)
+                    Text(
+                        text = stringResource(R.string.planning_add_food),
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
             }
 
             HorizontalDivider()

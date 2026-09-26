@@ -17,3 +17,4 @@ liste des commits. Détails : [docs/release.md](docs/release.md).
 - Import : il continue quand on quitte l'écran ou l'application, avec son avancement dans une notification ; revenir sur « Importer une recette » (ou toucher la notification) retrouve l'import en cours, et une notification prévient quand il est terminé.
 - IA locale : sans TPU, le modèle tourne d'abord sur le processeur, plus rapide que le GPU et chargé en 2 s au lieu d'une minute (mesuré sur Pixel 6 Pro) ; le GPU reste pour les longues transcriptions.
 - Planning automatique : la reconnaissance des plats par l'IA locale est plus rapide et plus juste (plus aucune recette oubliée), et le modèle se charge pendant la lecture des recettes.
+- Planning : total des calories de chaque jour (une portion par recette), et bouton « Ajouter un snack, une boisson… » : nom, photo facultative, étiquette nutritionnelle photographiée et lue par l'IA locale (la photo est supprimée ensuite), puis quantité consommée.

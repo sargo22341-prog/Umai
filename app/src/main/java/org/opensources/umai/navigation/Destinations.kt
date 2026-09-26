@@ -58,6 +58,10 @@ data class OrganizerSearchRoute(val kind: String, val id: String) {
 @Serializable
 data class PlanRecipePickerRoute(val date: String, val mealType: String, val fieldOriginY: Float)
 
+/** Adds a product eaten on [date], ISO-8601, to the plan, with its nutrition. */
+@Serializable
+data class PlanFoodRoute(val date: String)
+
 @Serializable
 data object ShoppingRoute
 

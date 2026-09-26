@@ -11,6 +11,7 @@ classique.
 |---|---|---|
 | Import d'une vidéo YouTube | Lit titre, description, chapitres et transcription horodatée ; sans sous-titres, fait **écouter** la vidéo par Whisper, et en dernier recours **regarde** ses images (voir *Vidéos sans sous-titres*) ; écrit des étapes rédigées et titrées, le début de chaque étape dans la vidéo, et les ingrédients quand ni la page de recette ni la description ne les donnent. | Ingrédients de la page de recette ou de la description, étapes lues dans la description, sinon étapes = chapitres (texte tiré de la transcription), placées par les chapitres ou par alignement mots-transcription. |
 | Planning automatique | Classe les recettes que rien ne situe (ni catégorie, ni tag, ni nom, ni historique) : voir *Planning automatique* plus bas. | Ces recettes sont jugées sur leurs ingrédients (sucré seul = dessert). |
+| Produit ajouté au planning | **Lit** l'étiquette nutritionnelle photographiée : voir *Étiquettes nutritionnelles* plus bas. | Les valeurs pour 100 g se saisissent à la main. |
 
 Restent volontairement **algorithmiques**, parce qu'un algorithme y est plus fiable qu'un modèle
 de téléphone :
@@ -371,6 +372,29 @@ choix des plats reste un algorithme (`MealPlanner`). Les réponses sont gardées
   (`LiteRtLmBackendTest`).
 - Le modèle se **charge pendant la lecture des plats** sur Mealie (`DishPoolRepository`), dès que
   l'échantillon compte une recette que rien ne situe : le chargement ne s'ajoute plus à l'attente.
+
+## Étiquettes nutritionnelles
+
+Un produit ajouté au planning (un snack, une boisson) peut avoir son tableau nutritionnel
+photographié : le modèle le lit avec sa partie vision, sur le CPU puis le GPU (une version TPU n'a
+pas de vision). La photo est lue puis supprimée (`DeviceLabelPictures`), rien ne quitte le téléphone.
+Un OCR classique n'a pas été retenu : les étiquettes sont photographiées de biais, imprimées sur des
+couleurs, souvent en plusieurs langues, et il faudrait en plus reconnaître les lignes et les colonnes.
+
+- **Le modèle recopie, l'app interprète.** Premier essai : un schéma avec une clé par nutriment
+  (`kcal`, `fat`…). Sur la canette de cola, le modèle glissait les valeurs d'une ligne à l'autre
+  (protéines 10,6 g au lieu de 0, fibres inventées, portion 100 au lieu de 330). Le schéma retenu lui
+  fait **recopier le tableau** tel qu'imprimé : les en-têtes de colonnes, puis chaque ligne avec son
+  nom et ses valeurs. `LabelTable` en déduit la colonne pour 100 g ou 100 ml, l'unité, la portion
+  (l'autre colonne, en g, ml ou cl) et chaque nutriment par des mots-clés en français, anglais,
+  néerlandais et allemand (« saturés » avant « matières grasses », « sucres » avant « glucides »).
+  Une énergie en kJ seulement est convertie, une valeur non imprimée reste inconnue.
+- Mesuré sur le **Pixel 6 Pro**, CPU, Gemma 4 E2B, photos de `images test/` (`NutritionLabelDeviceTest`,
+  photos poussées par adb, jamais dans le dépôt) : environ **45 s** par étiquette, chargement compris,
+  et toutes les valeurs justes, sur la canette (deux colonnes, énergie sur deux lignes) comme sur le
+  sandwich (une colonne, bilingue français-néerlandais, texte clair sur fond orange).
+- Le formulaire sert aussi sans modèle, ou quand la lecture échoue : les valeurs se saisissent, et la
+  raison de l'échec est dite (pas de modèle, modèle sans vision, image illisible, aucun tableau).
 
 ## Téléphones sans TPU : mesures sur un Pixel 6 Pro
 

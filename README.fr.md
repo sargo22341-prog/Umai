@@ -55,7 +55,10 @@ Fonctionnalités principales :
 - **planning** : la semaine du lundi au dimanche, ouverte sur aujourd'hui ; ajout d'une recette
   trouvée avec la recherche complète et ses filtres, ou d'une note ; **planning automatique**
   d'un jour ou de la semaine : un plat à midi et un le soir (jamais de dessert ni de boisson),
-  choisis pour partager leurs ingrédients, dans le respect des règles de planning de Mealie ;
+  choisis pour partager leurs ingrédients, dans le respect des règles de planning de Mealie ; les
+  **calories de chaque jour**, une portion par recette, et les **produits** pris à côté (un snack,
+  une boisson) ajoutés en trois étapes : nom et photo facultative, étiquette nutritionnelle
+  photographiée et lue par l'IA locale (ou saisie), quantité consommée ;
 - **listes de courses** : plusieurs listes, articles regroupés par étiquette, envoi des ingrédients
   d'une recette vers une liste (ajustés aux portions choisies), et un **mode courses** aux grandes
   lignes cochées d'un seul appui ;

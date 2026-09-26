@@ -16,6 +16,10 @@ import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.planning.data.MealPlanRepository
+import org.opensources.umai.planning.data.PlanPhotos
+import org.opensources.umai.planning.data.RecipeCaloriesRepository
+import org.opensources.umai.planning.domain.DayCalories
+import org.opensources.umai.planning.domain.PlanCalories
 import org.opensources.umai.planning.domain.PlanningWeek
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -31,6 +35,12 @@ data class PlanningUiState(
     val refreshing: Boolean = false,
     val error: NetworkError? = null,
     val mutating: Boolean = false,
+    /** The calories of one serving of each recipe of the week, by recipe id; `null` when it has none. */
+    val recipeCalories: Map<String, Int?> = emptyMap(),
+    /** While the calories of some recipes are asked of Mealie. */
+    val loadingCalories: Boolean = false,
+    /** The photos of the foods added to the week, by entry id: files on this phone. */
+    val photos: Map<Int, String> = emptyMap(),
 ) {
     /** The seven days of the week, from [firstDay]. */
     val days: List<LocalDate> get() = PlanningWeek.days(weekStart)
@@ -41,6 +51,11 @@ data class PlanningUiState(
     val isEmpty: Boolean
         get() = !loading && error == null && entriesByDay.values.all { it.isEmpty() }
 
+    /** The calories of [entry], `null` when it has none. */
+    fun caloriesOf(entry: MealPlanEntry): Int? = PlanCalories.ofEntry(entry, recipeCalories)
+
+    fun calories(day: LocalDate): DayCalories = PlanCalories.ofDay(entriesByDay[day].orEmpty(), recipeCalories)
+
     /** Whether a visible day holds a recipe, which could go to a shopping list. */
     val hasRecipes: Boolean
         get() = days.any { day -> entriesByDay[day].orEmpty().any { it.recipe != null } }
@@ -48,6 +63,8 @@ data class PlanningUiState(
 
 class PlanningViewModel(
     private val mealPlanRepository: MealPlanRepository,
+    private val recipeCalories: RecipeCaloriesRepository,
+    private val photos: PlanPhotos,
     private val clock: () -> LocalDate = LocalDate::now,
 ) : ViewModel() {
 
@@ -81,7 +98,11 @@ class PlanningViewModel(
 
     fun load() = load(refreshing = false, readFirstDay = false)
 
-    fun refresh() = load(refreshing = true, readFirstDay = false)
+    /** Pulled by the user, who may have changed a recipe's nutrition in Mealie meanwhile. */
+    fun refresh() {
+        recipeCalories.forget()
+        load(refreshing = true, readFirstDay = false)
+    }
 
     private fun load(refreshing: Boolean, readFirstDay: Boolean) {
         loadJob?.cancel()
@@ -101,13 +122,23 @@ class PlanningViewModel(
                 }
                 is ApiResult.Success -> {
                     hasLoadedOnce = true
+                    val entries = result.value
+                    val recipes = entries.mapNotNull { it.recipe }
+                    val entryPhotos = photos.sync(days.first(), days.last(), entries)
                     _state.update {
                         it.copy(
-                            entriesByDay = result.value.groupBy { entry -> entry.date },
+                            entriesByDay = entries.groupBy { entry -> entry.date },
                             loading = false,
                             refreshing = false,
                             error = null,
+                            recipeCalories = recipes.associate { recipe -> recipe.id to PlanCalories.ofTags(recipe) },
+                            loadingCalories = recipes.isNotEmpty(),
+                            photos = entryPhotos,
                         )
+                    }
+                    if (recipes.isNotEmpty()) {
+                        val calories = recipeCalories.calories(recipes)
+                        _state.update { it.copy(recipeCalories = calories, loadingCalories = false) }
                     }
                 }
             }
@@ -146,7 +177,9 @@ class PlanningViewModel(
             )
         }
 
-    fun deleteEntry(entry: MealPlanEntry) = mutate { mealPlanRepository.delete(entry.id) }
+    fun deleteEntry(entry: MealPlanEntry) = mutate {
+        mealPlanRepository.delete(entry.id).also { if (it is ApiResult.Success) photos.delete(entry) }
+    }
 
     private fun mutate(block: suspend () -> ApiResult<*>) {
         _state.update { it.copy(mutating = true) }
@@ -166,6 +199,8 @@ class PlanningViewModel(
             initializer {
                 PlanningViewModel(
                     mealPlanRepository = container.mealPlanRepository,
+                    recipeCalories = container.recipeCaloriesRepository,
+                    photos = container.planPhotos,
                 )
             }
         }

@@ -1,5 +1,6 @@
 package org.opensources.umai.planning.ui
 
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalDensity
@@ -55,6 +57,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.opensources.umai.R
 import org.opensources.umai.core.di.LocalAppContainer
+import org.opensources.umai.core.format.currentLocale
 import org.opensources.umai.core.format.localizedName
 import org.opensources.umai.core.format.rememberDateFormatter
 import org.opensources.umai.core.model.MealPlanEntry
@@ -63,7 +66,10 @@ import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.ui.component.LoadingView
 import org.opensources.umai.core.ui.component.NetworkErrorView
 import org.opensources.umai.core.ui.component.RemoteImage
+import org.opensources.umai.planning.domain.DayCalories
 import org.opensources.umai.recipe.ui.labelRes
+import java.io.File
+import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.format.FormatStyle
 
@@ -75,6 +81,7 @@ import java.time.format.FormatStyle
 fun PlanningScreen(
     onRecipeClick: (String) -> Unit,
     onSearchRecipe: (LocalDate, MealType, Float) -> Unit,
+    onAddFood: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
     onOpenDishTypes: () -> Unit = {},
     onMealsPlanned: () -> Unit = {},
@@ -152,6 +159,7 @@ fun PlanningScreen(
             AddMealActions(
                 onSearchRecipe = onSearchRecipe,
                 onAddNote = viewModel::addNote,
+                onAddFood = onAddFood,
             )
         },
         onDeleteEntry = viewModel::deleteEntry,
@@ -288,10 +296,18 @@ fun PlanningScreen(
                                 label = day.label(today = state.today),
                                 isToday = day == state.today,
                                 entries = state.entriesByDay[day].orEmpty(),
+                                calories = state.calories(day),
+                                loadingCalories = state.loadingCalories,
                                 onAdd = { sheetTarget = day },
                                 onRecipeClick = onRecipeClick,
                                 onDelete = onDeleteEntry,
-                                recipeImageUrl = recipeImageUrl,
+                                entryDetails = { entry ->
+                                    EntryDetails(
+                                        calories = state.caloriesOf(entry),
+                                        imageUrl = entry.recipe?.let(recipeImageUrl)
+                                            ?: state.photos[entry.id]?.let { Uri.fromFile(File(it)).toString() },
+                                    )
+                                },
                             )
                         }
                     }
@@ -308,10 +324,12 @@ private fun DayColumn(
     label: String,
     isToday: Boolean,
     entries: List<MealPlanEntry>,
+    calories: DayCalories,
+    loadingCalories: Boolean,
     onAdd: () -> Unit,
     onRecipeClick: (String) -> Unit,
     onDelete: (MealPlanEntry) -> Unit,
-    recipeImageUrl: (RecipeSummary) -> String?,
+    entryDetails: (MealPlanEntry) -> EntryDetails,
     modifier: Modifier = Modifier,
 ) {
     val dateFormatter = rememberDateFormatter(FormatStyle.MEDIUM)
@@ -357,6 +375,9 @@ private fun DayColumn(
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
                 )
+                if (!calories.isEmpty) {
+                    DayCaloriesLine(calories = calories, loading = loadingCalories, isToday = isToday)
+                }
             }
 
             LazyColumn(
@@ -376,9 +397,9 @@ private fun DayColumn(
                     items(count = sorted.size, key = { sorted[it].id }) { index ->
                         MealEntryCard(
                             entry = sorted[index],
+                            details = entryDetails(sorted[index]),
                             onClick = { slug -> onRecipeClick(slug) },
                             onDelete = { onDelete(sorted[index]) },
-                            recipeImageUrl = recipeImageUrl,
                         )
                     }
                 }
@@ -395,12 +416,38 @@ private fun DayColumn(
     }
 }
 
+/**
+ * The total of the day. The entries without calories are counted apart, once
+ * the calories of the recipes are known.
+ */
+@Composable
+private fun DayCaloriesLine(calories: DayCalories, loading: Boolean, isToday: Boolean) {
+    val locale = currentLocale()
+    val number = remember(locale) { NumberFormat.getIntegerInstance(locale) }
+    val total = stringResource(R.string.planning_calories, number.format(calories.total))
+    val text = if (calories.unknown > 0 && !loading) {
+        "$total " + pluralStringResource(R.plurals.planning_calories_unknown, calories.unknown, calories.unknown)
+    } else {
+        total
+    }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = if (isToday) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = 2.dp),
+    )
+}
+
+/** What a card shows besides its entry: its calories and its picture, when it has them. */
+private class EntryDetails(val calories: Int?, val imageUrl: String?)
+
 @Composable
 private fun MealEntryCard(
     entry: MealPlanEntry,
+    details: EntryDetails,
     onClick: (String) -> Unit,
     onDelete: () -> Unit,
-    recipeImageUrl: (RecipeSummary) -> String?,
     modifier: Modifier = Modifier,
 ) {
     val recipe = entry.recipe
@@ -436,10 +483,15 @@ private fun MealEntryCard(
                 }
             }
 
-            if (recipe != null) {
+            if (recipe != null || details.imageUrl != null) {
                 RemoteImage(
-                    url = recipeImageUrl(recipe),
-                    contentDescription = null,
+                    url = details.imageUrl,
+                    // A recipe is named below its picture; the photo of a product is described.
+                    contentDescription = if (recipe == null) {
+                        stringResource(R.string.food_photo_description, entry.displayTitle)
+                    } else {
+                        null
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(96.dp)
@@ -454,6 +506,14 @@ private fun MealEntryCard(
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
+
+            details.calories?.let { calories ->
+                Text(
+                    text = stringResource(R.string.planning_calories, calories),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
