@@ -41,6 +41,8 @@ data class PlanningUiState(
     val loadingCalories: Boolean = false,
     /** The photos of the foods added to the week, by entry id: files on this phone. */
     val photos: Map<Int, String> = emptyMap(),
+    /** Counts the requests to bring [focusedDay] into view: each new value scrolls the week to it. */
+    val focusRequests: Int = 0,
 ) {
     /** The seven days of the week, from [firstDay]. */
     val days: List<LocalDate> get() = PlanningWeek.days(weekStart)
@@ -89,7 +91,13 @@ class PlanningViewModel(
     fun onScreenShown() {
         val today = clock()
         if (today != _state.value.today) {
-            _state.update { it.copy(today = today, weekStart = PlanningWeek.startOf(today, it.firstDay)) }
+            _state.update {
+            it.copy(
+                today = today,
+                weekStart = PlanningWeek.startOf(today, it.firstDay),
+                focusRequests = it.focusRequests + 1,
+            )
+        }
             load(refreshing = false, readFirstDay = true)
         } else if (hasLoadedOnce) {
             load(refreshing = true, readFirstDay = true)
@@ -148,22 +156,33 @@ class PlanningViewModel(
     /** A new first day keeps the week around the day in focus, now starting on that day. */
     private fun applyFirstDay(firstDay: DayOfWeek) = _state.update {
         if (it.firstDay == firstDay) it
-        else it.copy(firstDay = firstDay, weekStart = PlanningWeek.startOf(it.focusedDay, firstDay))
+        else it.copy(
+            firstDay = firstDay,
+            weekStart = PlanningWeek.startOf(it.focusedDay, firstDay),
+            // The days moved along the week: the one in focus is at another place.
+            focusRequests = it.focusRequests + 1,
+        )
     }
 
     fun showPreviousWeek() {
-        _state.update { it.copy(weekStart = it.weekStart.minusWeeks(1)) }
+        _state.update { it.copy(weekStart = it.weekStart.minusWeeks(1), focusRequests = it.focusRequests + 1) }
         load()
     }
 
     fun showNextWeek() {
-        _state.update { it.copy(weekStart = it.weekStart.plusWeeks(1)) }
+        _state.update { it.copy(weekStart = it.weekStart.plusWeeks(1), focusRequests = it.focusRequests + 1) }
         load()
     }
 
     fun backToToday() {
         val today = clock()
-        _state.update { it.copy(today = today, weekStart = PlanningWeek.startOf(today, it.firstDay)) }
+        _state.update {
+            it.copy(
+                today = today,
+                weekStart = PlanningWeek.startOf(today, it.firstDay),
+                focusRequests = it.focusRequests + 1,
+            )
+        }
         load()
     }
 

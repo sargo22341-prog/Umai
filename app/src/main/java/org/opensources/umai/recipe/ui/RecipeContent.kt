@@ -36,7 +36,9 @@ import org.opensources.umai.R
 import org.opensources.umai.core.markdown.MarkdownText
 import org.opensources.umai.core.model.Recipe
 import org.opensources.umai.core.model.RecipeComment
+import org.opensources.umai.core.ui.component.ImagePlace
 import org.opensources.umai.core.ui.component.RemoteImage
+import org.opensources.umai.core.ui.component.placeOf
 import org.opensources.umai.search.domain.OrganizerEntry
 
 /**
@@ -49,6 +51,7 @@ internal fun RecipeContent(
     recipe: Recipe,
     state: RecipeDetailUiState,
     imageUrl: String?,
+    imagePlace: ImagePlace,
     stepImageUrl: (String, String) -> String?,
     stepPhotoUrl: (String) -> String?,
     contentPadding: PaddingValues,
@@ -87,7 +90,7 @@ internal fun RecipeContent(
             bottom = contentPadding.calculateBottomPadding() + 96.dp,
         ),
     ) {
-        headerItems(recipe, state, imageUrl, onToggleFavorite, onRate)
+        headerItems(recipe, state, imageUrl, imagePlace, onToggleFavorite, onRate)
         ingredientItems(recipe, state, stepPhotoUrl, onServingsChange)
         stepItems(recipe, stepImageUrl, stepPhotoUrl)
         referenceItems(recipe, state, onOrganizerClick, onOpenSource)
@@ -108,6 +111,7 @@ private fun LazyListScope.headerItems(
     recipe: Recipe,
     state: RecipeDetailUiState,
     imageUrl: String?,
+    imagePlace: ImagePlace,
     onToggleFavorite: () -> Unit,
     onRate: (Int) -> Unit,
 ) {
@@ -121,7 +125,8 @@ private fun LazyListScope.headerItems(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(16f / 10f),
+                .aspectRatio(16f / 10f)
+                .placeOf(imagePlace),
             placeholderIconSize = 48.dp,
         )
     }

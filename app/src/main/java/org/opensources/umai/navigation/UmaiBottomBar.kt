@@ -32,7 +32,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.opensources.umai.R
+import org.opensources.umai.core.ui.component.ImageFlightState
 import org.opensources.umai.core.ui.component.UserAvatar
+import org.opensources.umai.core.ui.component.flightTarget
 
 /**
  * Bottom navigation with search promoted to the centre.
@@ -42,6 +44,8 @@ import org.opensources.umai.core.ui.component.UserAvatar
  * Every slot keeps the same width so the bar stays balanced, and labels are
  * allowed to ellipsize rather than push the bar out of shape when the system
  * font size is enlarged or the user chose a long display name.
+ *
+ * The recipes planned elsewhere fly into the planning tab of [planFlight].
  */
 @Composable
 fun UmaiBottomBar(
@@ -51,6 +55,7 @@ fun UmaiBottomBar(
     onSearch: () -> Unit,
     modifier: Modifier = Modifier,
     profile: ProfileTabInfo? = null,
+    planFlight: ImageFlightState? = null,
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -73,6 +78,8 @@ fun UmaiBottomBar(
                     onClick = { onSelect(tab) },
                     modifier = Modifier.weight(1f),
                     profile = profile,
+                    iconModifier = planFlight?.takeIf { tab == TopLevelTab.PLANNING }
+                        ?.let { Modifier.flightTarget(it) } ?: Modifier,
                 )
             }
 
@@ -102,6 +109,7 @@ private fun TabItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     profile: ProfileTabInfo? = null,
+    iconModifier: Modifier = Modifier,
 ) {
     val avatar = profile?.takeIf { tab == TopLevelTab.PROFILE }
     val label = avatar?.displayName?.takeIf { it.isNotBlank() } ?: stringResource(tab.labelRes)
@@ -142,7 +150,7 @@ private fun TabItem(
                 imageVector = if (selected) tab.selectedIcon else tab.icon,
                 contentDescription = null,
                 tint = tint,
-                modifier = Modifier.size(24.dp),
+                modifier = iconModifier.size(24.dp),
             )
         }
         Text(

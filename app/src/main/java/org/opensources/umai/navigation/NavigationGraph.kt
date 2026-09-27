@@ -16,6 +16,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import org.opensources.umai.cooking.ui.CookingRoute
 import org.opensources.umai.core.model.MealType
+import org.opensources.umai.core.ui.component.ImageFlightState
 import org.opensources.umai.home.ui.HomeRoute
 import org.opensources.umai.llm.ui.LocalAiRoute
 import org.opensources.umai.planning.ui.DishTypesRoute
@@ -42,6 +43,7 @@ import java.time.LocalDate
 internal fun AppNavHost(
     navController: NavHostController,
     showNotice: (AppNotice) -> Unit,
+    planFlight: ImageFlightState,
     modifier: Modifier = Modifier,
 ) {
     NavHost(
@@ -70,7 +72,7 @@ internal fun AppNavHost(
         },
     ) {
         discoveryGraph(navController)
-        planningGraph(navController, showNotice)
+        planningGraph(navController, showNotice, planFlight)
         shoppingGraph(navController)
         profileGraph(navController)
         recipeWritingGraph(navController, showNotice)
@@ -97,7 +99,11 @@ private fun NavGraphBuilder.discoveryGraph(navController: NavHostController) {
     }
 }
 
-private fun NavGraphBuilder.planningGraph(navController: NavHostController, showNotice: (AppNotice) -> Unit) {
+private fun NavGraphBuilder.planningGraph(
+    navController: NavHostController,
+    showNotice: (AppNotice) -> Unit,
+    planFlight: ImageFlightState,
+) {
     composable<PlanningDestination>(
         // The recipe picker rises over the week, which stays in place underneath.
         exitTransition = {
@@ -140,7 +146,12 @@ private fun NavGraphBuilder.planningGraph(navController: NavHostController, show
             mealType = MealType.fromApi(route.mealType),
             fieldOriginY = route.fieldOriginY,
             onBack = { navController.closeIfCurrent(entry) },
-            onAdded = { if (navController.popIfCurrent(entry)) showNotice(AppNotice.RECIPE_PLANNED) },
+            onAdded = { picked ->
+                if (navController.popIfCurrent(entry)) {
+                    showNotice(AppNotice.RECIPE_PLANNED)
+                    picked?.let(planFlight::launch)
+                }
+            },
         )
     }
     composable<DishCoursesDestination> {

@@ -58,7 +58,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.lerp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
@@ -67,6 +66,8 @@ import org.opensources.umai.core.format.DurationText
 import org.opensources.umai.core.format.currentLocale
 import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.ui.component.RemoteImage
+import org.opensources.umai.core.ui.component.offsetOf
+import org.opensources.umai.core.ui.component.peekingPage
 import kotlin.math.absoluteValue
 
 /**
@@ -149,10 +150,6 @@ private fun AutoAdvance(pagerState: PagerState) {
     }
 }
 
-/** How far [page] is from the centre, in pages: 0 when it is the one in view. */
-private fun PagerState.offsetOf(page: Int): Float =
-    ((currentPage - page) + currentPageOffsetFraction).coerceIn(-1f, 1f)
-
 /**
  * [offset] is read in the drawing phase only, so following the finger
  * redraws the cards without recomposing them.
@@ -172,14 +169,7 @@ private fun DiscoveryCard(
             modifier = Modifier
                 .heightIn(max = MAX_CARD_HEIGHT)
                 .aspectRatio(CARD_RATIO, matchHeightConstraintsFirst = true)
-                .graphicsLayer {
-                    // The card in view is full size; its neighbours shrink and dim.
-                    val focus = 1f - offset().absoluteValue
-                    val scale = lerp(SIDE_CARD_SCALE, 1f, focus)
-                    scaleX = scale
-                    scaleY = scale
-                    alpha = lerp(SIDE_CARD_ALPHA, 1f, focus)
-                }
+                .peekingPage(offset, SIDE_CARD_SCALE, SIDE_CARD_ALPHA)
                 .semantics { stateDescription = position },
         ) {
             CardArtwork(recipe, imageUrl, offset)

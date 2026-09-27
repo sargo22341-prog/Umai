@@ -84,7 +84,7 @@ fun SearchScreen(
                 onRetry = onRetry,
                 onRefresh = onRefresh,
             ),
-            onRecipeClick = { onRecipeClick(it.slug) },
+            onRecipeClick = { recipe, _ -> onRecipeClick(recipe.slug) },
             recipeImageUrl = recipeImageUrl,
             modifier = Modifier.padding(padding),
             autoFocus = autoFocus,

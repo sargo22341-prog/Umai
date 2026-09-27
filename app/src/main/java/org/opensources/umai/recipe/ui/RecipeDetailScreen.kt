@@ -2,6 +2,7 @@ package org.opensources.umai.recipe.ui
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -46,7 +47,10 @@ import org.opensources.umai.R
 import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.model.Recipe
 import org.opensources.umai.core.model.RecipeComment
+import org.opensources.umai.core.ui.component.ImageFlightOverlay
+import org.opensources.umai.core.ui.component.ImageFlightState
 import org.opensources.umai.core.ui.component.LoadingView
+import org.opensources.umai.core.ui.component.flightTarget
 import org.opensources.umai.core.ui.component.NetworkErrorView
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
@@ -69,9 +73,15 @@ fun RecipeDetailRoute(
         viewModel(factory = RecipeDetailViewModel.factory(container, slug), key = slug)
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val planFlight = remember { ImageFlightState() }
+    val imageUrl = { value: Recipe -> container.imageUrls.original(value.id, value.summary.imageToken) }
     // Coming back from the editor: the recipe on screen is out of date.
     RefreshWhen(recipeUpdated, onRefresh = viewModel::refresh, onSeen = onRecipeUpdateSeen)
     RecipeEventSnackbar(state.event, snackbarHostState, onShown = viewModel::consumeEvent)
+    // A copy of the picture drops into the button of the meal plan once Mealie has the entry.
+    LaunchedEffect(state.event) {
+        if (state.event == RecipeEvent.AddedToPlan) state.recipe?.let { planFlight.launchFromSource(imageUrl(it)) }
+    }
 
     var listSheetVisible by remember { mutableStateOf(false) }
     var planPickerVisible by remember { mutableStateOf(false) }
@@ -88,6 +98,7 @@ fun RecipeDetailRoute(
         state = state,
         scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState()),
         snackbarHostState = snackbarHostState,
+        planFlight = planFlight,
         onBack = onBack,
         onStartCooking = onStartCooking,
         onToggleFavorite = viewModel::toggleFavorite,
@@ -106,7 +117,7 @@ fun RecipeDetailRoute(
         onServingsChange = viewModel::setServings,
         onPostComment = viewModel::postComment,
         onDeleteComment = viewModel::deleteComment,
-        imageUrl = { value -> container.imageUrls.original(value.id, value.summary.imageToken) },
+        imageUrl = imageUrl,
         stepImageUrl = { recipeId, source -> container.imageUrls.stepImage(recipeId, source) },
         stepPhotoUrl = { value, file -> container.imageUrls.recipeAsset(value.id, file, value.mediaVersion) },
         onOpenSource = rememberSourceOpener(snackbarHostState),
@@ -196,7 +207,10 @@ private fun rememberSourceOpener(snackbarHostState: SnackbarHostState): (String)
     }
 }
 
-/** Stateless recipe page, driven by [RecipeDetailUiState]. */
+/**
+ * Stateless recipe page, driven by [RecipeDetailUiState]. The flights of
+ * [planFlight] leave from the picture of the recipe for the meal plan button.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeDetailScreen(
@@ -221,37 +235,43 @@ fun RecipeDetailScreen(
     modifier: Modifier = Modifier,
     stepPhotoUrl: (Recipe, String) -> String? = { _, _ -> null },
     onOrganizerClick: (OrganizerEntry) -> Unit = {},
+    planFlight: ImageFlightState = remember { ImageFlightState() },
 ) {
-    Scaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = { RecipeTopBar(state.recipe, scrollBehavior, onBack, onOpenShoppingLists, onOpenPlanPicker, onEdit) },
-        floatingActionButton = { CookButton(state, onStartCooking) },
-    ) { padding ->
-        val error = state.error
-        val recipe = state.recipe
-        when {
-            state.loading -> LoadingView(Modifier.padding(padding))
-            error != null && recipe == null -> NetworkErrorView(error, Modifier.fillMaxSize().padding(padding), onRetry = onRetry)
-            recipe == null -> Unit
-            else -> PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
-                RecipeContent(
-                    recipe = recipe,
-                    state = state,
-                    imageUrl = imageUrl(recipe),
-                    stepImageUrl = stepImageUrl,
-                    stepPhotoUrl = { file -> stepPhotoUrl(recipe, file) },
-                    contentPadding = padding,
-                    onServingsChange = onServingsChange,
-                    onToggleFavorite = onToggleFavorite,
-                    onRate = onRate,
-                    onPostComment = onPostComment,
-                    onDeleteComment = onDeleteComment,
-                    onOpenSource = onOpenSource,
-                    onOrganizerClick = onOrganizerClick,
-                )
+    Box(modifier = modifier) {
+        Scaffold(
+            modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            topBar = { RecipeTopBar(state.recipe, scrollBehavior, onBack, onOpenShoppingLists, onOpenPlanPicker, onEdit, planFlight) },
+            floatingActionButton = { CookButton(state, onStartCooking) },
+        ) { padding ->
+            val error = state.error
+            val recipe = state.recipe
+            when {
+                state.loading -> LoadingView(Modifier.padding(padding))
+                error != null && recipe == null -> NetworkErrorView(error, Modifier.fillMaxSize().padding(padding), onRetry = onRetry)
+                recipe == null -> Unit
+                else -> PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
+                    RecipeContent(
+                        recipe = recipe,
+                        state = state,
+                        imageUrl = imageUrl(recipe),
+                        imagePlace = planFlight.source,
+                        stepImageUrl = stepImageUrl,
+                        stepPhotoUrl = { file -> stepPhotoUrl(recipe, file) },
+                        contentPadding = padding,
+                        onServingsChange = onServingsChange,
+                        onToggleFavorite = onToggleFavorite,
+                        onRate = onRate,
+                        onPostComment = onPostComment,
+                        onDeleteComment = onDeleteComment,
+                        onOpenSource = onOpenSource,
+                        onOrganizerClick = onOrganizerClick,
+                    )
+                }
             }
         }
+        // Over the bar: the picture of the recipe flies into its meal plan button.
+        ImageFlightOverlay(planFlight)
     }
 }
 
@@ -264,6 +284,7 @@ private fun RecipeTopBar(
     onOpenShoppingLists: () -> Unit,
     onOpenPlanPicker: () -> Unit,
     onEdit: (String) -> Unit,
+    planFlight: ImageFlightState,
 ) {
     TopAppBar(
         title = { Text(text = recipe?.name.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -278,7 +299,11 @@ private fun RecipeTopBar(
                     Icon(Icons.Outlined.ShoppingCart, contentDescription = stringResource(R.string.recipe_add_to_list))
                 }
                 IconButton(onClick = onOpenPlanPicker) {
-                    Icon(Icons.Outlined.CalendarMonth, contentDescription = stringResource(R.string.recipe_add_to_plan))
+                    Icon(
+                        imageVector = Icons.Outlined.CalendarMonth,
+                        contentDescription = stringResource(R.string.recipe_add_to_plan),
+                        modifier = Modifier.flightTarget(planFlight),
+                    )
                 }
                 IconButton(onClick = { onEdit(recipe.slug) }) {
                     Icon(Icons.Outlined.Edit, contentDescription = stringResource(R.string.recipe_edit))

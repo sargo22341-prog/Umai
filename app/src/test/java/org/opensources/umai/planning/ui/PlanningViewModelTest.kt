@@ -92,6 +92,21 @@ class PlanningViewModelTest {
     }
 
     @Test
+    fun `every move of the week, today included, asks to bring its focused day into view`() = runBlocking {
+        fake.enqueueJson(preferences(firstDayOfWeek = 1))
+        repeat(4) { fake.enqueueJson(EMPTY_PLAN) }
+        val vm = viewModel()
+        val first = vm.awaitLoaded().focusRequests
+
+        vm.showNextWeek()
+        vm.showPreviousWeek()
+        // Already on the current week: the day in view may still be another one than today.
+        vm.backToToday()
+
+        assertEquals(first + 3, vm.awaitLoaded().focusRequests)
+    }
+
+    @Test
     fun `the week starts on the first day chosen in Mealie`() = runBlocking {
         // Mealie numbers the days from Sunday: 0 is Sunday.
         fake.enqueueJson(preferences(firstDayOfWeek = 0))

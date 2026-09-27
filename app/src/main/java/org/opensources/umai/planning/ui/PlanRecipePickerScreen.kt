@@ -28,6 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -42,6 +43,7 @@ import org.opensources.umai.core.format.rememberDateFormatter
 import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.network.NetworkError
+import org.opensources.umai.core.ui.component.ImageFlight
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
 import org.opensources.umai.recipe.ui.labelRes
@@ -56,6 +58,7 @@ import java.time.format.FormatStyle
 /**
  * The recipe search of the app, with its order and filters, on a screen of its
  * own: tapping a result puts it on the meal plan and comes back to the week.
+ * [onAdded] receives the picture of the recipe added, from where it was tapped.
  */
 @Composable
 fun PlanRecipePickerRoute(
@@ -63,7 +66,7 @@ fun PlanRecipePickerRoute(
     mealType: MealType,
     fieldOriginY: Float,
     onBack: () -> Unit,
-    onAdded: () -> Unit,
+    onAdded: (ImageFlight?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val container = LocalAppContainer.current
@@ -73,9 +76,12 @@ fun PlanRecipePickerRoute(
     val searchState by search.state.collectAsStateWithLifecycle()
     val filterOptions by search.filterOptions.collectAsStateWithLifecycle()
     val state by picker.state.collectAsStateWithLifecycle()
+    val recipeImageUrl = { recipe: RecipeSummary -> container.imageUrls.thumbnail(recipe.id, recipe.imageToken) }
+    // Kept until Mealie has the entry: the picture only flies once the recipe is planned.
+    var picked by remember { mutableStateOf<ImageFlight?>(null) }
 
     LaunchedEffect(state.added) {
-        if (state.added) onAdded()
+        if (state.added) onAdded(picked)
     }
 
     PlanRecipePickerScreen(
@@ -84,9 +90,12 @@ fun PlanRecipePickerRoute(
         filterOptions = filterOptions,
         searchActions = remember(search) { RecipeSearchActions.of(search) },
         onBack = onBack,
-        onPick = picker::add,
+        onPick = { recipe, imageBounds ->
+            picked = ImageFlight(recipeImageUrl(recipe), imageBounds)
+            picker.add(recipe)
+        },
         onErrorShown = picker::dismissError,
-        recipeImageUrl = { recipe -> container.imageUrls.thumbnail(recipe.id, recipe.imageToken) },
+        recipeImageUrl = recipeImageUrl,
         modifier = modifier,
         fieldOriginY = fieldOriginY,
     )
@@ -109,7 +118,7 @@ fun PlanRecipePickerScreen(
     filterOptions: FilterOptionsState,
     searchActions: RecipeSearchActions,
     onBack: () -> Unit,
-    onPick: (RecipeSummary) -> Unit,
+    onPick: (RecipeSummary, Rect?) -> Unit,
     onErrorShown: () -> Unit,
     recipeImageUrl: (RecipeSummary) -> String?,
     modifier: Modifier = Modifier,
@@ -143,7 +152,7 @@ fun PlanRecipePickerScreen(
                 state = search,
                 filterOptions = filterOptions,
                 actions = searchActions,
-                onRecipeClick = { if (!state.adding) onPick(it) },
+                onRecipeClick = { recipe, imageBounds -> if (!state.adding) onPick(recipe, imageBounds) },
                 recipeImageUrl = recipeImageUrl,
                 autoFocus = revealed,
                 fieldModifier = Modifier

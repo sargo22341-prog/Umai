@@ -14,6 +14,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.dp
 import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.settings.RecipeLayout
@@ -31,13 +32,14 @@ fun recipeGridCells(layout: RecipeLayout): GridCells = when (layout) {
 
 /**
  * Adds recipe items plus a trailing spinner to a lazy grid. Kept here so Home
- * and Search render their results identically.
+ * and Search render their results identically. [onRecipeClick] also receives
+ * where the picture of the recipe shows in the window.
  */
 fun LazyGridScope.recipeCards(
     recipes: List<RecipeSummary>,
     layout: RecipeLayout,
     imageUrlFor: (RecipeSummary) -> String?,
-    onRecipeClick: (RecipeSummary) -> Unit,
+    onRecipeClick: (RecipeSummary, Rect?) -> Unit,
     loadingMore: Boolean,
 ) {
     items(
@@ -49,12 +51,12 @@ fun LazyGridScope.recipeCards(
             RecipeLayout.GRID -> RecipeCard(
                 recipe = recipe,
                 imageUrl = imageUrlFor(recipe),
-                onClick = { onRecipeClick(recipe) },
+                onClick = { onRecipeClick(recipe, it) },
             )
             RecipeLayout.LIST -> RecipeRow(
                 recipe = recipe,
                 imageUrl = imageUrlFor(recipe),
-                onClick = { onRecipeClick(recipe) },
+                onClick = { onRecipeClick(recipe, it) },
             )
         }
     }

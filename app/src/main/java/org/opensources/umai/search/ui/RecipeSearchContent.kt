@@ -31,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.pluralStringResource
@@ -87,6 +88,7 @@ class RecipeSearchActions(
  *
  * [autoFocus] puts the cursor in the field as soon as it shows: not when the
  * search opens already filtered, where the results matter first.
+ * [onRecipeClick] also receives where the picture of the recipe shows in the window.
  * [fieldModifier] and [bodyModifier] apply to the field and to everything
  * below it, so a screen can animate the two apart as it appears.
  */
@@ -95,7 +97,7 @@ internal fun RecipeSearchContent(
     state: SearchUiState,
     filterOptions: FilterOptionsState,
     actions: RecipeSearchActions,
-    onRecipeClick: (RecipeSummary) -> Unit,
+    onRecipeClick: (RecipeSummary, Rect?) -> Unit,
     recipeImageUrl: (RecipeSummary) -> String?,
     modifier: Modifier = Modifier,
     autoFocus: Boolean = true,
@@ -152,7 +154,7 @@ internal fun RecipeSearchContent(
 private fun SearchResults(
     state: SearchUiState,
     actions: RecipeSearchActions,
-    onRecipeClick: (RecipeSummary) -> Unit,
+    onRecipeClick: (RecipeSummary, Rect?) -> Unit,
     recipeImageUrl: (RecipeSummary) -> String?,
 ) {
     val gridState = rememberLazyGridState()

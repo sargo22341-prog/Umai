@@ -18,9 +18,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -31,16 +33,20 @@ import org.opensources.umai.core.format.DurationText
 import org.opensources.umai.core.format.currentLocale
 import org.opensources.umai.core.model.RecipeSummary
 
-/** Card used by the Home and Search grids. */
+/**
+ * Card used by the Home and Search grids. [onClick] receives where its
+ * picture shows in the window, for a screen that animates it from there.
+ */
 @Composable
 fun RecipeCard(
     recipe: RecipeSummary,
     imageUrl: String?,
-    onClick: () -> Unit,
+    onClick: (imageBounds: Rect?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val imagePlace = remember { ImagePlace() }
     Card(
-        onClick = onClick,
+        onClick = { onClick(imagePlace.visibleBounds()) },
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
@@ -52,7 +58,8 @@ fun RecipeCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(4f / 3f)
-                    .clip(MaterialTheme.shapes.medium),
+                    .clip(MaterialTheme.shapes.medium)
+                    .placeOf(imagePlace),
             )
             recipe.rating?.let { rating ->
                 RatingBadge(
@@ -78,16 +85,17 @@ fun RecipeCard(
     }
 }
 
-/** Compact row of the list layout. */
+/** Compact row of the list layout; [onClick] as on [RecipeCard]. */
 @Composable
 fun RecipeRow(
     recipe: RecipeSummary,
     imageUrl: String?,
-    onClick: () -> Unit,
+    onClick: (imageBounds: Rect?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val imagePlace = remember { ImagePlace() }
     Card(
-        onClick = onClick,
+        onClick = { onClick(imagePlace.visibleBounds()) },
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
@@ -102,7 +110,8 @@ fun RecipeRow(
                 contentDescription = imageContentDescription(recipe),
                 modifier = Modifier
                     .size(72.dp)
-                    .clip(MaterialTheme.shapes.small),
+                    .clip(MaterialTheme.shapes.small)
+                    .placeOf(imagePlace),
                 placeholderIconSize = 24.dp,
             )
             Column(

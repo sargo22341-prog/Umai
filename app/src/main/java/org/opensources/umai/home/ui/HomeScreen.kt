@@ -123,7 +123,7 @@ fun HomeScreen(
                         recipes = state.latest.items,
                         layout = state.layout,
                         imageUrlFor = recipeImageUrl,
-                        onRecipeClick = { onRecipeClick(it.slug) },
+                        onRecipeClick = { recipe, _ -> onRecipeClick(recipe.slug) },
                         loadingMore = state.loadingMore,
                     )
                 }

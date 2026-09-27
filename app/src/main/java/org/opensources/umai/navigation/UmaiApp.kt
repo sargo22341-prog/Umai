@@ -37,6 +37,8 @@ import org.opensources.umai.core.di.AppContainer
 import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.session.ServerSession
 import org.opensources.umai.core.session.SessionState
+import org.opensources.umai.core.ui.component.ImageFlightOverlay
+import org.opensources.umai.core.ui.component.ImageFlightState
 import org.opensources.umai.core.ui.component.LoadingView
 import org.opensources.umai.recipe.domain.ImportRequest
 import org.opensources.umai.setup.ui.SetupRoute
@@ -101,9 +103,33 @@ private fun MainNavigation(
     OpenImportRequest(navController, importRequest, onImportRequestHandled)
 
     var notice by rememberTransientNotice()
+    val planFlight = remember { ImageFlightState() }
 
+    Box(modifier = modifier.fillMaxSize()) {
+        MainScaffold(
+            navController = navController,
+            destination = destination,
+            profile = container.profileTabInfo(session),
+            notice = notice,
+            showNotice = { notice = it },
+            planFlight = planFlight,
+        )
+        // Over the tab bar too: the pictures of the recipes planned fly into it.
+        ImageFlightOverlay(planFlight)
+    }
+}
+
+/** The tab bar under the screens, and the pills floating over them. */
+@Composable
+private fun MainScaffold(
+    navController: NavHostController,
+    destination: NavDestination?,
+    profile: ProfileTabInfo,
+    notice: AppNotice?,
+    showNotice: (AppNotice) -> Unit,
+    planFlight: ImageFlightState,
+) {
     Scaffold(
-        modifier = modifier,
         contentWindowInsets = WindowInsets(0),
         bottomBar = {
             if (!destination.isFullScreen()) {
@@ -113,7 +139,8 @@ private fun MainNavigation(
                         destination?.hasRoute(OrganizerSearchDestination::class) == true,
                     onSelect = { navController.switchTab(it.route) },
                     onSearch = { navController.switchTab(SearchDestination) },
-                    profile = container.profileTabInfo(session),
+                    profile = profile,
+                    planFlight = planFlight,
                 )
             }
         },
@@ -127,7 +154,7 @@ private fun MainNavigation(
                 .padding(bottomBarPadding)
                 .consumeWindowInsets(bottomBarPadding),
         ) {
-            AppNavHost(navController = navController, showNotice = { notice = it })
+            AppNavHost(navController = navController, showNotice = showNotice, planFlight = planFlight)
             FloatingPills(
                 navController = navController,
                 destination = destination,

@@ -1,15 +1,16 @@
 package org.opensources.umai.planning.ui
 
 import android.net.Uri
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AddShoppingCart
 import androidx.compose.material.icons.outlined.AutoAwesome
@@ -27,11 +28,12 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -44,6 +46,8 @@ import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.ui.component.LoadingView
 import org.opensources.umai.core.ui.component.NetworkErrorView
+import org.opensources.umai.core.ui.component.offsetOf
+import org.opensources.umai.core.ui.component.peekingPage
 import java.io.File
 import java.time.LocalDate
 import java.time.format.FormatStyle
@@ -260,7 +264,12 @@ private fun PlanningTopBar(state: PlanningUiState, weekActions: WeekActions) {
     )
 }
 
-/** The days of the week side by side, the focused one scrolled into view. */
+/**
+ * The days of the week side by side, one at a time in the middle with a strip
+ * of its neighbours on each side. A day snaps into the centre: a slow drag
+ * moves on only past half a day, a flick moves on by one day, and the day
+ * settles with a slight spring.
+ */
 @Composable
 private fun WeekRow(
     state: PlanningUiState,
@@ -269,50 +278,62 @@ private fun WeekRow(
     onDeleteEntry: (MealPlanEntry) -> Unit,
     recipeImageUrl: (RecipeSummary) -> String?,
 ) {
-    val listState = rememberLazyListState()
-    val density = LocalDensity.current
-    val focusedIndex = state.days.indexOf(state.focusedDay)
-    LaunchedEffect(state.weekStart, state.focusedDay) {
-        // Today is scrolled fully into view while the day before keeps peeking
-        // on the left, so the order of the days stays obvious. The first day has
-        // nothing before it and starts at the edge.
-        listState.scrollToItem(
-            index = focusedIndex,
-            scrollOffset = if (focusedIndex > 0) -with(density) { DayPeekWidth.roundToPx() } else 0,
-        )
-    }
-    LazyRow(
-        state = listState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        val days = state.days
-        items(count = days.size, key = { days[it].toString() }) { index ->
-            val day = days[index]
-            DayColumn(
-                width = DayColumnWidth,
-                date = day,
-                label = day.label(today = state.today),
-                isToday = day == state.today,
-                entries = state.entriesByDay[day].orEmpty(),
-                calories = state.calories(day),
-                loadingCalories = state.loadingCalories,
-                onAdd = { onAdd(day) },
-                onRecipeClick = onRecipeClick,
-                onDelete = onDeleteEntry,
-                entryDetails = { entry ->
-                    EntryDetails(
-                        calories = state.caloriesOf(entry),
-                        imageUrl = entry.recipe?.let(recipeImageUrl)
-                            ?: state.photos[entry.id]?.let { Uri.fromFile(File(it)).toString() },
-                    )
-                },
-            )
+    val days = state.days
+    val focusedIndex = days.indexOf(state.focusedDay).coerceAtLeast(0)
+    // Both saved: coming back to the screen keeps the day the reader left it on.
+    val pagerState = rememberPagerState(initialPage = focusedIndex) { days.size }
+    var handledFocusRequests by rememberSaveable { mutableIntStateOf(state.focusRequests) }
+    LaunchedEffect(state.focusRequests) {
+        if (state.focusRequests != handledFocusRequests) {
+            handledFocusRequests = state.focusRequests
+            pagerState.animateScrollToPage(focusedIndex)
         }
+    }
+    HorizontalPager(
+        state = pagerState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = DayPeekWidth, vertical = 12.dp),
+        pageSpacing = DaySpacing,
+        flingBehavior = PagerDefaults.flingBehavior(
+            state = pagerState,
+            snapAnimationSpec = spring(dampingRatio = SNAP_DAMPING, stiffness = Spring.StiffnessMediumLow),
+            snapPositionalThreshold = SNAP_THRESHOLD,
+        ),
+        key = { days[it].toString() },
+    ) { index ->
+        val day = days[index]
+        DayColumn(
+            date = day,
+            label = day.label(today = state.today),
+            isToday = day == state.today,
+            entries = state.entriesByDay[day].orEmpty(),
+            calories = state.calories(day),
+            loadingCalories = state.loadingCalories,
+            onAdd = { onAdd(day) },
+            onRecipeClick = onRecipeClick,
+            onDelete = onDeleteEntry,
+            entryDetails = { entry ->
+                EntryDetails(
+                    calories = state.caloriesOf(entry),
+                    imageUrl = entry.recipe?.let(recipeImageUrl)
+                        ?: state.photos[entry.id]?.let { Uri.fromFile(File(it)).toString() },
+                )
+            },
+            modifier = Modifier.peekingPage({ pagerState.offsetOf(index) }, SIDE_DAY_SCALE, SIDE_DAY_ALPHA),
+        )
     }
 }
 
-/** Width of one day, and how much of the previous day stays visible. */
-private val DayColumnWidth = 264.dp
-private val DayPeekWidth = 56.dp
+/** How much of each neighbouring day shows, the spacing included, and the gap between two days. */
+private val DayPeekWidth = 28.dp
+private val DaySpacing = 8.dp
+
+/** The neighbours stay readable: only slightly smaller and dimmer than the day in view. */
+private const val SIDE_DAY_SCALE = 0.94f
+private const val SIDE_DAY_ALPHA = 0.7f
+
+/** Half a day: a slow drag that stops short of it springs back. */
+private const val SNAP_THRESHOLD = 0.5f
+
+/** Just under critical damping: the day overshoots its place by a hair, then settles. */
+private const val SNAP_DAMPING = 0.72f
