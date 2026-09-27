@@ -184,17 +184,17 @@ class FoodEntryViewModel(
 
     /** Looks up the product of the barcode read by the camera. */
     fun barcodeScanned(code: String) = search {
-        Barcodes.normalize(code) ?: return@search fail(LookupIssue.INVALID_CODE)
+        Barcodes.normalize(code).orFail(LookupIssue.INVALID_CODE)
     }
 
     /** Reads the barcode on the picture at [sourceUri], then looks the product up. */
     fun readBarcodePicture(sourceUri: String) = search {
-        barcodePictures.read(sourceUri) ?: return@search fail(LookupIssue.UNREADABLE)
+        barcodePictures.read(sourceUri).orFail(LookupIssue.UNREADABLE)
     }
 
     /** Looks up the product of the barcode typed. */
     fun searchBarcode() = search {
-        Barcodes.normalize(_state.value.barcode) ?: return@search fail(LookupIssue.INVALID_CODE)
+        Barcodes.normalize(_state.value.barcode).orFail(LookupIssue.INVALID_CODE)
     }
 
     fun cancelSearch() {
@@ -219,9 +219,14 @@ class FoodEntryViewModel(
         }
     }
 
-    private fun fail(issue: LookupIssue): String? {
+    /** The barcode, or `null` once [issue] is reported for its absence. */
+    private fun String?.orFail(issue: LookupIssue): String? {
+        if (this == null) fail(issue)
+        return this
+    }
+
+    private fun fail(issue: LookupIssue) {
         _state.update { it.copy(searching = false, lookupIssue = issue) }
-        return null
     }
 
     /**

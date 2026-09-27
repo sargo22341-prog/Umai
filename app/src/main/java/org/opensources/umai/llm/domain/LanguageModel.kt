@@ -84,3 +84,20 @@ interface LanguageModel {
      */
     suspend fun generate(request: LlmRequest, onProgress: (LlmProgress) -> Unit = {}): LlmOutcome
 }
+
+/** Where the model runs now, as proven when it was loaded. */
+data class ActiveBackend(val backend: AiBackend, val model: String, val soc: String)
+
+/** What a test run of the model measured. */
+data class LlmBenchmark(
+    val loadMillis: Long,
+    val promptTokens: Int,
+    /** Prompt tokens read per second. */
+    val promptSpeed: Double,
+    val generatedTokens: Int,
+    /** Tokens written per second. */
+    val generationSpeed: Double,
+    /** Memory of the app while the model was loaded, in bytes. */
+    val memoryBytes: Long,
+    val backend: AiBackend,
+)

@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import org.opensources.umai.cooking.data.CookingStepRequest
+import org.opensources.umai.cooking.domain.CookingStepRequest
 import org.opensources.umai.cooking.data.TimerIntents
 import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.session.SessionState
@@ -23,7 +23,7 @@ import org.opensources.umai.core.settings.AppPreferences
 import org.opensources.umai.core.ui.theme.UmaiTheme
 import org.opensources.umai.navigation.UmaiApp
 import org.opensources.umai.recipe.data.ImportNotifications
-import org.opensources.umai.recipe.data.ImportRequest
+import org.opensources.umai.recipe.domain.ImportRequest
 import org.opensources.umai.recipe.domain.RecipeLinks
 
 class MainActivity : ComponentActivity() {
@@ -83,7 +83,8 @@ class MainActivity : ComponentActivity() {
         val container = (application as UmaiApplication).container
         container.applicationScope.launch {
             container.sessionManager.state.first { it !is SessionState.Loading }
-            container.authRepository.refreshIfDue()
+            // Whether the token was replaced only matters to the tests: the session publishes the new one.
+            val _ = container.authRepository.refreshIfDue()
         }
     }
 

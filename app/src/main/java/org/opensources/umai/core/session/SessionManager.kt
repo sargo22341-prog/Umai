@@ -39,11 +39,11 @@ class SessionManager(
     val state: StateFlow<SessionState> = store.stored
         .onEach { stored -> current.value = stored?.toSession() }
         .map { stored ->
+            val session = stored?.toSession()
             when {
                 stored == null -> SessionState.NotConfigured
-                stored.token.isNullOrBlank() || stored.tokenRejected ->
-                    SessionState.Expired(stored.baseUrl, stored.username)
-                else -> SessionState.Active(stored.toSession()!!)
+                session == null || stored.tokenRejected -> SessionState.Expired(stored.baseUrl, stored.username)
+                else -> SessionState.Active(session)
             }
         }
         .stateIn(scope, SharingStarted.Eagerly, SessionState.Loading)
@@ -136,8 +136,9 @@ class SessionManager(
         return Clients(baseUrl, http, MealieClientFactory.api(baseUrl, http))
     }
 
+    /** The session, `null` without a usable token. */
     private fun SessionStore.StoredSession.toSession(): ServerSession? {
-        val value = token ?: return null
+        val value = token?.takeIf { it.isNotBlank() } ?: return null
         return ServerSession(
             baseUrl = baseUrl,
             token = value,

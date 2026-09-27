@@ -64,7 +64,7 @@ class AutoPlanActions(
  * and shows the plan before anything is written: each dish can be swapped,
  * or the whole plan drawn again.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AutoPlanSheet(
     state: AutoPlanUiState,
@@ -87,34 +87,7 @@ fun AutoPlanSheet(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = state.scope == AutoPlanScope.WEEK,
-                    onClick = { actions.onScopeChange(AutoPlanScope.WEEK) },
-                    enabled = !state.working,
-                    label = { Text(stringResource(R.string.auto_plan_scope_week)) },
-                )
-                FilterChip(
-                    selected = state.scope == AutoPlanScope.DAY,
-                    onClick = { actions.onScopeChange(AutoPlanScope.DAY) },
-                    enabled = !state.working,
-                    label = { Text(stringResource(R.string.auto_plan_scope_day)) },
-                )
-            }
-            if (state.scope == AutoPlanScope.DAY) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    state.plannableDays.forEach { day ->
-                        FilterChip(
-                            selected = day == state.day,
-                            onClick = { actions.onDayChange(day) },
-                            enabled = !state.working,
-                            label = { Text(day.label(today = state.today)) },
-                        )
-                    }
-                }
-            }
-
+            ScopeChoice(state, actions)
             val slotCount = state.slots.size
             Text(
                 text = if (slotCount == 0) {
@@ -124,40 +97,70 @@ fun AutoPlanSheet(
                 },
                 style = MaterialTheme.typography.bodyMedium,
             )
-
             val phase = state.phase
             val proposal = state.proposal
-            val error = state.error
             when {
                 phase != null -> Progress(phase)
                 proposal != null -> Proposal(state, proposal, actions, recipeImageUrl)
-                else -> Button(
-                    onClick = actions.onPropose,
-                    enabled = slotCount > 0,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text(stringResource(R.string.auto_plan_propose)) }
+                else -> Button(onClick = actions.onPropose, enabled = slotCount > 0, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.auto_plan_propose))
+                }
             }
-
-            if (error != null) {
-                Text(
-                    text = "${error.title()}\n${error.message()}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-            if (state.noDishes) {
-                Text(
-                    text = stringResource(R.string.auto_plan_no_dishes),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-
+            PlanProblems(state)
             HorizontalDivider()
             TextButton(onClick = actions.onOpenDishTypes, enabled = !state.working) {
                 Text(stringResource(R.string.dish_types_title))
             }
         }
+    }
+}
+
+/** The week, or one of its days with a meal left to plan. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ScopeChoice(state: AutoPlanUiState, actions: AutoPlanActions) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(
+            selected = state.scope == AutoPlanScope.WEEK,
+            onClick = { actions.onScopeChange(AutoPlanScope.WEEK) },
+            enabled = !state.working,
+            label = { Text(stringResource(R.string.auto_plan_scope_week)) },
+        )
+        FilterChip(
+            selected = state.scope == AutoPlanScope.DAY,
+            onClick = { actions.onScopeChange(AutoPlanScope.DAY) },
+            enabled = !state.working,
+            label = { Text(stringResource(R.string.auto_plan_scope_day)) },
+        )
+    }
+    if (state.scope != AutoPlanScope.DAY) return
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        state.plannableDays.forEach { day ->
+            FilterChip(
+                selected = day == state.day,
+                onClick = { actions.onDayChange(day) },
+                enabled = !state.working,
+                label = { Text(day.label(today = state.today)) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlanProblems(state: AutoPlanUiState) {
+    state.error?.let { error ->
+        Text(
+            text = "${error.title()}\n${error.message()}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+    if (state.noDishes) {
+        Text(
+            text = stringResource(R.string.auto_plan_no_dishes),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
     }
 }
 

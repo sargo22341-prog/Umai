@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import java.net.URI
+import java.net.URISyntaxException
 
 /**
  * Reading of the schema.org `Recipe` a page publishes, as Mealie returns it
@@ -24,7 +25,7 @@ object SchemaOrgRecipe {
                     if ("Recipe" in types(current)) return current
                     current.values.forEach { if (it is JsonArray || it is JsonObject) queue.add(it) }
                 }
-                else -> Unit
+                is JsonPrimitive -> Unit
             }
         }
         return null
@@ -36,20 +37,21 @@ object SchemaOrgRecipe {
      */
     fun steps(recipe: JsonObject): List<JsonElement> {
         val steps = mutableListOf<JsonElement>()
-        fun visit(node: JsonElement?) {
-            when (node) {
-                is JsonArray -> node.forEach(::visit)
+        // Depth first, in the order of the page: the next node to read is on top.
+        val pending = ArrayDeque<JsonElement>()
+        recipe["recipeInstructions"]?.let(pending::addLast)
+        while (pending.isNotEmpty()) {
+            when (val node = pending.removeLast()) {
+                is JsonArray -> node.asReversed().forEach(pending::addLast)
                 is JsonPrimitive -> if (node.isString && node.content.isNotBlank()) steps += node
                 is JsonObject ->
                     if ("HowToSection" in types(node)) {
-                        visit(node["itemListElement"] ?: node["steps"] ?: node["recipeInstructions"])
+                        (node["itemListElement"] ?: node["steps"] ?: node["recipeInstructions"])?.let(pending::addLast)
                     } else {
                         steps += node
                     }
-                else -> Unit
             }
         }
-        visit(recipe["recipeInstructions"])
         return steps
     }
 
@@ -67,24 +69,37 @@ object SchemaOrgRecipe {
     }
 
     /** The first address found in a string, a list, or an object's `url`, `contentUrl` or `thumbnailUrl`. */
-    fun url(value: JsonElement?, base: String): String? = when (value) {
-        is JsonPrimitive -> value.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }?.let { absolute(it, base) }
-        is JsonArray -> value.firstNotNullOfOrNull { url(it, base) }
-        is JsonObject -> url(value["url"], base) ?: url(value["contentUrl"], base) ?: url(value["thumbnailUrl"], base)
-        else -> null
+    fun url(value: JsonElement?, base: String): String? {
+        // Depth first, in the order of the page: the next node to read is on top.
+        val pending = ArrayDeque<JsonElement>()
+        value?.let(pending::addLast)
+        while (pending.isNotEmpty()) {
+            when (val node = pending.removeLast()) {
+                is JsonPrimitive -> node.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }?.let { return absolute(it, base) }
+                is JsonArray -> node.asReversed().forEach(pending::addLast)
+                is JsonObject ->
+                    listOfNotNull(node["url"], node["contentUrl"], node["thumbnailUrl"]).asReversed().forEach(pending::addLast)
+            }
+        }
+        return null
     }
 
     /** Every address a value holds, for lists of pictures. */
-    fun urls(value: JsonElement?, base: String): List<String> = when (value) {
-        is JsonArray -> value.flatMap { urls(it, base) }
-        null -> emptyList()
-        else -> listOfNotNull(url(value, base))
+    fun urls(value: JsonElement?, base: String): List<String> {
+        val found = mutableListOf<String>()
+        val pending = ArrayDeque<JsonElement>()
+        value?.let(pending::addLast)
+        while (pending.isNotEmpty()) {
+            val node = pending.removeLast()
+            if (node is JsonArray) node.asReversed().forEach(pending::addLast) else url(node, base)?.let(found::add)
+        }
+        return found
     }
 
     fun types(node: JsonObject): List<String> = when (val type = node["@type"]) {
         is JsonPrimitive -> listOfNotNull(type.contentOrNull)
         is JsonArray -> type.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
-        else -> emptyList()
+        is JsonObject, null -> emptyList()
     }
 
     fun text(node: JsonObject, key: String): String? =
@@ -94,6 +109,12 @@ object SchemaOrgRecipe {
     fun number(node: JsonObject, key: String): Double? =
         (node[key] as? JsonPrimitive)?.contentOrNull?.trim()?.toDoubleOrNull()
 
-    private fun absolute(value: String, base: String): String =
-        runCatching { URI(base).resolve(value).toString() }.getOrDefault(value)
+    /** [value] against the page [base]; left as written when either is not an address. */
+    private fun absolute(value: String, base: String): String = try {
+        URI(base).resolve(value).toString()
+    } catch (_: URISyntaxException) {
+        value
+    } catch (_: IllegalArgumentException) {
+        value
+    }
 }

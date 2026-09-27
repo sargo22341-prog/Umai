@@ -44,6 +44,8 @@ class ShoppingViewModelTest {
     private suspend fun ShoppingViewModel.awaitLists(): ShoppingUiState =
         withTimeout(TIMEOUT_MS) { state.first { !it.loadingLists } }
 
+    /** Waits for the state; a test that only needs the wait leaves the value. */
+    @IgnorableReturnValue
     private suspend fun ShoppingViewModel.awaitList(): ShoppingUiState =
         withTimeout(TIMEOUT_MS) { state.first { !it.loadingLists && it.list != null } }
 

@@ -3,7 +3,10 @@ package org.opensources.umai.core.session
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import java.io.IOException
+import java.security.GeneralSecurityException
 import java.security.KeyStore
+import java.security.ProviderException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -32,20 +35,43 @@ class SecretVault(private val keyAlias: String = DEFAULT_ALIAS) {
      */
     fun unseal(sealed: String?): String? {
         if (sealed.isNullOrEmpty()) return null
-        return runCatching {
-            val raw = Base64.decode(sealed, Base64.NO_WRAP)
-            if (raw.size <= IV_LENGTH) return null
-            val iv = raw.copyOfRange(0, IV_LENGTH)
-            val cipherText = raw.copyOfRange(IV_LENGTH, raw.size)
+        val raw = try {
+            Base64.decode(sealed, Base64.NO_WRAP)
+        } catch (_: IllegalArgumentException) {
+            return null
+        }
+        if (raw.size <= IV_LENGTH) return null
+        val iv = raw.copyOfRange(0, IV_LENGTH)
+        val cipherText = raw.copyOfRange(IV_LENGTH, raw.size)
+        return try {
             val cipher = Cipher.getInstance(TRANSFORMATION).apply {
                 init(Cipher.DECRYPT_MODE, secretKey(), GCMParameterSpec(TAG_LENGTH_BITS, iv))
             }
             String(cipher.doFinal(cipherText), Charsets.UTF_8)
-        }.getOrNull()
+        } catch (_: GeneralSecurityException) {
+            // A key invalidated or replaced: the token can no longer be read.
+            null
+        } catch (_: IOException) {
+            // The keystore itself could not be loaded.
+            null
+        } catch (_: ProviderException) {
+            // Thrown by the keystore daemon for a key it lost.
+            null
+        }
     }
 
+    /**
+     * Deletes the key. A key the keystore refuses to delete is left behind on
+     * purpose: the token it sealed is already erased, and it only seals the next one.
+     */
     fun clear() {
-        runCatching { keyStore().deleteEntry(keyAlias) }
+        try {
+            keyStore().deleteEntry(keyAlias)
+        } catch (_: GeneralSecurityException) {
+            // Left behind, as said above.
+        } catch (_: IOException) {
+            // The keystore could not even be loaded: the key is left behind, as said above.
+        }
     }
 
     private fun keyStore(): KeyStore = KeyStore.getInstance(PROVIDER).apply { load(null) }

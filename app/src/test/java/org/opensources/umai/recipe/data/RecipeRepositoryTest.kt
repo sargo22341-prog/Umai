@@ -58,7 +58,7 @@ class RecipeRepositoryTest {
     @Test
     fun `search hits the documented endpoint with the search term`() = runTest {
         fake.enqueueJson(PAGE)
-        repository.search("curry", RecipeFilters.None, page = 2, perPage = 10)
+        val _ = repository.search("curry", RecipeFilters.None, page = 2, perPage = 10)
 
         val request = fake.takeRequest()
         assertEquals("/api/recipes", request.url.encodedPath)
@@ -72,7 +72,7 @@ class RecipeRepositoryTest {
     @Test
     fun `organizer filters are sent as repeated query parameters`() = runTest {
         fake.enqueueJson(PAGE)
-        repository.search(
+        val _ = repository.search(
             query = null,
             filters = RecipeFilters(
                 categoryIds = setOf("c1", "c2"),
@@ -95,7 +95,7 @@ class RecipeRepositoryTest {
     @Test
     fun `requireAll is omitted when a single value is selected`() = runTest {
         fake.enqueueJson(PAGE)
-        repository.search(
+        val _ = repository.search(
             query = null,
             filters = RecipeFilters(tagIds = setOf("t1"), requireAllTags = true),
             page = 1,
@@ -106,7 +106,7 @@ class RecipeRepositoryTest {
     @Test
     fun `value filters are translated into a queryFilter expression`() = runTest {
         fake.enqueueJson(PAGE)
-        repository.search(
+        val _ = repository.search(
             query = null,
             filters = RecipeFilters(minRating = 4, addedWithin = AddedWithin.ANY),
             page = 1,
@@ -119,7 +119,7 @@ class RecipeRepositoryTest {
         fake.enqueueJson("""{"ratings":[{"recipeId":"fav-1","isFavorite":true}]}""")
         fake.enqueueJson(PAGE)
 
-        repository.search(null, RecipeFilters(favoritesOnly = true), page = 1)
+        val _ = repository.search(null, RecipeFilters(favoritesOnly = true), page = 1)
 
         assertEquals("/api/users/self/favorites", fake.takeRequest().url.encodedPath)
         assertEquals("""id IN ["fav-1"]""", fake.takeRequest().query("queryFilter"))
@@ -128,7 +128,7 @@ class RecipeRepositoryTest {
     @Test
     fun `a random sort carries the pagination seed Mealie requires`() = runTest {
         fake.enqueueJson(PAGE)
-        repository.search(
+        val _ = repository.search(
             query = null,
             filters = RecipeFilters.None,
             page = 1,
@@ -157,7 +157,7 @@ class RecipeRepositoryTest {
     @Test
     fun `the seed is not sent for a deterministic sort`() = runTest {
         fake.enqueueJson(PAGE)
-        repository.search(
+        val _ = repository.search(
             query = null,
             filters = RecipeFilters.None,
             page = 1,
@@ -232,7 +232,7 @@ class RecipeRepositoryTest {
     @Test
     fun `removing a favourite deletes it`() = runTest {
         fake.enqueueJson("{}")
-        repository.setFavorite("poulet-au-curry", favorite = false)
+        val _ = repository.setFavorite("poulet-au-curry", favorite = false)
         assertEquals("DELETE", fake.takeRequest().method)
     }
 
@@ -301,7 +301,7 @@ class RecipeRepositoryTest {
         )
         fake.enqueueJson(PAGE)
 
-        tagged.search(null, RecipeFilters(calories = CalorieFilter.UP_TO_300), page = 1)
+        val _ = tagged.search(null, RecipeFilters(calories = CalorieFilter.UP_TO_300), page = 1)
 
         assertEquals("""tags.slug IN ["calorie-250"]""", fake.takeRequest().query("queryFilter"))
     }
@@ -314,7 +314,7 @@ class RecipeRepositoryTest {
         )
         fake.enqueueJson(PAGE)
 
-        tagged.search(null, RecipeFilters(calories = CalorieFilter.UNKNOWN), page = 1)
+        val _ = tagged.search(null, RecipeFilters(calories = CalorieFilter.UNKNOWN), page = 1)
 
         assertEquals("""tags.slug NOT IN ["calorie-250"]""", fake.takeRequest().query("queryFilter"))
     }

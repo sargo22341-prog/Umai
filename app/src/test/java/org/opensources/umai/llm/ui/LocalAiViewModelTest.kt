@@ -14,8 +14,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.opensources.umai.core.download.DownloadState
-import org.opensources.umai.llm.data.ActiveBackend
-import org.opensources.umai.llm.data.LlmBenchmark
+import org.opensources.umai.llm.domain.ActiveBackend
+import org.opensources.umai.llm.domain.LlmBenchmark
 import org.opensources.umai.llm.data.LocalAiSettings
 import org.opensources.umai.llm.domain.AiBackend
 import org.opensources.umai.llm.domain.DeviceProfile

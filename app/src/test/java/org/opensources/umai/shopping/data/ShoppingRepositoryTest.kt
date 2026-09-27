@@ -128,7 +128,7 @@ class ShoppingRepositoryTest {
     @Test
     fun `deleting an item calls the documented endpoint`() = runTest {
         fake.enqueueJson("{}")
-        repository.deleteItem("i1")
+        val _ = repository.deleteItem("i1")
         val request = fake.takeRequest()
         assertEquals("DELETE", request.method)
         assertEquals("/api/households/shopping/items/i1", request.url.encodedPath)
@@ -146,7 +146,7 @@ class ShoppingRepositoryTest {
     fun `pushing a recipe uses Mealie's own endpoint`() = runTest {
         fake.enqueueJson(LIST_DETAIL)
 
-        repository.addRecipe(listId = "l1", recipeId = "r1", multiplier = 2.0)
+        val _ = repository.addRecipe(listId = "l1", recipeId = "r1", multiplier = 2.0)
 
         val request = fake.takeRequest()
         assertEquals("POST", request.method)
@@ -158,7 +158,7 @@ class ShoppingRepositoryTest {
     fun `only the ticked ingredients are sent when a subset was kept`() = runTest {
         fake.enqueueJson(LIST_DETAIL)
 
-        repository.addRecipe(
+        val _ = repository.addRecipe(
             listId = "l1",
             recipeId = "r1",
             multiplier = 1.5,
@@ -188,7 +188,7 @@ class ShoppingRepositoryTest {
     fun `no selection means the whole recipe`() = runTest {
         fake.enqueueJson(LIST_DETAIL)
 
-        repository.addRecipe(listId = "l1", recipeId = "r1", multiplier = 1.0)
+        val _ = repository.addRecipe(listId = "l1", recipeId = "r1", multiplier = 1.0)
 
         assertFalse(fake.takeRequest().body?.utf8().orEmpty().contains("recipeIngredients"))
     }

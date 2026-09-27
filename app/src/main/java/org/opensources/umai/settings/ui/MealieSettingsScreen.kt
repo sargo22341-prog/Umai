@@ -1,5 +1,6 @@
 package org.opensources.umai.settings.ui
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -8,16 +9,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -26,7 +25,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -41,8 +39,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import org.opensources.umai.R
 import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.format.localizedName
+import org.opensources.umai.core.model.HouseholdPreferences
 import org.opensources.umai.core.session.AuthMode
 import org.opensources.umai.core.session.SessionState
+import org.opensources.umai.core.ui.component.BackTopAppBar
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
 import java.time.DayOfWeek
@@ -75,7 +75,6 @@ fun MealieSettingsRoute(onBack: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 /** Stateless Mealie settings, driven by [MealieSettingsUiState]. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MealieSettingsScreen(
     session: SessionState,
@@ -95,53 +94,28 @@ fun MealieSettingsScreen(
     onSyncCalorieTags: () -> Unit = {},
 ) {
     var signOutDialogVisible by remember { mutableStateOf(false) }
-
     if (signOutDialogVisible) {
-        AlertDialog(
-            onDismissRequest = { signOutDialogVisible = false },
-            title = { Text(stringResource(R.string.settings_sign_out_title)) },
-            text = { Text(stringResource(R.string.settings_sign_out_message)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        signOutDialogVisible = false
-                        onSignOut()
-                    },
-                ) { Text(stringResource(R.string.settings_sign_out)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { signOutDialogVisible = false }) {
-                    Text(stringResource(R.string.action_cancel))
-                }
-            },
-        )
+        SignOutDialog(onDismiss = { signOutDialogVisible = false }, onSignOut = onSignOut)
     }
+    val household = HouseholdActions(
+        onFirstDayChange = onFirstDayChange,
+        onShowNutritionChange = onShowNutritionChange,
+        onShowAssetsChange = onShowAssetsChange,
+        onDisableCommentsChange = onDisableCommentsChange,
+        onRecipePublicChange = onRecipePublicChange,
+        onPrivateHouseholdChange = onPrivateHouseholdChange,
+    )
 
     Scaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.settings_mealie_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = stringResource(R.string.action_back),
-                        )
-                    }
-                },
-            )
-        },
+        topBar = { BackTopAppBar(title = stringResource(R.string.settings_mealie_title), onBack = onBack) },
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = state.refreshing,
             onRefresh = onRefresh,
             modifier = Modifier.fillMaxSize().padding(padding),
         ) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 24.dp),
-            ) {
+            LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
                 item { SettingsSectionHeader(stringResource(R.string.settings_section_connection)) }
                 item { ConnectionBlock(session = session, state = state) }
                 item {
@@ -151,118 +125,132 @@ fun MealieSettingsScreen(
                         onChangeInstance = { signOutDialogVisible = true },
                     )
                 }
-
-                item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
-                item { SettingsSectionHeader(stringResource(R.string.settings_section_household)) }
-
-                item {
-                    Text(
-                        text = stringResource(R.string.settings_household_intro),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    )
-                }
-
-                if (!state.canManageHousehold) {
-                    item { ReadOnlyNotice() }
-                }
-
-                state.saveError?.let { error ->
-                    item {
-                        SaveErrorNotice(
-                            message = "${error.title()} — ${error.message()}",
-                            onDismiss = onDismissSaveError,
-                        )
-                    }
-                }
-
-                val household = state.household
-                if (household == null) {
-                    item {
-                        Text(
-                            text = stringResource(
-                                if (state.loading) {
-                                    R.string.loading
-                                } else {
-                                    R.string.settings_household_unavailable
-                                },
-                            ),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                        )
-                    }
-                } else {
-                    item {
-                        SettingsChoiceRow(
-                            title = stringResource(R.string.settings_first_day_of_week),
-                            options = FirstDayOptions,
-                            selected = household.firstDay,
-                            labelOf = { it.localizedName() },
-                            onSelect = onFirstDayChange,
-                            enabled = state.householdEditable,
-                            scopeNote = stringResource(R.string.settings_scope_first_day),
-                        )
-                    }
-                    item {
-                        SettingsSwitchRow(
-                            title = stringResource(R.string.settings_show_nutrition),
-                            summary = stringResource(R.string.settings_show_nutrition_summary),
-                            checked = household.recipeShowNutrition,
-                            onCheckedChange = onShowNutritionChange,
-                            enabled = state.householdEditable,
-                            scopeNote = stringResource(R.string.settings_scope_nutrition),
-                        )
-                    }
-                    item {
-                        SettingsSwitchRow(
-                            title = stringResource(R.string.settings_show_assets),
-                            summary = stringResource(R.string.settings_show_assets_summary),
-                            checked = household.recipeShowAssets,
-                            onCheckedChange = onShowAssetsChange,
-                            enabled = state.householdEditable,
-                            scopeNote = stringResource(R.string.settings_scope_server_only),
-                        )
-                    }
-                    item {
-                        SettingsSwitchRow(
-                            title = stringResource(R.string.settings_disable_comments),
-                            summary = stringResource(R.string.settings_disable_comments_summary),
-                            checked = household.recipeDisableComments,
-                            onCheckedChange = onDisableCommentsChange,
-                            enabled = state.householdEditable,
-                            scopeNote = stringResource(R.string.settings_scope_comments),
-                        )
-                    }
-                    item {
-                        SettingsSwitchRow(
-                            title = stringResource(R.string.settings_recipe_public),
-                            summary = stringResource(R.string.settings_recipe_public_summary),
-                            checked = household.recipePublic,
-                            onCheckedChange = onRecipePublicChange,
-                            enabled = state.householdEditable,
-                            scopeNote = stringResource(R.string.settings_scope_server_only),
-                        )
-                    }
-                    item {
-                        SettingsSwitchRow(
-                            title = stringResource(R.string.settings_private_household),
-                            summary = stringResource(R.string.settings_private_household_summary),
-                            checked = household.privateHousehold,
-                            onCheckedChange = onPrivateHouseholdChange,
-                            enabled = state.householdEditable,
-                            scopeNote = stringResource(R.string.settings_scope_server_only),
-                        )
-                    }
-                }
-
+                householdItems(state, household, onDismissSaveError)
                 item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
                 item { SettingsSectionHeader(stringResource(R.string.settings_section_recipes)) }
                 item { CalorieSyncBlock(sync = state.calorieSync, onSync = onSyncCalorieTags) }
             }
         }
     }
+}
+
+@Composable
+private fun SignOutDialog(onDismiss: () -> Unit, onSignOut: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_sign_out_title)) },
+        text = { Text(stringResource(R.string.settings_sign_out_message)) },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onDismiss()
+                    onSignOut()
+                },
+            ) { Text(stringResource(R.string.settings_sign_out)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
+    )
+}
+
+/** What each preference of the household changes. */
+private class HouseholdActions(
+    val onFirstDayChange: (DayOfWeek) -> Unit,
+    val onShowNutritionChange: (Boolean) -> Unit,
+    val onShowAssetsChange: (Boolean) -> Unit,
+    val onDisableCommentsChange: (Boolean) -> Unit,
+    val onRecipePublicChange: (Boolean) -> Unit,
+    val onPrivateHouseholdChange: (Boolean) -> Unit,
+)
+
+/** The preferences of the household, stored on Mealie and shared by its members. */
+private fun LazyListScope.householdItems(
+    state: MealieSettingsUiState,
+    actions: HouseholdActions,
+    onDismissSaveError: () -> Unit,
+) {
+    item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
+    item { SettingsSectionHeader(stringResource(R.string.settings_section_household)) }
+    item {
+        Text(
+            text = stringResource(R.string.settings_household_intro),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+    }
+    if (!state.canManageHousehold) item { ReadOnlyNotice() }
+    state.saveError?.let { error ->
+        item { SaveErrorNotice(message = "${error.title()} — ${error.message()}", onDismiss = onDismissSaveError) }
+    }
+    val household = state.household
+    if (household == null) {
+        item {
+            Text(
+                text = stringResource(if (state.loading) R.string.loading else R.string.settings_household_unavailable),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
+    } else {
+        item { HouseholdPreferenceRows(household, editable = state.householdEditable, actions = actions) }
+    }
+}
+
+@Composable
+private fun HouseholdPreferenceRows(household: HouseholdPreferences, editable: Boolean, actions: HouseholdActions) {
+    Column {
+        SettingsChoiceRow(
+            title = stringResource(R.string.settings_first_day_of_week),
+            options = FirstDayOptions,
+            selected = household.firstDay,
+            labelOf = { it.localizedName() },
+            onSelect = actions.onFirstDayChange,
+            enabled = editable,
+            scopeNote = stringResource(R.string.settings_scope_first_day),
+        )
+        HouseholdSwitch(
+            R.string.settings_show_nutrition, R.string.settings_show_nutrition_summary, R.string.settings_scope_nutrition,
+            checked = household.recipeShowNutrition, editable = editable, onChange = actions.onShowNutritionChange,
+        )
+        HouseholdSwitch(
+            R.string.settings_show_assets, R.string.settings_show_assets_summary, R.string.settings_scope_server_only,
+            checked = household.recipeShowAssets, editable = editable, onChange = actions.onShowAssetsChange,
+        )
+        HouseholdSwitch(
+            R.string.settings_disable_comments, R.string.settings_disable_comments_summary, R.string.settings_scope_comments,
+            checked = household.recipeDisableComments, editable = editable, onChange = actions.onDisableCommentsChange,
+        )
+        HouseholdSwitch(
+            R.string.settings_recipe_public, R.string.settings_recipe_public_summary, R.string.settings_scope_server_only,
+            checked = household.recipePublic, editable = editable, onChange = actions.onRecipePublicChange,
+        )
+        HouseholdSwitch(
+            R.string.settings_private_household, R.string.settings_private_household_summary, R.string.settings_scope_server_only,
+            checked = household.privateHousehold, editable = editable, onChange = actions.onPrivateHouseholdChange,
+        )
+    }
+}
+
+@Composable
+private fun HouseholdSwitch(
+    @StringRes title: Int,
+    @StringRes summary: Int,
+    @StringRes scope: Int,
+    checked: Boolean,
+    editable: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    SettingsSwitchRow(
+        title = stringResource(title),
+        summary = stringResource(summary),
+        checked = checked,
+        onCheckedChange = onChange,
+        enabled = editable,
+        scopeNote = stringResource(scope),
+    )
 }
 
 @Composable
@@ -319,7 +307,7 @@ private fun ConnectionBlock(session: SessionState, state: MealieSettingsUiState)
                 stringResource(
                     when (active?.session?.authMode) {
                         AuthMode.API_TOKEN -> R.string.settings_auth_token
-                        else -> R.string.settings_auth_password
+                        AuthMode.PASSWORD, null -> R.string.settings_auth_password
                     },
                 ),
             )

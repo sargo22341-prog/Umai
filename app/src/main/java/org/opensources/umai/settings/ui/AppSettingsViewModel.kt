@@ -31,41 +31,59 @@ class AppSettingsViewModel(
 
     val sessionState: StateFlow<SessionState> = sessionManager.state
 
-    fun setTheme(mode: ThemeMode) = viewModelScope.launch {
-        preferencesRepository.setThemeMode(mode)
+    fun setTheme(mode: ThemeMode) {
+        viewModelScope.launch {
+            preferencesRepository.setThemeMode(mode)
+        }
     }
 
-    fun setLanguage(language: AppLanguage) = viewModelScope.launch {
-        preferencesRepository.setLanguage(language)
-        localeController.apply(language)
+    fun setLanguage(language: AppLanguage) {
+        viewModelScope.launch {
+            preferencesRepository.setLanguage(language)
+            localeController.apply(language)
+        }
     }
 
-    fun setDynamicColor(enabled: Boolean) = viewModelScope.launch {
-        preferencesRepository.setDynamicColor(enabled)
+    fun setDynamicColor(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setDynamicColor(enabled)
+        }
     }
 
-    fun setLayout(layout: RecipeLayout) = viewModelScope.launch {
-        preferencesRepository.setRecipeLayout(layout)
+    fun setLayout(layout: RecipeLayout) {
+        viewModelScope.launch {
+            preferencesRepository.setRecipeLayout(layout)
+        }
     }
 
-    fun setKeepScreenOn(enabled: Boolean) = viewModelScope.launch {
-        preferencesRepository.setKeepScreenOnWhileCooking(enabled)
+    fun setKeepScreenOn(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setKeepScreenOnWhileCooking(enabled)
+        }
     }
 
-    fun setDetectTimers(enabled: Boolean) = viewModelScope.launch {
-        preferencesRepository.setDetectTimers(enabled)
+    fun setDetectTimers(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setDetectTimers(enabled)
+        }
     }
 
-    fun setTimerSound(enabled: Boolean) = viewModelScope.launch {
-        preferencesRepository.setTimerSound(enabled)
+    fun setTimerSound(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setTimerSound(enabled)
+        }
     }
 
-    fun setTimerVibrate(enabled: Boolean) = viewModelScope.launch {
-        preferencesRepository.setTimerVibrate(enabled)
+    fun setTimerVibrate(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setTimerVibrate(enabled)
+        }
     }
 
-    fun setRecipeSectionVisible(section: RecipeSection, visible: Boolean) = viewModelScope.launch {
-        preferencesRepository.setRecipeSectionVisible(section, visible)
+    fun setRecipeSectionVisible(section: RecipeSection, visible: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setRecipeSectionVisible(section, visible)
+        }
     }
 
     companion object {

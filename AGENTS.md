@@ -5,6 +5,68 @@ ne fait que l'importer. À lire entièrement avant toute modification.
 
 ---
 
+## 0. Règles de base
+
+Dix règles inspirées de *The Power of 10* (G. Holzmann, NASA/JPL), réécrites pour valoir
+quel que soit le langage, le framework ou l'architecture. Chacune donne son **intention** :
+c'est elle qui fait foi. Les exemples entre parenthèses illustrent, ils ne limitent pas ;
+quand le projet n'a pas l'outil cité, appliquer l'équivalent qui sert la même intention.
+Ces règles valent pour tout le code, existant comme nouveau.
+
+Le but commun : un code prévisible, qu'un outil peut vérifier et qu'un humain relit vite.
+
+1. **Flux de contrôle simple et exhaustif.** Pas de récursion ni de saut non structuré dans
+   le code applicatif. Quand un choix porte sur un ensemble fermé de cas, les traiter tous
+   explicitement, sans branche par défaut fourre-tout. Sortir tôt plutôt qu'imbriquer.
+   *Intention :* chaque chemin d'exécution est visible, et l'outil signale le cas oublié
+   quand on en ajoute un.
+2. **Tout ce qui répète ou attend a une borne.** Une nouvelle tentative a un nombre maximal,
+   une attente (réseau, disque, processus, verrou) a un délai, un parcours de données
+   paginées ou en flux a un plafond. Une boucle sans fin n'est admise que si elle est
+   annulable et a une sortie explicite. Tout travail de fond meurt avec ce qui l'a lancé.
+   *Intention :* le programme ne peut ni tourner, ni attendre, ni consommer indéfiniment.
+3. **Rien de lourd dans les chemins chauds.** Le code exécuté très souvent ou sous contrainte
+   de temps (rendu, boucle d'événements, traitement par image ou par échantillon, requête
+   fréquente) n'alloue pas sans besoin, ne fait pas d'E/S et ne calcule rien de coûteux. Le
+   travail lourd sort du fil qui doit rester réactif. Une optimisation se mesure, elle ne
+   se suppose pas.
+   *Intention :* les performances sont prévisibles et la réactivité n'est jamais sacrifiée.
+4. **Une fonction tient sur un écran.** Au plus ~60 lignes, quel que soit son rôle (logique,
+   interface, configuration). Au-delà, extraire des sous-fonctions nommées par ce qu'elles
+   font. Un fichier ou module a une seule responsabilité et reste sous ~600 lignes.
+   *Intention :* une unité de code se comprend en une lecture, sans défilement.
+5. **Des états impossibles plutôt que des vérifications.** Utiliser le typage, les
+   structures et les constructeurs du langage pour qu'un état invalide ne puisse pas
+   exister. Les vérifications explicites ne gardent que les préconditions que le type ne
+   peut pas exprimer. Toute donnée extérieure (réseau, fichier, saisie, capteur, autre
+   service) est validée une fois, à la frontière, puis considérée comme sûre.
+   *Intention :* les invariants sont garantis par construction, pas espérés à l'exécution.
+6. **Portée et mutabilité minimales.** Chaque nom a la plus petite visibilité et la plus
+   courte durée de vie possibles. Immuable par défaut ; un état modifiable n'est exposé
+   qu'en lecture seule à l'extérieur de ce qui le possède.
+   *Intention :* on sait toujours qui peut lire et qui peut modifier une donnée.
+7. **Aucune erreur silencieuse.** Tout résultat est utilisé, ou ignoré de façon explicite
+   et volontaire. Aucune erreur n'est avalée : on la traite, on la transforme ou on la
+   propage. Les signaux de contrôle du langage (annulation, interruption, arrêt) ne sont
+   jamais interceptés par une capture générique. Chaque échec se traduit par un état
+   visible, distinct d'un résultat vide.
+   *Intention :* un problème se voit là où il survient, jamais plus tard sous une autre forme.
+8. **Pas de magie.** Réflexion, génération de code, métaprogrammation, injection automatique
+   et logique de build astucieuse seulement sur nécessité démontrée.
+   *Intention :* ce que fait le programme se lit dans son source.
+9. **Dépendances à sens unique, sans raccourci.** Les couches (présentation, état, données,
+   sources externes, ou leur équivalent dans le projet) ne dépendent que de la couche
+   inférieure, jamais de l'inverse, sans en sauter une. Pas de longues chaînes d'accès ni
+   de rappels imbriqués.
+   *Intention :* une donnée a un chemin unique et évident, et chaque couche se teste seule.
+10. **Zéro avertissement, zéro passe-droit muet.** Compilateur, analyseurs et linters sont
+    réglés au plus strict et leurs avertissements bloquent le build. Toute exclusion porte
+    un commentaire qui la justifie. Le code bas niveau (C, C++, code non sûr) suit en plus
+    les règles NASA d'origine telles quelles.
+    *Intention :* l'outil voit tout ce qu'il peut voir, et rien n'est ignoré sans raison écrite.
+
+---
+
 ## 1. Le projet
 
 **umai** est un client Android natif pour une instance **Mealie** auto-hébergée.
@@ -350,6 +412,10 @@ Dans cet ordre, et tout doit passer :
   avertissement en erreur ; lint active **tous** ses contrôles (`checkAllWarnings`) et
   traite ses avertissements en erreurs. Les rares exclusions sont justifiées dans
   `app/build.gradle.kts` et `app/lint.xml`.
+* Tout résultat est utilisé (règle 7) : le vérificateur du compilateur
+  (`-Xreturn-value-checker=full`) le contrôle. Un résultat ignoré exprès s'écrit
+  `val _ = …` avec la raison en commentaire ; une fonction dont le résultat est facultatif
+  (utilitaire de test qui attend un état) porte `@IgnorableReturnValue`.
 * Ne jamais déclarer terminé avec un build cassé, un test rouge ou un problème
   important connu.
 * Corriger proprement la cause ; ne pas empiler un workaround. Désactiver une règle

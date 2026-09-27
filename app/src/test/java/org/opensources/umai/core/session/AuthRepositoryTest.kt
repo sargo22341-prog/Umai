@@ -77,7 +77,7 @@ class AuthRepositoryTest {
         fake.enqueueJson("""{"access_token":"secret-token"}""")
         fake.enqueueJson(USER)
 
-        repository.connectWithPassword(baseUrl, "hiroo", "hunter2")
+        val _ = repository.connectWithPassword(baseUrl, "hiroo", "hunter2")
 
         fake.takeRequest()
         val login = fake.takeRequest()

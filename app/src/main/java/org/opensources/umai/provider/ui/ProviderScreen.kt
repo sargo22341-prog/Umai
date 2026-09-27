@@ -4,15 +4,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -22,6 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.opensources.umai.R
 import org.opensources.umai.core.di.LocalAppContainer
+import org.opensources.umai.core.ui.component.BackTopAppBar
 import org.opensources.umai.settings.ui.SettingsSectionHeader
 import org.opensources.umai.settings.ui.SettingsSwitchRow
 
@@ -45,7 +40,6 @@ fun ProviderRoute(
 }
 
 /** Stateless page of one provider, driven by [ProviderUiState]. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProviderScreen(
     state: ProviderUiState,
@@ -56,19 +50,7 @@ fun ProviderScreen(
     val provider = state.provider
     Scaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(provider?.name ?: stringResource(R.string.providers_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = stringResource(R.string.action_back),
-                        )
-                    }
-                },
-            )
-        },
+        topBar = { BackTopAppBar(title = provider?.name ?: stringResource(R.string.providers_title), onBack = onBack) },
     ) { padding ->
         if (provider == null) {
             Text(

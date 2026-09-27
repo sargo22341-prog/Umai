@@ -9,6 +9,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import org.opensources.umai.core.settings.safeData
 import org.opensources.umai.recipe.domain.RecipeDraft
@@ -58,7 +59,12 @@ class RecipeDraftStore(context: Context, private val imageFiles: RecipeImageFile
 
     private fun decode(raw: String?): List<RecipeDraft> {
         if (raw.isNullOrBlank()) return emptyList()
-        return runCatching { json.decodeFromString<List<RecipeDraft>>(raw) }.getOrDefault(emptyList())
+        return try {
+            json.decodeFromString<List<RecipeDraft>>(raw)
+        } catch (_: SerializationException) {
+            // Written by a build whose drafts had another shape: they cannot be read back.
+            emptyList()
+        }
     }
 
     private companion object {

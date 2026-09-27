@@ -26,7 +26,11 @@ set(GGML_CPU_ARM_ARCH "armv8.2-a+dotprod+fp16" CACHE STRING "" FORCE)
 add_subdirectory(${WHISPER_SOURCE_DIR} whisper EXCLUDE_FROM_ALL)
 
 add_library(umai_whisper SHARED whisper_jni.cpp)
-# Every warning on the bridge written here; whisper.cpp keeps its own settings.
-target_compile_options(umai_whisper PRIVATE -Wall -Wextra -Wpedantic -Werror)
+# Every warning on the bridge written here, the stricter ones of the NASA rules for C
+# included; whisper.cpp keeps its own settings.
+target_compile_options(umai_whisper PRIVATE
+    -Wall -Wextra -Wpedantic -Werror
+    -Wconversion -Wsign-conversion -Wshadow -Wold-style-cast -Wcast-qual
+    -Wnull-dereference -Wformat=2 -Wundef -Wunused -Wimplicit-fallthrough)
 target_link_libraries(umai_whisper PRIVATE whisper log)
 target_link_options(umai_whisper PRIVATE -Wl,--exclude-libs,ALL -Wl,--gc-sections)

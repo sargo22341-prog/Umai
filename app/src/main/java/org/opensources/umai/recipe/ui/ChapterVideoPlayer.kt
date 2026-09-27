@@ -30,9 +30,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.media3.common.C
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import org.opensources.umai.R
 import org.opensources.umai.core.ui.component.VideoAudio
 import org.opensources.umai.core.ui.component.VideoFrame
+import org.opensources.umai.core.ui.component.VideoPlayerState
 import org.opensources.umai.core.ui.component.rememberVideoPlayer
 import org.opensources.umai.recipe.domain.VideoStream
 import org.opensources.umai.recipe.domain.VideoTime
@@ -69,8 +71,6 @@ class ChapterPlayerState {
 fun ChapterVideoPlayer(stream: VideoStream, state: ChapterPlayerState, modifier: Modifier = Modifier) {
     val video = rememberVideoPlayer(stream.url, stream.isHls, defaultRatio = 16f / 9f)
     val player = video.player
-    /** The position being dragged on the bar, which the player only follows once released. */
-    var dragged by remember { mutableStateOf<Float?>(null) }
 
     LaunchedEffect(player) { player.setAudioAttributes(VideoAudio, true) }
 
@@ -79,7 +79,8 @@ fun ChapterVideoPlayer(stream: VideoStream, state: ChapterPlayerState, modifier:
     }
 
     LaunchedEffect(player) {
-        while (true) {
+        // Until the player leaves the screen, which cancels this effect.
+        while (isActive) {
             state.seekTarget?.let { target ->
                 player.seekTo((target * MILLIS_PER_SECOND).toLong())
                 player.play()
@@ -98,38 +99,46 @@ fun ChapterVideoPlayer(stream: VideoStream, state: ChapterPlayerState, modifier:
             maxHeight = MAX_PICTURE_HEIGHT,
             modifier = Modifier.align(Alignment.CenterHorizontally),
         )
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            val playing = video.playing
-            IconButton(onClick = { if (playing) player.pause() else player.play() }, enabled = !video.failed) {
-                Icon(
-                    imageVector = if (playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
-                    contentDescription = stringResource(if (playing) R.string.edit_video_pause else R.string.edit_video_play),
-                )
-            }
-            val duration = state.durationMillis.coerceAtLeast(1L).toFloat()
-            val position = VideoTime.format(state.positionSeconds)
-            Slider(
-                value = dragged ?: state.positionMillis.coerceIn(0L, duration.toLong()).toFloat(),
-                onValueChange = { dragged = it },
-                onValueChangeFinished = {
-                    dragged?.let { player.seekTo(it.toLong()) }
-                    dragged = null
-                },
-                valueRange = 0f..duration,
-                enabled = !video.failed && state.durationMillis > 0,
-                modifier = Modifier
-                    .weight(1f)
-                    .semantics { stateDescription = position },
-            )
-            Text(
-                text = stringResource(
-                    R.string.edit_video_position,
-                    position,
-                    VideoTime.format(state.durationMillis / MILLIS_PER_SECOND.toDouble()),
-                ),
-                style = MaterialTheme.typography.labelMedium,
+        PlayerControls(video, state)
+    }
+}
+
+/** Play or pause, and the bar to move in the video, which the player follows once released. */
+@Composable
+private fun PlayerControls(video: VideoPlayerState, state: ChapterPlayerState) {
+    val player = video.player
+    var dragged by remember { mutableStateOf<Float?>(null) }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        val playing = video.playing
+        IconButton(onClick = { if (playing) player.pause() else player.play() }, enabled = !video.failed) {
+            Icon(
+                imageVector = if (playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
+                contentDescription = stringResource(if (playing) R.string.edit_video_pause else R.string.edit_video_play),
             )
         }
+        val duration = state.durationMillis.coerceAtLeast(1L).toFloat()
+        val position = VideoTime.format(state.positionSeconds)
+        Slider(
+            value = dragged ?: state.positionMillis.coerceIn(0L, duration.toLong()).toFloat(),
+            onValueChange = { dragged = it },
+            onValueChangeFinished = {
+                dragged?.let { player.seekTo(it.toLong()) }
+                dragged = null
+            },
+            valueRange = 0f..duration,
+            enabled = !video.failed && state.durationMillis > 0,
+            modifier = Modifier
+                .weight(1f)
+                .semantics { stateDescription = position },
+        )
+        Text(
+            text = stringResource(
+                R.string.edit_video_position,
+                position,
+                VideoTime.format(state.durationMillis / MILLIS_PER_SECOND.toDouble()),
+            ),
+            style = MaterialTheme.typography.labelMedium,
+        )
     }
 }
 

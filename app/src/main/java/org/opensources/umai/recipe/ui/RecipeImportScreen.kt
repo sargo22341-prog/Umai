@@ -16,13 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -31,7 +26,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.opensources.umai.R
 import org.opensources.umai.core.di.LocalAppContainer
+import org.opensources.umai.core.ui.component.BackTopAppBar
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
 import org.opensources.umai.llm.domain.LlmProgress
@@ -122,7 +117,6 @@ fun RecipeImportRoute(
 }
 
 /** Stateless import form, driven by [RecipeImportUiState]. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeImportScreen(
     state: RecipeImportUiState,
@@ -138,19 +132,7 @@ fun RecipeImportScreen(
 ) {
     Scaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.profile_import_recipe)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = stringResource(R.string.action_back),
-                        )
-                    }
-                },
-            )
-        },
+        topBar = { BackTopAppBar(title = stringResource(R.string.profile_import_recipe), onBack = onBack) },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -166,7 +148,6 @@ fun RecipeImportScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-
             OutlinedTextField(
                 value = state.url,
                 onValueChange = onUrlChange,
@@ -175,107 +156,19 @@ fun RecipeImportScreen(
                 placeholder = { Text(stringResource(R.string.import_url_placeholder)) },
                 singleLine = true,
                 enabled = !state.importing,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Done,
-                ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
             )
-
-            if (state.isVideo) {
-                Text(
-                    text = stringResource(
-                        if (state.videoUsesModel) R.string.import_video_hint_model else R.string.import_video_hint_rules,
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-
-            state.providerName?.let { name ->
-                Text(
-                    text = stringResource(
-                        if (state.providerOffersVideo) R.string.import_provider_hint else R.string.import_provider_hint_photos,
-                        name,
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-
-            // A video has no tags nor categories for Mealie to pick up.
-            if (!state.isVideo) {
-                SwitchRow(
-                    title = stringResource(R.string.import_include_tags),
-                    checked = state.includeTags,
-                    enabled = !state.importing,
-                    onCheckedChange = onIncludeTagsChange,
-                )
-                SwitchRow(
-                    title = stringResource(R.string.import_include_categories),
-                    checked = state.includeCategories,
-                    enabled = !state.importing,
-                    onCheckedChange = onIncludeCategoriesChange,
-                )
-            }
-
-            val videoProblem = state.videoFailure?.let { stringResource(it.messageRes()) }
-                ?: stringResource(R.string.import_video_empty).takeIf { state.videoEmpty }
-            videoProblem?.let { ErrorPanel(it) }
-
-            state.error?.let { error -> ErrorPanel("${error.title()}\n${error.message()}") }
-
-            state.duplicate?.let { existing ->
-                DuplicateWarning(
-                    name = existing.name,
-                    onOpen = { onOpenExisting(existing.slug) },
-                    onImportAnyway = onImportAnyway,
-                )
-            }
-
-            Button(
-                onClick = onImport,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = state.canSubmit && state.duplicate == null,
-            ) {
-                val phase = state.phase
-                if (phase != null) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                    )
-                    Spacer(Modifier.size(12.dp))
-                    Text(
-                        stringResource(
-                            when (phase) {
-                                ImportPhase.CHECKING -> R.string.import_checking
-                                ImportPhase.IMPORTING -> R.string.import_running
-                                ImportPhase.FETCHING_MEDIA -> R.string.import_fetching_media
-                                ImportPhase.READING_VIDEO -> R.string.import_reading_video
-                                ImportPhase.WATCHING -> if (state.watchProgress?.seeing == true) {
-                                    R.string.import_watching_pictures
-                                } else {
-                                    R.string.import_watching_sound
-                                }
-                                ImportPhase.UNDERSTANDING -> R.string.import_understanding
-                                ImportPhase.SAVING -> R.string.import_saving
-                            },
-                        ),
-                    )
-                } else {
-                    Text(stringResource(R.string.import_action))
-                }
-            }
-
+            SourceHints(state)
+            ImportOptions(state, onIncludeTagsChange, onIncludeCategoriesChange)
+            ImportProblems(state, onOpenExisting = onOpenExisting, onImportAnyway = onImportAnyway)
+            ImportButton(state, onImport)
             if (state.phase == ImportPhase.UNDERSTANDING) ModelProgress(state.modelProgress)
             state.watchProgress?.takeIf { state.phase == ImportPhase.WATCHING }?.let { WatchingProgress(it) }
-
             if (state.importing && state.isVideo) {
                 TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.action_cancel))
                 }
             }
-
             Text(
                 text = stringResource(R.string.import_hint),
                 style = MaterialTheme.typography.bodySmall,
@@ -283,6 +176,94 @@ fun RecipeImportScreen(
             )
         }
     }
+}
+
+/** What the address typed is: a video, or a page of a provider the app knows. */
+@Composable
+private fun SourceHints(state: RecipeImportUiState) {
+    if (state.isVideo) {
+        Text(
+            text = stringResource(if (state.videoUsesModel) R.string.import_video_hint_model else R.string.import_video_hint_rules),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+    state.providerName?.let { name ->
+        Text(
+            text = stringResource(
+                if (state.providerOffersVideo) R.string.import_provider_hint else R.string.import_provider_hint_photos,
+                name,
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
+
+@Composable
+private fun ImportOptions(
+    state: RecipeImportUiState,
+    onIncludeTagsChange: (Boolean) -> Unit,
+    onIncludeCategoriesChange: (Boolean) -> Unit,
+) {
+    // A video has no tags nor categories for Mealie to pick up.
+    if (state.isVideo) return
+    SwitchRow(
+        title = stringResource(R.string.import_include_tags),
+        checked = state.includeTags,
+        enabled = !state.importing,
+        onCheckedChange = onIncludeTagsChange,
+    )
+    SwitchRow(
+        title = stringResource(R.string.import_include_categories),
+        checked = state.includeCategories,
+        enabled = !state.importing,
+        onCheckedChange = onIncludeCategoriesChange,
+    )
+}
+
+/** Why the last import failed, or the recipe of the instance that already comes from there. */
+@Composable
+private fun ImportProblems(state: RecipeImportUiState, onOpenExisting: (String) -> Unit, onImportAnyway: () -> Unit) {
+    val videoProblem = state.videoFailure?.let { stringResource(it.messageRes()) }
+        ?: stringResource(R.string.import_video_empty).takeIf { state.videoEmpty }
+    videoProblem?.let { ErrorPanel(it) }
+    state.error?.let { error -> ErrorPanel("${error.title()}\n${error.message()}") }
+    state.duplicate?.let { existing ->
+        DuplicateWarning(name = existing.name, onOpen = { onOpenExisting(existing.slug) }, onImportAnyway = onImportAnyway)
+    }
+}
+
+@Composable
+private fun ImportButton(state: RecipeImportUiState, onImport: () -> Unit) {
+    Button(
+        onClick = onImport,
+        modifier = Modifier.fillMaxWidth(),
+        enabled = state.canSubmit && state.duplicate == null,
+    ) {
+        val phase = state.phase
+        if (phase == null) {
+            Text(stringResource(R.string.import_action))
+            return@Button
+        }
+        CircularProgressIndicator(
+            modifier = Modifier.size(18.dp),
+            strokeWidth = 2.dp,
+            color = MaterialTheme.colorScheme.onPrimary,
+        )
+        Spacer(Modifier.size(12.dp))
+        Text(stringResource(phase.labelRes(seeing = state.watchProgress?.seeing == true)))
+    }
+}
+
+private fun ImportPhase.labelRes(seeing: Boolean): Int = when (this) {
+    ImportPhase.CHECKING -> R.string.import_checking
+    ImportPhase.IMPORTING -> R.string.import_running
+    ImportPhase.FETCHING_MEDIA -> R.string.import_fetching_media
+    ImportPhase.READING_VIDEO -> R.string.import_reading_video
+    ImportPhase.WATCHING -> if (seeing) R.string.import_watching_pictures else R.string.import_watching_sound
+    ImportPhase.UNDERSTANDING -> R.string.import_understanding
+    ImportPhase.SAVING -> R.string.import_saving
 }
 
 /** How far the language model is: reading the video, then writing the recipe. */

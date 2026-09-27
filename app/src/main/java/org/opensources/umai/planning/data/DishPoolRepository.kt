@@ -69,18 +69,7 @@ class DishPoolRepository(
         val recipes = allRecipes(api, queryFilter = null).valueOr { return it }
         val history = history(api, today).valueOr { return it }
         val rules = rules(api)
-        val userCourses = courses.userCourses.first()
-        val modelCourses = courses.modelCourses()
-
-        val placed = recipes.associate { recipe ->
-            val course = CourseClassifier.classify(
-                recipe = recipe,
-                organizerCourse = { CourseVocabulary.ofOrganizer(it.name) },
-                userCourses = userCourses,
-                pastMeals = history.counts[recipe.id].orEmpty(),
-            ) ?: modelCourses[recipe.id]
-            recipe.id to course
-        }
+        val placed = place(recipes, history)
         val eligible = recipes.filter { placed[it.id] == null || placed[it.id] == DishCourse.MAIN }
         val quality = eligible.associate { it.id to MealPlanner.quality(it, today, history.lastPlanned[it.id]) }
         fun weight(recipe: RecipeSummary) =
@@ -101,18 +90,7 @@ class DishPoolRepository(
             details(api, sampled)
         }.valueOr { return it }
 
-        val unplaced = details.filter { placed[it.id] == null }
-        val decided = if (unplaced.isEmpty()) {
-            emptyMap()
-        } else {
-            onPhase(DishPoolPhase.RECOGNIZING)
-            modelClassifier.classify(
-                unplaced.map { recipe ->
-                    UnplacedRecipe(recipe.id, recipe.name, recipe.ingredients.mapNotNull(IngredientKeys::keyOf).distinct())
-                },
-            ).also { courses.rememberModelCourses(it) }
-        }
-
+        val decided = recognize(details.filter { placed[it.id] == null }, onPhase)
         val candidates = details.mapNotNull { recipe ->
             val keys = IngredientKeys.keysOf(recipe.ingredients)
             val course = placed[recipe.id] ?: decided[recipe.id] ?: byIngredients(keys)
@@ -120,6 +98,32 @@ class DishPoolRepository(
             PlanCandidate(recipe.summary, keys, quality.getValue(recipe.id), IngredientKeys.labelsOf(recipe.ingredients))
         }
         return ApiResult.Success(DishPool(candidates, rules))
+    }
+
+    /** The course of each recipe, from what the user chose, its organizers, its name, its past meals or the model's answer. */
+    private suspend fun place(recipes: List<RecipeSummary>, history: History): Map<String, DishCourse?> {
+        val userCourses = courses.userCourses.first()
+        val modelCourses = courses.modelCourses()
+        return recipes.associate { recipe ->
+            val course = CourseClassifier.classify(
+                recipe = recipe,
+                organizerCourse = { CourseVocabulary.ofOrganizer(it.name) },
+                userCourses = userCourses,
+                pastMeals = history.counts[recipe.id].orEmpty(),
+            ) ?: modelCourses[recipe.id]
+            recipe.id to course
+        }
+    }
+
+    /** The courses the model gives the dishes nothing else placed, remembered for the next plans. */
+    private suspend fun recognize(unplaced: List<Recipe>, onPhase: (DishPoolPhase) -> Unit): Map<String, DishCourse> {
+        if (unplaced.isEmpty()) return emptyMap()
+        onPhase(DishPoolPhase.RECOGNIZING)
+        return modelClassifier.classify(
+            unplaced.map { recipe ->
+                UnplacedRecipe(recipe.id, recipe.name, recipe.ingredients.mapNotNull(IngredientKeys::keyOf).distinct())
+            },
+        ).also { courses.rememberModelCourses(it) }
     }
 
     /**

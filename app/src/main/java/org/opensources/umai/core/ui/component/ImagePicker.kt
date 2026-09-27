@@ -81,7 +81,6 @@ fun rememberImagePickerState(): ImagePickerState {
  * grant access to the one file chosen, and the camera app writes into a file
  * Umai shares with it for that single photo.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImagePicker(
     state: ImagePickerState,
@@ -89,62 +88,27 @@ fun ImagePicker(
     onImageReady: (sourceUri: String, region: CropRegion) -> Unit,
     onCameraUnavailable: () -> Unit,
 ) {
-    val context = LocalContext.current
-
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let { state.pendingCrop = it.toString() }
     }
     val files = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { state.pendingCrop = it.toString() }
     }
-    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
-        val output = state.cameraOutput
-        state.cameraOutput = null
-        if (saved && output != null) state.pendingCrop = output
-    }
-
-    fun takePhoto() {
-        val target: Uri = CameraCapture.newPhotoUri(context)
-        state.cameraOutput = target.toString()
-        try {
-            camera.launch(target)
-        } catch (_: ActivityNotFoundException) {
-            state.cameraOutput = null
-            onCameraUnavailable()
-        }
-    }
-
+    val takePhoto = rememberPhotoTaker(state, onCameraUnavailable)
     LaunchedEffect(state.cameraRequested) {
         if (state.cameraRequested) {
             state.cameraRequested = false
             takePhoto()
         }
     }
-
     if (state.choosingSource) {
-        ModalBottomSheet(onDismissRequest = { state.choosingSource = false }) {
-            Column(modifier = Modifier.navigationBarsPadding().padding(bottom = 12.dp)) {
-                Text(
-                    text = stringResource(R.string.image_source_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                )
-                SourceRow(Icons.Outlined.PhotoLibrary, stringResource(R.string.image_source_gallery)) {
-                    state.choosingSource = false
-                    gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                }
-                SourceRow(Icons.Outlined.PhotoCamera, stringResource(R.string.image_source_camera)) {
-                    state.choosingSource = false
-                    takePhoto()
-                }
-                SourceRow(Icons.Outlined.Folder, stringResource(R.string.image_source_files)) {
-                    state.choosingSource = false
-                    files.launch(arrayOf("image/*"))
-                }
-            }
-        }
+        SourceSheet(
+            onDismiss = { state.choosingSource = false },
+            onGallery = { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            onCamera = takePhoto,
+            onFiles = { files.launch(arrayOf("image/*")) },
+        )
     }
-
     state.pendingCrop?.let { source ->
         ImageCropEditor(
             sourceUri = source,
@@ -155,6 +119,54 @@ fun ImagePicker(
                 onImageReady(source, region)
             },
         )
+    }
+}
+
+/** Opens the camera app on a file shared with it for that one photo, which then goes to the crop editor. */
+@Composable
+private fun rememberPhotoTaker(state: ImagePickerState, onCameraUnavailable: () -> Unit): () -> Unit {
+    val context = LocalContext.current
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
+        val output = state.cameraOutput
+        state.cameraOutput = null
+        if (saved && output != null) state.pendingCrop = output
+    }
+    return {
+        val target: Uri = CameraCapture.newPhotoUri(context)
+        state.cameraOutput = target.toString()
+        try {
+            camera.launch(target)
+        } catch (_: ActivityNotFoundException) {
+            state.cameraOutput = null
+            onCameraUnavailable()
+        }
+    }
+}
+
+/** Where the picture comes from; choosing closes the sheet. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SourceSheet(onDismiss: () -> Unit, onGallery: () -> Unit, onCamera: () -> Unit, onFiles: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.navigationBarsPadding().padding(bottom = 12.dp)) {
+            Text(
+                text = stringResource(R.string.image_source_title),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            )
+            SourceRow(Icons.Outlined.PhotoLibrary, stringResource(R.string.image_source_gallery)) {
+                onDismiss()
+                onGallery()
+            }
+            SourceRow(Icons.Outlined.PhotoCamera, stringResource(R.string.image_source_camera)) {
+                onDismiss()
+                onCamera()
+            }
+            SourceRow(Icons.Outlined.Folder, stringResource(R.string.image_source_files)) {
+                onDismiss()
+                onFiles()
+            }
+        }
     }
 }
 

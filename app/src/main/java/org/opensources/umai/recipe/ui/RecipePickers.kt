@@ -35,7 +35,7 @@ import java.time.LocalDate
  * Picks a day and a meal slot for the recipe: a day of this week or of the
  * next one, each starting on [firstDay] as the meal plan shows them.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MealPlanPicker(
     firstDay: DayOfWeek,
@@ -69,41 +69,32 @@ fun MealPlanPicker(
             )
 
             weeks.forEach { (titleRes, days) ->
-                Text(
-                    text = stringResource(titleRes),
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    days.forEach { day ->
-                        FilterChip(
-                            selected = day == selectedDate,
-                            onClick = { selectedDate = day },
-                            label = { Text(day.label(today)) },
-                        )
-                    }
-                }
+                Text(text = stringResource(titleRes), style = MaterialTheme.typography.titleSmall)
+                ChipChoice(days, selectedDate, label = { it.label(today) }, onSelect = { selectedDate = it })
             }
-
-            Text(
-                text = stringResource(R.string.planning_meal_type),
-                style = MaterialTheme.typography.titleSmall,
+            Text(text = stringResource(R.string.planning_meal_type), style = MaterialTheme.typography.titleSmall)
+            ChipChoice(
+                options = MealType.displayOrder,
+                selected = selectedType,
+                label = { stringResource(it.labelRes()) },
+                onSelect = { selectedType = it },
             )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MealType.displayOrder.forEach { type ->
-                    FilterChip(
-                        selected = type == selectedType,
-                        onClick = { selectedType = type },
-                        label = { Text(stringResource(type.labelRes())) },
-                    )
-                }
-            }
-
             Button(
                 onClick = { onConfirm(selectedDate, selectedType) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(stringResource(R.string.action_add))
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun <T> ChipChoice(options: List<T>, selected: T, onSelect: (T) -> Unit, label: @Composable (T) -> String) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.forEach { option ->
+            FilterChip(selected = option == selected, onClick = { onSelect(option) }, label = { Text(label(option)) })
         }
     }
 }

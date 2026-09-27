@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.media3.common.Player
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import org.opensources.umai.R
 import org.opensources.umai.core.ui.component.VideoAudio
 import org.opensources.umai.core.ui.component.VideoFrame
@@ -58,7 +59,8 @@ fun StepVideoPlayer(clip: StepClip, stepNumber: Int, modifier: Modifier = Modifi
     // loaded, so moving to another step is a seek rather than a new download.
     LaunchedEffect(player, clip) {
         player.seekTo(clip.startMillis)
-        while (true) {
+        // Until the step changes or leaves the screen, which cancels this effect.
+        while (isActive) {
             val end = clip.endMillis
             val position = player.currentPosition
             if (position < clip.startMillis - SEEK_TOLERANCE_MS ||

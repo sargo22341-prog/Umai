@@ -171,7 +171,7 @@ class ModelCourseClassifierTest {
     fun `every recipe of a batch is a required answer`() = runBlocking {
         val model = Answering("{}")
 
-        ModelCourseClassifier(model).classify(List(3) { UnplacedRecipe("id$it", "Plat $it", emptyList()) })
+        val _ = ModelCourseClassifier(model).classify(List(3) { UnplacedRecipe("id$it", "Plat $it", emptyList()) })
 
         val schema = Json.parseToJsonElement(requireNotNull(model.asked).jsonSchema).jsonObject
         assertEquals(setOf("r1", "r2", "r3"), schema.getValue("properties").jsonObject.keys)
@@ -187,7 +187,7 @@ class ModelCourseClassifierTest {
         val model = Answering("{}")
         val long = List(8) { "ingrédient au nom plutôt long $it" }
 
-        ModelCourseClassifier(model).classify(List(25) { UnplacedRecipe("id$it", "Recette de saison numéro $it au four", long) })
+        val _ = ModelCourseClassifier(model).classify(List(25) { UnplacedRecipe("id$it", "Recette de saison numéro $it au four", long) })
 
         assertTrue(LocalLanguageModel.estimatedTokens(requireNotNull(model.asked)) < LocalModel.CPU_CONTEXT_SIZE)
     }

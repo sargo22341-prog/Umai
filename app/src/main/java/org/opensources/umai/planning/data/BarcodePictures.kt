@@ -5,6 +5,7 @@ import android.graphics.ImageDecoder
 import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -23,9 +24,8 @@ class DeviceBarcodePictures(context: Context) : BarcodePictures {
     private val appContext = context.applicationContext
 
     override suspend fun read(sourceUri: String): String? = withContext(Dispatchers.Default) {
-        val uri = runCatching { sourceUri.toUri() }.getOrNull() ?: return@withContext null
-        val bitmap = runCatching {
-            ImageDecoder.decodeBitmap(ImageDecoder.createSource(appContext.contentResolver, uri)) { decoder, info, _ ->
+        val bitmap = try {
+            ImageDecoder.decodeBitmap(ImageDecoder.createSource(appContext.contentResolver, sourceUri.toUri())) { decoder, info, _ ->
                 decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
                 val factor = max(1f, max(info.size.width, info.size.height) / MAX_SIDE.toFloat())
                 decoder.setTargetSize(
@@ -33,7 +33,13 @@ class DeviceBarcodePictures(context: Context) : BarcodePictures {
                     max(1, (info.size.height / factor).roundToInt()),
                 )
             }
-        }.getOrNull() ?: return@withContext null
+        } catch (_: IOException) {
+            // Gone, unreadable or not a picture.
+            return@withContext null
+        } catch (_: SecurityException) {
+            // The gallery no longer grants access to it.
+            return@withContext null
+        }
         val pixels = IntArray(bitmap.width * bitmap.height)
         bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
         val width = bitmap.width

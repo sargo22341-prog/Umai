@@ -50,6 +50,8 @@ class PlanningViewModelTest {
         clock = { today },
     )
 
+    /** Waits for the state; a test that only needs the wait leaves the value. */
+    @IgnorableReturnValue
     private suspend fun PlanningViewModel.awaitLoaded() =
         withTimeout(TIMEOUT_MS) { state.first { !it.loading } }
 

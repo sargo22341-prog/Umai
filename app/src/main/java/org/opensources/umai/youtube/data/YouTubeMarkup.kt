@@ -56,7 +56,12 @@ internal object YouTubeMarkup {
             .firstOrNull { it.startsWith("q=") }
             ?.removePrefix("q=")
             ?: return href
-        return runCatching { java.net.URLDecoder.decode(target, Charsets.UTF_8) }.getOrDefault(href)
+        return try {
+            java.net.URLDecoder.decode(target, Charsets.UTF_8)
+        } catch (_: IllegalArgumentException) {
+            // A stray `%` in the address: the wrapper is kept rather than a broken link.
+            href
+        }
     }
 
     /** The character references HTML and XML use: named ones YouTube writes, and numeric ones. */

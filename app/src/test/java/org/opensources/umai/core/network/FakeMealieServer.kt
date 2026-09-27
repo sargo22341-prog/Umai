@@ -36,6 +36,8 @@ class FakeMealieServer {
 
     fun enqueueError(code: Int, body: String = """{"detail":"nope"}""") = enqueueJson(body, code)
 
+    /** The next request; a test may take one only to reach the next. */
+    @IgnorableReturnValue
     fun takeRequest(): RecordedRequest = server.takeRequest()
 
     fun shutdown() = server.close()

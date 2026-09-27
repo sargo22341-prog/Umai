@@ -15,11 +15,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -28,7 +26,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,6 +38,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.opensources.umai.R
 import org.opensources.umai.core.di.LocalAppContainer
+import org.opensources.umai.core.ui.component.BackTopAppBar
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
 import java.io.File
@@ -92,7 +90,6 @@ fun RecipeCreateRoute(
 }
 
 /** Stateless form, driven by [RecipeCreateUiState]. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeCreateScreen(
     state: RecipeCreateUiState,
@@ -107,43 +104,20 @@ fun RecipeCreateScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.profile_create_recipe)) },
-                navigationIcon = {
-                    IconButton(onClick = onLeave) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = stringResource(R.string.action_back),
-                        )
-                    }
-                },
+            BackTopAppBar(
+                title = stringResource(R.string.profile_create_recipe),
+                onBack = onLeave,
                 actions = {
                     IconButton(onClick = onLeave) {
-                        Icon(
-                            imageVector = Icons.Outlined.Save,
-                            contentDescription = stringResource(R.string.create_save_draft),
-                        )
+                        Icon(imageVector = Icons.Outlined.Save, contentDescription = stringResource(R.string.create_save_draft))
                     }
                 },
             )
         },
-        bottomBar = {
-            StepControls(
-                state = state,
-                onPrevious = onPrevious,
-                onNext = onNext,
-                onCreate = onCreate,
-            )
-        },
+        bottomBar = { StepControls(state = state, onPrevious = onPrevious, onNext = onNext, onCreate = onCreate) },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .imePadding(),
-        ) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding).imePadding()) {
             StepHeader(state)
-
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -152,42 +126,43 @@ fun RecipeCreateScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 state.error?.let { error ->
-                    ErrorBanner(
-                        message = "${error.title()}\n${error.message()}",
-                        onDismiss = onDismissError,
-                    )
+                    ErrorBanner(message = "${error.title()}\n${error.message()}", onDismiss = onDismissError)
                 }
-
-                when (state.step) {
-                    RecipeFormSection.BASICS -> BasicsSection(state.draft, actions)
-                    RecipeFormSection.IMAGE -> ImageSection(
-                        imageUrl = state.draft.imagePath?.let { Uri.fromFile(File(it)).toString() },
-                        processing = state.processingImage,
-                        canRemove = state.draft.imagePath != null,
-                        failed = state.imageFailed,
-                        actions = actions,
-                    )
-                    RecipeFormSection.INGREDIENTS -> IngredientsSection(state.draft, actions)
-                    RecipeFormSection.INSTRUCTIONS -> InstructionsSection(
-                        draft = state.draft,
-                        state = state.steps,
-                        photoUrl = { step -> step.photoPath?.let { Uri.fromFile(File(it)).toString() } },
-                        actions = actions,
-                    )
-                    RecipeFormSection.ORGANIZERS -> OrganizersSection(
-                        draft = state.draft,
-                        categories = state.categories,
-                        tags = state.tags,
-                        loading = state.loadingOrganizers,
-                        actions = actions,
-                    )
-                    // A recipe being written has no video yet: the creation never walks here.
-                    RecipeFormSection.VIDEO -> Unit
-                }
-
+                CreateSection(state, actions)
                 Spacer(Modifier.size(12.dp))
             }
         }
+    }
+}
+
+/** The part of the form of the current step. */
+@Composable
+private fun CreateSection(state: RecipeCreateUiState, actions: RecipeFormActions) {
+    when (state.step) {
+        RecipeFormSection.BASICS -> BasicsSection(state.draft, actions)
+        RecipeFormSection.IMAGE -> ImageSection(
+            imageUrl = state.draft.imagePath?.let { Uri.fromFile(File(it)).toString() },
+            processing = state.processingImage,
+            canRemove = state.draft.imagePath != null,
+            failed = state.imageFailed,
+            actions = actions,
+        )
+        RecipeFormSection.INGREDIENTS -> IngredientsSection(state.draft, actions)
+        RecipeFormSection.INSTRUCTIONS -> InstructionsSection(
+            draft = state.draft,
+            state = state.steps,
+            photoUrl = { step -> step.photoPath?.let { Uri.fromFile(File(it)).toString() } },
+            actions = actions,
+        )
+        RecipeFormSection.ORGANIZERS -> OrganizersSection(
+            draft = state.draft,
+            categories = state.categories,
+            tags = state.tags,
+            loading = state.loadingOrganizers,
+            actions = actions,
+        )
+        // A recipe being written has no video yet: the creation never walks here.
+        RecipeFormSection.VIDEO -> Unit
     }
 }
 

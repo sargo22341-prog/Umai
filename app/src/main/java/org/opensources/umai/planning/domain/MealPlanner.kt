@@ -1,5 +1,6 @@
 package org.opensources.umai.planning.domain
 
+import org.opensources.umai.core.format.ApiDates
 import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.model.RecipeSummary
 import java.time.LocalDate
@@ -217,7 +218,7 @@ class MealPlanner(private val random: Random) {
          */
         fun quality(recipe: RecipeSummary, today: LocalDate, lastPlanned: LocalDate?): Double {
             val rating = (recipe.rating?.takeIf { it > 0 } ?: UNRATED) / MAX_RATING
-            val lastMade = recipe.lastMade?.take(DATE_LENGTH)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            val lastMade = ApiDates.parseDate(recipe.lastMade)
             val recent = listOfNotNull(lastMade, lastPlanned).maxOrNull()
                 ?.let { ChronoUnit.DAYS.between(it, today) in 0..RECENT_DAYS } == true
             return (rating - if (recent) RECENT_PENALTY else 0.0).coerceIn(0.0, 1.0)
@@ -237,7 +238,6 @@ class MealPlanner(private val random: Random) {
         private const val UNRATED = 3.0
         private const val MAX_RATING = 5.0
         private const val RECENT_PENALTY = 0.4
-        private const val DATE_LENGTH = 10
         private const val MIN_SAMPLE_WEIGHT = 0.05
     }
 }

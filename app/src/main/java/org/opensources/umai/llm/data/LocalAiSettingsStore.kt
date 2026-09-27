@@ -51,7 +51,9 @@ class LocalAiSettingsStore(context: Context) : DownloadRecord<LocalModel> {
 
     override suspend fun pending(): PendingDownload<LocalModel>? = current().pending
 
-    suspend fun setEnabled(enabled: Boolean) = dataStore.edit { it[KeyEnabled] = enabled }
+    suspend fun setEnabled(enabled: Boolean) {
+        dataStore.edit { it[KeyEnabled] = enabled }
+    }
 
     override suspend fun setPending(pending: PendingDownload<LocalModel>?) {
         dataStore.edit { prefs ->

@@ -41,6 +41,8 @@ class WeekShoppingViewModelTest {
 
     private fun viewModel() = WeekShoppingViewModel(RecipeRepository({ fake.api() }), ShoppingRepository { fake.api() })
 
+    /** Waits for the state; a test that only needs the wait leaves the value. */
+    @IgnorableReturnValue
     private suspend fun WeekShoppingViewModel.await(predicate: (WeekShoppingUiState) -> Boolean) =
         withTimeout(TIMEOUT_MS) { state.first(predicate) }
 

@@ -33,7 +33,9 @@ object CourseClassifier {
         if (chosen.isNotEmpty()) return chosen.firstOrNull { it != DishCourse.MAIN } ?: DishCourse.MAIN
 
         val votes = mutableMapOf<DishCourse, Int>()
-        fun vote(course: DishCourse, weight: Int) = votes.merge(course, weight, Int::plus)
+        fun vote(course: DishCourse, weight: Int) {
+            votes.merge(course, weight, Int::plus)
+        }
         organizers.forEach { organizer -> organizerCourse(organizer)?.let { vote(it, ORGANIZER_WEIGHT) } }
         CourseVocabulary.ofRecipeName(recipe.name)?.let { vote(it, NAME_WEIGHT) }
         pastMeals.forEach { (type, count) -> courseOf(type)?.let { vote(it, min(count, MAX_HISTORY_WEIGHT)) } }

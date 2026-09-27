@@ -34,7 +34,9 @@ class RecipeDraftsViewModel(private val store: RecipeDraftStore) : ViewModel() {
         }
     }
 
-    fun delete(id: String) = viewModelScope.launch { store.delete(id) }
+    fun delete(id: String) {
+        viewModelScope.launch { store.delete(id) }
+    }
 
     companion object {
         fun factory(container: AppContainer) = viewModelFactory {

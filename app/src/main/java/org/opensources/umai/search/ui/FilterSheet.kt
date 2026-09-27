@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -26,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,14 +58,9 @@ fun FilterSheet(
     onFoodQueryChange: (String) -> Unit,
     onFoodSelected: (Food) -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var draft by remember(filters) { mutableStateOf(filters) }
-    var categoryQuery by remember { mutableStateOf("") }
-    var tagQuery by remember { mutableStateOf("") }
-    var foodQuery by remember { mutableStateOf("") }
-
+    val searches = remember { FilterSearches() }
     val listState = rememberLazyListState()
-    var focusedSection by remember { mutableStateOf<String?>(null) }
     // With the keyboard up, a field near the bottom of the list could not be
     // scrolled to the top of the sheet: the extra room lets it get there, so
     // the suggestions under it stay in sight.
@@ -75,180 +72,28 @@ fun FilterSheet(
 
     // Once the keyboard is up and the room made, the section being typed in
     // moves to the top of the sheet, its suggestions right under it.
-    LaunchedEffect(focusedSection, roomReady) {
-        val key = focusedSection ?: return@LaunchedEffect
+    LaunchedEffect(searches.focusedSection, roomReady) {
+        val key = searches.focusedSection ?: return@LaunchedEffect
         if (!roomReady) return@LaunchedEffect
         listState.layoutInfo.visibleItemsInfo
             .firstOrNull { it.key == key }
             ?.let { listState.animateScrollToItem(it.index) }
     }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-    ) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(modifier = Modifier.navigationBarsPadding().imePadding()) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .weight(1f, fill = false)
                     .heightIn(max = 560.dp),
-                contentPadding = PaddingValues(
-                    start = 20.dp,
-                    end = 20.dp,
-                    bottom = 12.dp + keyboardRoom,
-                ),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 12.dp + keyboardRoom),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                item {
-                    Text(
-                        text = stringResource(R.string.filter_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                    )
-                }
-
-                if (options.loading) {
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(24.dp),
-                            horizontalArrangement = Arrangement.Center,
-                        ) {
-                            CircularProgressIndicator()
-                        }
-                    }
-                }
-
-                options.error?.let { error ->
-                    item { NetworkErrorView(error = error) }
-                }
-
-                item {
-                    ToggleRow(
-                        label = stringResource(R.string.filter_favorites),
-                        checked = draft.favoritesOnly,
-                        onCheckedChange = { draft = draft.copy(favoritesOnly = it) },
-                    )
-                }
-
-                item {
-                    RatingSection(
-                        minRating = draft.minRating,
-                        onSelect = { draft = draft.copy(minRating = it) },
-                    )
-                }
-
-                item {
-                    AddedSection(
-                        selected = draft.addedWithin,
-                        onSelect = { draft = draft.copy(addedWithin = it) },
-                    )
-                }
-
-                item {
-                    CaloriesSection(
-                        selected = draft.calories,
-                        onSelect = { draft = draft.copy(calories = it) },
-                    )
-                }
-
-                if (options.categories.isNotEmpty()) {
-                    item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
-                    item(key = KEY_CATEGORIES) {
-                        SearchablePicker(
-                            title = stringResource(R.string.filter_categories),
-                            fieldLabel = stringResource(R.string.filter_search_categories),
-                            query = categoryQuery,
-                            onQueryChange = { categoryQuery = it },
-                            selected = options.categories
-                                .filter { it.id in draft.categoryIds }
-                                .map { PickerEntry(it.id, it.name) },
-                            suggestions = options.categories
-                                .suggestionsFor(categoryQuery, draft.categoryIds)
-                                .map { PickerEntry(it.id, it.name) },
-                            onAdd = { entry ->
-                                draft = draft.copy(categoryIds = draft.categoryIds + entry.id)
-                                categoryQuery = ""
-                            },
-                            onRemove = { entry ->
-                                draft = draft.copy(categoryIds = draft.categoryIds - entry.id)
-                            },
-                            requireAll = draft.requireAllCategories,
-                            onRequireAllChange = { draft = draft.copy(requireAllCategories = it) },
-                            onFocusChange = { focusedSection = focusedSection.after(KEY_CATEGORIES, it) },
-                        )
-                    }
-                }
-
-                if (options.tags.isNotEmpty()) {
-                    item(key = KEY_TAGS) {
-                        SearchablePicker(
-                            title = stringResource(R.string.filter_tags),
-                            fieldLabel = stringResource(R.string.filter_search_tags),
-                            query = tagQuery,
-                            onQueryChange = { tagQuery = it },
-                            selected = options.tags
-                                .filter { it.id in draft.tagIds }
-                                .map { PickerEntry(it.id, it.name) },
-                            suggestions = options.tags
-                                .suggestionsFor(tagQuery, draft.tagIds)
-                                .map { PickerEntry(it.id, it.name) },
-                            onAdd = { entry ->
-                                draft = draft.copy(tagIds = draft.tagIds + entry.id)
-                                tagQuery = ""
-                            },
-                            onRemove = { entry -> draft = draft.copy(tagIds = draft.tagIds - entry.id) },
-                            requireAll = draft.requireAllTags,
-                            onRequireAllChange = { draft = draft.copy(requireAllTags = it) },
-                            onFocusChange = { focusedSection = focusedSection.after(KEY_TAGS, it) },
-                        )
-                    }
-                }
-
-                if (options.tools.isNotEmpty()) {
-                    item {
-                        ToolSection(
-                            tools = options.tools,
-                            selected = draft.toolIds,
-                            requireAll = draft.requireAllTools,
-                            onToggle = { id -> draft = draft.copy(toolIds = draft.toolIds.toggle(id)) },
-                            onRequireAllChange = { draft = draft.copy(requireAllTools = it) },
-                        )
-                    }
-                }
-
-                item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
-
-                item(key = KEY_FOODS) {
-                    val selectedFoods = options.selectedFoods.filter { it.id in draft.foodIds }
-                    SearchablePicker(
-                        title = stringResource(R.string.filter_foods),
-                        fieldLabel = stringResource(R.string.filter_search_foods),
-                        query = foodQuery,
-                        onQueryChange = {
-                            foodQuery = it
-                            onFoodQueryChange(it)
-                        },
-                        selected = selectedFoods.map { PickerEntry(it.id, it.name) },
-                        suggestions = options.foodResults
-                            .filter { it.id !in draft.foodIds }
-                            .takeIf { foodQuery.trim().length >= SearchViewModel.MIN_FOOD_QUERY }
-                            .orEmpty()
-                            .map { PickerEntry(it.id, it.name) },
-                        onAdd = { entry ->
-                            options.foodResults.firstOrNull { it.id == entry.id }?.let(onFoodSelected)
-                            draft = draft.copy(foodIds = draft.foodIds + entry.id)
-                            foodQuery = ""
-                            onFoodQueryChange("")
-                        },
-                        onRemove = { entry -> draft = draft.copy(foodIds = draft.foodIds - entry.id) },
-                        requireAll = draft.requireAllFoods,
-                        onRequireAllChange = { draft = draft.copy(requireAllFoods = it) },
-                        onFocusChange = { focusedSection = focusedSection.after(KEY_FOODS, it) },
-                        hint = stringResource(R.string.filter_food_hint),
-                    )
-                }
-
+                sheetHeader(options)
+                valueFilters(draft, onChange = { draft = it })
+                organizerFilters(draft, options, searches, onChange = { draft = it })
+                foodFilter(draft, options, searches, onChange = { draft = it }, onFoodQueryChange, onFoodSelected)
                 item {
                     Text(
                         text = stringResource(R.string.filter_time_unsupported),
@@ -258,28 +103,174 @@ fun FilterSheet(
                     )
                 }
             }
-
             HorizontalDivider()
+            SheetButtons(onReset = onReset, onApply = { onApply(draft) })
+        }
+    }
+}
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                OutlinedButton(
-                    onClick = onReset,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(stringResource(R.string.action_reset))
-                }
-                Button(
-                    onClick = { onApply(draft) },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(stringResource(R.string.action_apply))
-                }
+/** The text typed in the searches of the sheet, and which of them has the focus. */
+@Stable
+private class FilterSearches {
+    var category by mutableStateOf("")
+    var tag by mutableStateOf("")
+    var food by mutableStateOf("")
+    var focusedSection by mutableStateOf<String?>(null)
+        private set
+
+    fun focus(section: String, focused: Boolean) {
+        focusedSection = focusedSection.after(section, focused)
+    }
+}
+
+private fun LazyListScope.sheetHeader(options: FilterOptionsState) {
+    item {
+        Text(
+            text = stringResource(R.string.filter_title),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+    }
+    if (options.loading) {
+        item {
+            Row(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalArrangement = Arrangement.Center) {
+                CircularProgressIndicator()
             }
+        }
+    }
+    options.error?.let { error ->
+        item { NetworkErrorView(error = error) }
+    }
+}
+
+/** The filters on values of the recipe: favourite, rating, date added, calories. */
+private fun LazyListScope.valueFilters(draft: RecipeFilters, onChange: (RecipeFilters) -> Unit) {
+    item {
+        ToggleRow(
+            label = stringResource(R.string.filter_favorites),
+            checked = draft.favoritesOnly,
+            onCheckedChange = { onChange(draft.copy(favoritesOnly = it)) },
+        )
+    }
+    item { RatingSection(minRating = draft.minRating, onSelect = { onChange(draft.copy(minRating = it)) }) }
+    item { AddedSection(selected = draft.addedWithin, onSelect = { onChange(draft.copy(addedWithin = it)) }) }
+    item { CaloriesSection(selected = draft.calories, onSelect = { onChange(draft.copy(calories = it)) }) }
+}
+
+/** Categories, tags and tools, each shown only when the instance has some. */
+private fun LazyListScope.organizerFilters(
+    draft: RecipeFilters,
+    options: FilterOptionsState,
+    searches: FilterSearches,
+    onChange: (RecipeFilters) -> Unit,
+) {
+    if (options.categories.isNotEmpty()) {
+        item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
+        item(key = KEY_CATEGORIES) {
+            SearchablePicker(
+                title = stringResource(R.string.filter_categories),
+                fieldLabel = stringResource(R.string.filter_search_categories),
+                query = searches.category,
+                onQueryChange = { searches.category = it },
+                selected = options.categories.filter { it.id in draft.categoryIds }.map { PickerEntry(it.id, it.name) },
+                suggestions = options.categories.suggestionsFor(searches.category, draft.categoryIds).map { PickerEntry(it.id, it.name) },
+                onAdd = { entry ->
+                    onChange(draft.copy(categoryIds = draft.categoryIds + entry.id))
+                    searches.category = ""
+                },
+                onRemove = { entry -> onChange(draft.copy(categoryIds = draft.categoryIds - entry.id)) },
+                requireAll = draft.requireAllCategories,
+                onRequireAllChange = { onChange(draft.copy(requireAllCategories = it)) },
+                onFocusChange = { searches.focus(KEY_CATEGORIES, it) },
+            )
+        }
+    }
+    if (options.tags.isNotEmpty()) {
+        item(key = KEY_TAGS) {
+            SearchablePicker(
+                title = stringResource(R.string.filter_tags),
+                fieldLabel = stringResource(R.string.filter_search_tags),
+                query = searches.tag,
+                onQueryChange = { searches.tag = it },
+                selected = options.tags.filter { it.id in draft.tagIds }.map { PickerEntry(it.id, it.name) },
+                suggestions = options.tags.suggestionsFor(searches.tag, draft.tagIds).map { PickerEntry(it.id, it.name) },
+                onAdd = { entry ->
+                    onChange(draft.copy(tagIds = draft.tagIds + entry.id))
+                    searches.tag = ""
+                },
+                onRemove = { entry -> onChange(draft.copy(tagIds = draft.tagIds - entry.id)) },
+                requireAll = draft.requireAllTags,
+                onRequireAllChange = { onChange(draft.copy(requireAllTags = it)) },
+                onFocusChange = { searches.focus(KEY_TAGS, it) },
+            )
+        }
+    }
+    if (options.tools.isNotEmpty()) {
+        item {
+            ToolSection(
+                tools = options.tools,
+                selected = draft.toolIds,
+                requireAll = draft.requireAllTools,
+                onToggle = { id -> onChange(draft.copy(toolIds = draft.toolIds.toggle(id))) },
+                onRequireAllChange = { onChange(draft.copy(requireAllTools = it)) },
+            )
+        }
+    }
+}
+
+/** Foods are searched on the instance as they are typed: it may hold thousands. */
+private fun LazyListScope.foodFilter(
+    draft: RecipeFilters,
+    options: FilterOptionsState,
+    searches: FilterSearches,
+    onChange: (RecipeFilters) -> Unit,
+    onFoodQueryChange: (String) -> Unit,
+    onFoodSelected: (Food) -> Unit,
+) {
+    item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
+    item(key = KEY_FOODS) {
+        SearchablePicker(
+            title = stringResource(R.string.filter_foods),
+            fieldLabel = stringResource(R.string.filter_search_foods),
+            query = searches.food,
+            onQueryChange = {
+                searches.food = it
+                onFoodQueryChange(it)
+            },
+            selected = options.selectedFoods.filter { it.id in draft.foodIds }.map { PickerEntry(it.id, it.name) },
+            suggestions = options.foodResults
+                .filter { it.id !in draft.foodIds }
+                .takeIf { searches.food.trim().length >= SearchViewModel.MIN_FOOD_QUERY }
+                .orEmpty()
+                .map { PickerEntry(it.id, it.name) },
+            onAdd = { entry ->
+                options.foodResults.firstOrNull { it.id == entry.id }?.let(onFoodSelected)
+                onChange(draft.copy(foodIds = draft.foodIds + entry.id))
+                searches.food = ""
+                onFoodQueryChange("")
+            },
+            onRemove = { entry -> onChange(draft.copy(foodIds = draft.foodIds - entry.id)) },
+            requireAll = draft.requireAllFoods,
+            onRequireAllChange = { onChange(draft.copy(requireAllFoods = it)) },
+            onFocusChange = { searches.focus(KEY_FOODS, it) },
+            hint = stringResource(R.string.filter_food_hint),
+        )
+    }
+}
+
+@Composable
+private fun SheetButtons(onReset: () -> Unit, onApply: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        OutlinedButton(onClick = onReset, modifier = Modifier.weight(1f)) {
+            Text(stringResource(R.string.action_reset))
+        }
+        Button(onClick = onApply, modifier = Modifier.weight(1f)) {
+            Text(stringResource(R.string.action_apply))
         }
     }
 }

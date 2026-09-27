@@ -120,7 +120,7 @@ class ProfileRepositoryTest {
         fake.takeRequest()
 
         fake.enqueueJson(PREFERENCES)
-        repository.updateHouseholdPreferences(
+        val _ = repository.updateHouseholdPreferences(
             current.copy(firstDayOfWeek = HouseholdPreferences.mealieDayNumber(DayOfWeek.SUNDAY)),
         )
 

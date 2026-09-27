@@ -83,7 +83,6 @@ fun ShoppingModeRoute(
 }
 
 /** Stateless shopping mode, driven by [ShoppingUiState]. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShoppingModeScreen(
     state: ShoppingUiState,
@@ -111,59 +110,13 @@ fun ShoppingModeScreen(
     Scaffold(
         modifier = modifier,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            Column {
-                TopAppBar(
-                    title = {
-                        Column {
-                            Text(
-                                text = list?.name ?: stringResource(R.string.shopping_mode_title),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            if (list != null) {
-                                Text(
-                                    text = stringResource(
-                                        R.string.shopping_mode_progress,
-                                        state.basketItems.size,
-                                        list.items.size,
-                                    ),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onExit) {
-                            Icon(
-                                imageVector = Icons.Outlined.Close,
-                                contentDescription = stringResource(R.string.shopping_mode_exit),
-                            )
-                        }
-                    },
-                )
-                if (list != null && list.items.isNotEmpty()) {
-                    LinearProgressIndicator(
-                        progress = { state.basketItems.size.toFloat() / list.items.size },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-        },
+        topBar = { ShoppingModeTopBar(state, onExit) },
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when {
-                list == null && error != null -> NetworkErrorView(
-                    error = error,
-                    modifier = Modifier.fillMaxSize(),
-                    onRetry = onRetry,
-                )
-
+                list == null && error != null -> NetworkErrorView(error = error, modifier = Modifier.fillMaxSize(), onRetry = onRetry)
                 list == null -> LoadingView()
-
                 list.items.isEmpty() -> EmptyList()
-
                 else -> ShoppingModeList(
                     remaining = state.remainingItems,
                     basket = state.basketItems,
@@ -171,6 +124,40 @@ fun ShoppingModeScreen(
                     onExit = onExit,
                 )
             }
+        }
+    }
+}
+
+/** The name of the list, how much of it is in the basket, and the way out. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ShoppingModeTopBar(state: ShoppingUiState, onExit: () -> Unit) {
+    val list = state.list
+    Column {
+        TopAppBar(
+            title = {
+                Column {
+                    Text(text = list?.name ?: stringResource(R.string.shopping_mode_title), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (list != null) {
+                        Text(
+                            text = stringResource(R.string.shopping_mode_progress, state.basketItems.size, list.items.size),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            },
+            navigationIcon = {
+                IconButton(onClick = onExit) {
+                    Icon(imageVector = Icons.Outlined.Close, contentDescription = stringResource(R.string.shopping_mode_exit))
+                }
+            },
+        )
+        if (list != null && list.items.isNotEmpty()) {
+            LinearProgressIndicator(
+                progress = { state.basketItems.size.toFloat() / list.items.size },
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }

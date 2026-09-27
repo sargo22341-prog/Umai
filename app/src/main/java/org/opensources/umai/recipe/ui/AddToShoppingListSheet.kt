@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Remove
@@ -54,7 +55,7 @@ import org.opensources.umai.core.model.ShoppingListSummary
  * unticked. Mealie's own "add recipe to list" endpoint does the rest: quantities
  * are scaled server-side and the list keeps its link to the recipe.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddToShoppingListSheet(
     recipe: Recipe,
@@ -64,25 +65,14 @@ fun AddToShoppingListSheet(
     onDismiss: () -> Unit,
     onConfirm: (ShoppingListSummary, Int, List<RecipeIngredient>) -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val baseServings = recipe.baseServings
-
     var selectedListId by remember(lists) { mutableStateOf(lists.firstOrNull()?.id) }
-    var servings by remember {
-        mutableIntStateOf(initialServings.takeIf { it > 0 } ?: baseServings ?: 1)
-    }
+    var servings by remember { mutableIntStateOf(initialServings.takeIf { it > 0 } ?: baseServings ?: 1) }
     var excluded by remember { mutableStateOf(emptySet<Int>()) }
+    val selected = remember(excluded, recipe) { recipe.ingredients.filterIndexed { index, _ -> index !in excluded } }
+    val scale = if (baseServings != null && baseServings > 0) servings.toDouble() / baseServings else 1.0
 
-    val selected = remember(excluded, recipe) {
-        recipe.ingredients.filterIndexed { index, _ -> index !in excluded }
-    }
-    val scale = if (baseServings != null && baseServings > 0) {
-        servings.toDouble() / baseServings
-    } else {
-        1.0
-    }
-
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(modifier = Modifier.navigationBarsPadding()) {
             LazyColumn(
                 modifier = Modifier.weight(1f, fill = false).heightIn(max = 520.dp),
@@ -96,99 +86,14 @@ fun AddToShoppingListSheet(
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                 }
-
-                item { SectionLabel(stringResource(R.string.shopping_choose_list)) }
-
-                if (loadingLists && lists.isEmpty()) {
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            horizontalArrangement = Arrangement.Center,
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp,
-                            )
-                        }
-                    }
-                } else if (lists.isEmpty()) {
-                    item {
-                        Text(
-                            text = stringResource(R.string.shopping_no_lists_message),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                } else {
-                    item {
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            lists.forEach { list ->
-                                FilterChip(
-                                    selected = list.id == selectedListId,
-                                    onClick = { selectedListId = list.id },
-                                    label = { Text(list.name) },
-                                )
-                            }
-                        }
-                    }
-                }
-
+                listChoiceItems(lists, loadingLists, selectedListId, onSelect = { selectedListId = it })
                 if (baseServings != null) {
                     item { SectionLabel(stringResource(R.string.filter_servings)) }
-                    item {
-                        ServingsRow(
-                            servings = servings,
-                            baseServings = baseServings,
-                            onChange = { servings = it.coerceIn(1, MAX_SERVINGS) },
-                        )
-                    }
+                    item { ServingsRow(servings, baseServings, onChange = { servings = it.coerceIn(1, MAX_SERVINGS) }) }
                 }
-
-                if (recipe.ingredients.isNotEmpty()) {
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            SectionLabel(stringResource(R.string.recipe_ingredients))
-                            TextButton(
-                                onClick = {
-                                    excluded = if (excluded.isEmpty()) {
-                                        recipe.ingredients.indices.toSet()
-                                    } else {
-                                        emptySet()
-                                    }
-                                },
-                            ) {
-                                Text(
-                                    stringResource(
-                                        if (excluded.isEmpty()) {
-                                            R.string.action_select_none
-                                        } else {
-                                            R.string.action_select_all
-                                        },
-                                    ),
-                                )
-                            }
-                        }
-                    }
-
-                    items(count = recipe.ingredients.size) { index ->
-                        val ingredient = recipe.ingredients[index]
-                        IngredientCheckRow(
-                            label = IngredientText.format(ingredient, scale),
-                            checked = index !in excluded,
-                            onCheckedChange = { checked ->
-                                excluded = if (checked) excluded - index else excluded + index
-                            },
-                        )
-                    }
-                }
+                ingredientChoiceItems(recipe.ingredients, scale, excluded, onExcludedChange = { excluded = it })
             }
-
             HorizontalDivider()
-
             Button(
                 onClick = {
                     val list = lists.firstOrNull { it.id == selectedListId } ?: return@Button
@@ -202,6 +107,66 @@ fun AddToShoppingListSheet(
                 Text(stringResource(R.string.action_add))
             }
         }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+private fun LazyListScope.listChoiceItems(
+    lists: List<ShoppingListSummary>,
+    loading: Boolean,
+    selectedListId: String?,
+    onSelect: (String) -> Unit,
+) {
+    item { SectionLabel(stringResource(R.string.shopping_choose_list)) }
+    when {
+        loading && lists.isEmpty() -> item {
+            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.Center) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+            }
+        }
+        lists.isEmpty() -> item {
+            Text(
+                text = stringResource(R.string.shopping_no_lists_message),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        else -> item {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                lists.forEach { list ->
+                    FilterChip(selected = list.id == selectedListId, onClick = { onSelect(list.id) }, label = { Text(list.name) })
+                }
+            }
+        }
+    }
+}
+
+/** The lines of the recipe, each ticked unless the reader has it already. */
+private fun LazyListScope.ingredientChoiceItems(
+    ingredients: List<RecipeIngredient>,
+    scale: Double,
+    excluded: Set<Int>,
+    onExcludedChange: (Set<Int>) -> Unit,
+) {
+    if (ingredients.isEmpty()) return
+    item {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            SectionLabel(stringResource(R.string.recipe_ingredients))
+            TextButton(onClick = { onExcludedChange(if (excluded.isEmpty()) ingredients.indices.toSet() else emptySet()) }) {
+                Text(stringResource(if (excluded.isEmpty()) R.string.action_select_none else R.string.action_select_all))
+            }
+        }
+    }
+    items(count = ingredients.size) { index ->
+        IngredientCheckRow(
+            label = IngredientText.format(ingredients[index], scale),
+            checked = index !in excluded,
+            onCheckedChange = { checked -> onExcludedChange(if (checked) excluded - index else excluded + index) },
+        )
     }
 }
 

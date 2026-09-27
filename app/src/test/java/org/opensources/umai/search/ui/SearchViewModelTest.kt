@@ -54,6 +54,8 @@ class SearchViewModelTest {
         deletedRecipes = deletions,
     )
 
+    /** Waits for the state; a test that only needs the wait leaves the value. */
+    @IgnorableReturnValue
     private suspend fun SearchViewModel.awaitResults(): SearchUiState =
         withTimeout(TIMEOUT_MS) { state.first { it.hasQueried && !it.loading } }
 

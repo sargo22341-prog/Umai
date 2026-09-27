@@ -218,6 +218,7 @@ class CookingViewModelTest {
     )
 
     /** Suspends until the screen has something to show, or fails the test. */
+    @IgnorableReturnValue
     private suspend fun CookingViewModel.awaitSettled(): CookingUiState =
         withTimeout(TIMEOUT_MS) { state.first { !it.loading } }
 

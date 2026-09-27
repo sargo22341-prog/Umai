@@ -90,7 +90,7 @@ class RecipeCommentRepositoryTest {
     fun `deleting a comment calls the comment endpoint`() = runTest {
         fake.enqueueJson("""{"message":"ok"}""")
 
-        repository.delete("c1")
+        val _ = repository.delete("c1")
 
         val request = fake.takeRequest()
         assertEquals("DELETE", request.method)

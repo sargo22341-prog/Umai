@@ -16,7 +16,6 @@ import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -91,7 +90,6 @@ class RecipeSearchActions(
  * [fieldModifier] and [bodyModifier] apply to the field and to everything
  * below it, so a screen can animate the two apart as it appears.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun RecipeSearchContent(
     state: SearchUiState,
@@ -105,14 +103,8 @@ internal fun RecipeSearchContent(
     bodyModifier: Modifier = Modifier,
 ) {
     var filtersVisible by remember { mutableStateOf(false) }
-    val gridState = rememberLazyGridState()
-    val nearEnd = gridState.isNearEnd()
     val focusRequester = remember { FocusRequester() }
-
     LaunchedEffect(autoFocus) { if (autoFocus) focusRequester.requestFocus() }
-    LaunchedEffect(nearEnd, state.results.page) {
-        if (nearEnd) actions.onLoadMore()
-    }
 
     if (filtersVisible) {
         FilterSheet(
@@ -145,57 +137,56 @@ internal fun RecipeSearchContent(
             },
             modifier = fieldModifier,
         )
-
         Column(modifier = bodyModifier.fillMaxSize()) {
             SortBar(sort = state.sort, onSelect = actions.onSelectSort)
-
             if (state.filters.activeCount > 0) {
-                ActiveFiltersRow(
-                    count = state.filters.activeCount,
-                    onClear = actions.onResetFilters,
-                )
+                ActiveFiltersRow(count = state.filters.activeCount, onClear = actions.onResetFilters)
             }
+            SearchResults(state, actions, onRecipeClick, recipeImageUrl)
+        }
+    }
+}
 
-            val error = state.error
-            when {
-                state.loading && state.results.items.isEmpty() -> LoadingView()
-
-                error != null && state.results.items.isEmpty() ->
-                    NetworkErrorView(
-                        error = error,
-                        modifier = Modifier.fillMaxSize(),
-                        onRetry = actions.onRetry,
-                    )
-
-                state.isEmptyResult -> EmptyView(
-                    title = stringResource(R.string.search_empty_title),
-                    message = stringResource(R.string.search_empty_message),
-                    icon = Icons.Outlined.Search,
-                    modifier = Modifier.fillMaxSize(),
+/** The recipes found, loaded page after page as the end of the grid comes near. */
+@Composable
+private fun SearchResults(
+    state: SearchUiState,
+    actions: RecipeSearchActions,
+    onRecipeClick: (RecipeSummary) -> Unit,
+    recipeImageUrl: (RecipeSummary) -> String?,
+) {
+    val gridState = rememberLazyGridState()
+    val nearEnd = gridState.isNearEnd()
+    LaunchedEffect(nearEnd, state.results.page) {
+        if (nearEnd) actions.onLoadMore()
+    }
+    val error = state.error
+    when {
+        state.loading && state.results.items.isEmpty() -> LoadingView()
+        error != null && state.results.items.isEmpty() ->
+            NetworkErrorView(error = error, modifier = Modifier.fillMaxSize(), onRetry = actions.onRetry)
+        state.isEmptyResult -> EmptyView(
+            title = stringResource(R.string.search_empty_title),
+            message = stringResource(R.string.search_empty_message),
+            icon = Icons.Outlined.Search,
+            modifier = Modifier.fillMaxSize(),
+        )
+        else -> PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = actions.onRefresh, modifier = Modifier.fillMaxSize()) {
+            LazyVerticalGrid(
+                columns = recipeGridCells(state.layout),
+                state = gridState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = RecipeGridArrangement,
+                verticalArrangement = RecipeGridArrangement,
+            ) {
+                recipeCards(
+                    recipes = state.results.items,
+                    layout = state.layout,
+                    imageUrlFor = recipeImageUrl,
+                    onRecipeClick = onRecipeClick,
+                    loadingMore = state.loadingMore,
                 )
-
-                else -> PullToRefreshBox(
-                    isRefreshing = state.refreshing,
-                    onRefresh = actions.onRefresh,
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    LazyVerticalGrid(
-                        columns = recipeGridCells(state.layout),
-                        state = gridState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = RecipeGridArrangement,
-                        verticalArrangement = RecipeGridArrangement,
-                    ) {
-                        recipeCards(
-                            recipes = state.results.items,
-                            layout = state.layout,
-                            imageUrlFor = recipeImageUrl,
-                            onRecipeClick = onRecipeClick,
-                            loadingMore = state.loadingMore,
-                        )
-                    }
-                }
             }
         }
     }

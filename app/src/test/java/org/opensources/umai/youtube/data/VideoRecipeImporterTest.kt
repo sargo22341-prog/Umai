@@ -199,7 +199,7 @@ class VideoRecipeImporterTest {
         enqueueCreation()
         val model = ScriptedModel(listOf(LlmOutcome.Success(caesarAnswer)))
 
-        importer(YouTubeResult.Success(caesar), model).import("https://youtu.be/ou8kyXnrvyQ") {}
+        val _ = importer(YouTubeResult.Success(caesar), model).import("https://youtu.be/ou8kyXnrvyQ") {}
 
         assertEquals(listOf("https://tinyurl.com/3xddjkdm"), pagesAsked)
         val body = fake.takeRequest().body?.utf8().orEmpty()
@@ -211,7 +211,7 @@ class VideoRecipeImporterTest {
         pageContent = mapOf("https://tinyurl.com/3xddjkdm" to RecipePage("https://p", listOf("2 œufs", "Sel"), servings = null))
         enqueueCreation()
 
-        importer(YouTubeResult.Success(caesar), ScriptedModel(emptyList(), ready = false)).import("https://youtu.be/ou8kyXnrvyQ") {}
+        val _ = importer(YouTubeResult.Success(caesar), ScriptedModel(emptyList(), ready = false)).import("https://youtu.be/ou8kyXnrvyQ") {}
 
         assertTrue(fake.takeRequest().body?.utf8().orEmpty().contains("""\"recipeIngredient\":[\"2 œufs\",\"Sel\"]"""))
     }

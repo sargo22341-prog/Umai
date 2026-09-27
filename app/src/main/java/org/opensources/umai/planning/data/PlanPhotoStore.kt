@@ -3,11 +3,13 @@ package org.opensources.umai.planning.data
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.opensources.umai.core.format.ApiDates
 import org.opensources.umai.core.image.CropRegion
 import org.opensources.umai.core.image.EncodedImage
 import org.opensources.umai.core.image.ImageCropper
 import org.opensources.umai.core.model.MealPlanEntry
 import java.io.File
+import java.io.IOException
 import java.time.LocalDate
 import java.util.UUID
 
@@ -52,14 +54,17 @@ class DevicePlanPhotos(
         cropper.crop(sourceUri, region, MAX_SIDE)?.let { keep(it) }
 
     override suspend fun keep(image: EncodedImage): String? = withContext(Dispatchers.IO) {
-        runCatching {
-            directory.mkdirs()
-            // One food is added at a time: a photo framed before and never kept is left over.
-            directory.listFiles { file -> file.name.startsWith(PENDING) }?.forEach { it.delete() }
-            val file = File(directory, "$PENDING${UUID.randomUUID()}.${image.extension}")
+        directory.mkdirs()
+        // One food is added at a time: a photo framed before and never kept is left over.
+        directory.listFiles { file -> file.name.startsWith(PENDING) }?.forEach { it.delete() }
+        val file = File(directory, "$PENDING${UUID.randomUUID()}.${image.extension}")
+        try {
             file.writeBytes(image.bytes)
             file.absolutePath
-        }.getOrNull()
+        } catch (_: IOException) {
+            // The device is full: the food is added without its photo.
+            null
+        }
     }
 
     override suspend fun attach(path: String, entry: MealPlanEntry): Boolean = withContext(Dispatchers.IO) {
@@ -92,7 +97,7 @@ class DevicePlanPhotos(
 
     private fun parse(name: String): Pair<LocalDate, Int>? {
         val match = NAME.matchEntire(name) ?: return null
-        val date = runCatching { LocalDate.parse(match.groupValues[1]) }.getOrNull() ?: return null
+        val date = ApiDates.parseDate(match.groupValues[1]) ?: return null
         val id = match.groupValues[2].toIntOrNull() ?: return null
         return date to id
     }

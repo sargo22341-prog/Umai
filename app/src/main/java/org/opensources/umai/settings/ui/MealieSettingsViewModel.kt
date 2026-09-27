@@ -111,7 +111,9 @@ class MealieSettingsViewModel(
 
     fun dismissSaveError() = _state.update { it.copy(saveError = null) }
 
-    fun signOut() = viewModelScope.launch { authRepository.signOut() }
+    fun signOut() {
+        viewModelScope.launch { authRepository.signOut() }
+    }
 
     /**
      * Gives every recipe the `calorie-<value>` tag of its nutrition, so the

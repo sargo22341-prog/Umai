@@ -1,29 +1,21 @@
 package org.opensources.umai.cooking.ui
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
@@ -33,20 +25,15 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,11 +42,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -67,15 +51,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import org.opensources.umai.R
 import org.opensources.umai.cooking.domain.CookingTimer
 import org.opensources.umai.core.di.LocalAppContainer
-import org.opensources.umai.core.format.IngredientText
-import org.opensources.umai.core.markdown.MarkdownText
-import org.opensources.umai.core.model.RecipeIngredient
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.ui.component.EmptyView
 import org.opensources.umai.core.ui.component.KeepScreenOn
 import org.opensources.umai.core.ui.component.LoadingView
 import org.opensources.umai.core.ui.component.NetworkErrorView
-import org.opensources.umai.core.ui.component.RemoteImage
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
 import org.opensources.umai.recipe.domain.StepClip
@@ -105,22 +85,7 @@ fun CookingRoute(
         key = "cooking-$slug",
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
-
-    // Timers ring without notifications; these only show them outside the app.
-    // They are asked for with the first timer, and read again on every return,
-    // as the reader may allow them from the system settings meanwhile.
-    val context = LocalContext.current
-    var notificationsAllowed by remember { mutableStateOf(context.notificationsAllowed()) }
-    LifecycleResumeEffect(Unit) {
-        notificationsAllowed = context.notificationsAllowed()
-        onPauseOrDispose {}
-    }
-    val notificationPermission = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        notificationsAllowed = granted
-        if (granted) viewModel.onNotificationsAllowed()
-    }
+    val notifications = rememberNotificationAccess(onAllowed = viewModel::onNotificationsAllowed)
 
     LaunchedEffect(state.markedCooked) {
         if (state.markedCooked) onCooked()
@@ -143,7 +108,7 @@ fun CookingRoute(
         modifier = modifier,
         onStartTimer = { duration ->
             viewModel.startTimer(duration)
-            if (!notificationsAllowed) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            if (!notifications.allowed) notifications.ask()
         },
         onPauseTimer = viewModel::pauseTimer,
         onResumeTimer = viewModel::resumeTimer,
@@ -151,15 +116,37 @@ fun CookingRoute(
         onOpenTimer = { timer ->
             if (timer.recipe.slug == slug) viewModel.goToStep(timer.stepIndex) else onOpenTimer(timer)
         },
-        notificationsAllowed = notificationsAllowed,
+        notificationsAllowed = notifications.allowed,
     )
+}
+
+/** Whether the timer notifications may show, and how to ask for them. */
+private class NotificationAccess(val allowed: Boolean, val ask: () -> Unit)
+
+/**
+ * Timers ring without notifications; these only show them outside the app.
+ * They are asked for with the first timer, and read again on every return, as
+ * the reader may allow them from the system settings meanwhile.
+ */
+@Composable
+private fun rememberNotificationAccess(onAllowed: () -> Unit): NotificationAccess {
+    val context = LocalContext.current
+    var allowed by remember { mutableStateOf(context.notificationsAllowed()) }
+    LifecycleResumeEffect(Unit) {
+        allowed = context.notificationsAllowed()
+        onPauseOrDispose {}
+    }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        allowed = granted
+        if (granted) onAllowed()
+    }
+    return NotificationAccess(allowed) { permission.launch(Manifest.permission.POST_NOTIFICATIONS) }
 }
 
 private fun Context.notificationsAllowed(): Boolean =
     checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
 /** Stateless cooking mode, driven by [CookingUiState]. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CookingScreen(
     state: CookingUiState,
@@ -184,29 +171,17 @@ fun CookingScreen(
 ) {
     var stepListVisible by remember { mutableStateOf(false) }
     var finishing by remember { mutableStateOf(false) }
-
     KeepScreenOn(enabled = state.keepScreenOn)
-
-    // Leaving the cooking mode leaves its timers running: they live on in the
-    // notifications and on the timer pills of the other screens.
-    val hasTimers = state.timers.timers.isNotEmpty()
-
     if (finishing) {
         FinishDialog(
             marking = state.markingCooked,
             error = state.markError,
             onMarkCooked = onMarkCooked,
-            onLeave = {
-                finishing = false
-                onExit()
-            },
-            onDismiss = {
-                finishing = false
-                onDismissMarkError()
-            },
+            onLeave = onExit,
+            onDismiss = onDismissMarkError,
+            onClose = { finishing = false },
         )
     }
-
     if (stepListVisible) {
         StepListSheet(
             steps = state.steps.map { it.title ?: it.text },
@@ -218,211 +193,124 @@ fun CookingScreen(
             onDismiss = { stepListVisible = false },
         )
     }
-
+    val timers = TimerActions(onOpenTimer, onPauseTimer, onResumeTimer, onDismissTimer)
     Scaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = state.recipe?.name ?: stringResource(R.string.cooking_title),
-                        maxLines = 1,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onExit) {
-                        Icon(
-                            imageVector = Icons.Outlined.Close,
-                            contentDescription = stringResource(R.string.cooking_exit),
-                        )
-                    }
-                },
-                actions = {
-                    if (state.stepCount > 0) {
-                        IconButton(onClick = { stepListVisible = true }) {
-                            Icon(
-                                imageVector = Icons.Outlined.FormatListNumbered,
-                                contentDescription = stringResource(R.string.cooking_steps),
-                            )
-                        }
-                    }
-                },
-            )
-        },
-        bottomBar = {
-            Column {
-                if (hasTimers) {
-                    TimersPanel(
-                        timers = state.timers.timers,
-                        now = state.now,
-                        recipeSlug = state.recipe?.slug,
-                        notificationsAllowed = notificationsAllowed,
-                        onOpen = onOpenTimer,
-                        onPause = onPauseTimer,
-                        onResume = onResumeTimer,
-                        onDismiss = onDismissTimer,
-                    )
-                }
-                if (state.stepCount > 0) {
-                    CookingControls(
-                        hasPrevious = state.hasPrevious,
-                        isLastStep = state.isLastStep,
-                        onPrevious = onPrevious,
-                        onNext = onNext,
-                        onFinish = { finishing = true },
-                    )
-                }
-            }
-        },
+        topBar = { CookingTopBar(state, onExit = onExit, onShowSteps = { stepListVisible = true }) },
+        bottomBar = { CookingBottomBar(state, notificationsAllowed, timers, onPrevious, onNext, onFinish = { finishing = true }) },
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            val error = state.error
-            when {
-                state.loading -> LoadingView()
-
-                error != null -> NetworkErrorView(
-                    error = error,
-                    modifier = Modifier.fillMaxSize(),
-                    onRetry = onRetry,
-                )
-
-                state.stepCount == 0 -> EmptyView(
-                    title = stringResource(R.string.cooking_title),
-                    message = stringResource(R.string.cooking_no_steps),
-                    modifier = Modifier.fillMaxSize(),
-                )
-
-                else -> StepContent(
-                    stepIndex = state.currentStep,
-                    stepCount = state.stepCount,
-                    title = state.step?.title,
-                    text = state.step?.text.orEmpty(),
-                    media = {
-                        clip?.let { videoContent(it, state.currentStep + 1) }
-                        state.step?.photo?.let { file ->
-                            StepImage(url = stepPhotoUrl(file), stepNumber = state.currentStep + 1)
-                        }
-                        state.step?.images.orEmpty().forEach { source ->
-                            StepImage(url = stepImageUrl(source), stepNumber = state.currentStep + 1)
-                        }
-                    },
-                    ingredients = state.ingredientsForStep,
-                    scale = state.scale,
-                    durations = state.stepDurations,
-                    onStartTimer = onStartTimer,
-                )
-            }
+            CookingBody(state, clip, onRetry, stepImageUrl, stepPhotoUrl, onStartTimer, videoContent)
         }
     }
 }
 
-// `media` is the slot of the step's video and pictures, which come above its text: not the content.
-@SuppressLint("ComposableLambdaParameterNaming")
+/** What the timer panel does with a timer. */
+private class TimerActions(
+    val onOpen: (CookingTimer) -> Unit,
+    val onPause: (Int) -> Unit,
+    val onResume: (Int) -> Unit,
+    val onDismiss: (Int) -> Unit,
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun StepContent(
-    stepIndex: Int,
-    stepCount: Int,
-    title: String?,
-    text: String,
-    ingredients: List<RecipeIngredient>,
-    scale: Double,
-    durations: List<Duration>,
-    onStartTimer: (Duration) -> Unit,
-    modifier: Modifier = Modifier,
-    media: @Composable () -> Unit,
-) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = stringResource(R.string.cooking_step_position, stepIndex + 1, stepCount),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            LinearProgressIndicator(
-                progress = { (stepIndex + 1f) / stepCount },
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-
-        title?.let {
-            Text(text = it, style = MaterialTheme.typography.headlineSmall)
-        }
-
-        // The video of the step, then its photo and the pictures Mealie embeds
-        // in the instruction text, extracted at mapping time. A step with none
-        // of them shows none: no picture stands in for a missing one.
-        media()
-
-        if (text.isNotBlank()) {
-            MarkdownText(
-                markdown = text,
-                style = MaterialTheme.typography.titleLarge.copy(
-                    lineHeight = MaterialTheme.typography.titleLarge.lineHeight * 1.25f,
-                ),
-            )
-        }
-
-        if (durations.isNotEmpty()) {
-            StepTimerButtons(durations = durations, onStart = onStartTimer)
-        }
-
-        if (ingredients.isNotEmpty()) {
-            Surface(
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.cooking_ingredients_for_step),
-                        style = MaterialTheme.typography.titleSmall,
-                    )
-                    ingredients.forEach { ingredient ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Box(
-                                modifier = Modifier
-                                    .padding(top = 8.dp)
-                                    .size(5.dp)
-                                    .background(MaterialTheme.colorScheme.primary, CircleShape),
-                            )
-                            Text(
-                                text = IngredientText.format(ingredient, scale),
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-                        }
-                    }
+private fun CookingTopBar(state: CookingUiState, onExit: () -> Unit, onShowSteps: () -> Unit) {
+    TopAppBar(
+        title = { Text(text = state.recipe?.name ?: stringResource(R.string.cooking_title), maxLines = 1) },
+        navigationIcon = {
+            IconButton(onClick = onExit) {
+                Icon(imageVector = Icons.Outlined.Close, contentDescription = stringResource(R.string.cooking_exit))
+            }
+        },
+        actions = {
+            if (state.stepCount > 0) {
+                IconButton(onClick = onShowSteps) {
+                    Icon(Icons.Outlined.FormatListNumbered, contentDescription = stringResource(R.string.cooking_steps))
                 }
             }
-        }
-
-        Spacer(Modifier.height(8.dp))
-    }
-}
-
-@Composable
-private fun StepImage(url: String?, stepNumber: Int) {
-    RemoteImage(
-        url = url,
-        contentDescription = stringResource(R.string.cd_step_image, stepNumber),
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 160.dp, max = 320.dp)
-            .clip(MaterialTheme.shapes.large),
-        contentScale = ContentScale.Fit,
-        placeholderIconSize = 40.dp,
+        },
     )
 }
 
-/** Offered at the end of the recipe: record it as cooked in Mealie, or just leave. */
+@Composable
+private fun CookingBottomBar(
+    state: CookingUiState,
+    notificationsAllowed: Boolean,
+    timers: TimerActions,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onFinish: () -> Unit,
+) {
+    Column {
+        // Leaving the cooking mode leaves its timers running: they live on in the
+        // notifications and on the timer pills of the other screens.
+        if (state.timers.timers.isNotEmpty()) {
+            TimersPanel(
+                timers = state.timers.timers,
+                now = state.now,
+                recipeSlug = state.recipe?.slug,
+                notificationsAllowed = notificationsAllowed,
+                onOpen = timers.onOpen,
+                onPause = timers.onPause,
+                onResume = timers.onResume,
+                onDismiss = timers.onDismiss,
+            )
+        }
+        if (state.stepCount > 0) {
+            CookingControls(
+                hasPrevious = state.hasPrevious,
+                isLastStep = state.isLastStep,
+                onPrevious = onPrevious,
+                onNext = onNext,
+                onFinish = onFinish,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CookingBody(
+    state: CookingUiState,
+    clip: StepClip?,
+    onRetry: () -> Unit,
+    stepImageUrl: (String) -> String?,
+    stepPhotoUrl: (String) -> String?,
+    onStartTimer: (Duration) -> Unit,
+    videoContent: @Composable (StepClip, Int) -> Unit,
+) {
+    val error = state.error
+    when {
+        state.loading -> LoadingView()
+        error != null -> NetworkErrorView(error = error, modifier = Modifier.fillMaxSize(), onRetry = onRetry)
+        state.stepCount == 0 -> EmptyView(
+            title = stringResource(R.string.cooking_title),
+            message = stringResource(R.string.cooking_no_steps),
+            modifier = Modifier.fillMaxSize(),
+        )
+        else -> StepContent(
+            stepIndex = state.currentStep,
+            stepCount = state.stepCount,
+            title = state.step?.title,
+            text = state.step?.text.orEmpty(),
+            media = {
+                val number = state.currentStep + 1
+                clip?.let { videoContent(it, number) }
+                state.step?.photo?.let { file -> StepImage(url = stepPhotoUrl(file), stepNumber = number) }
+                state.step?.images.orEmpty().forEach { source -> StepImage(url = stepImageUrl(source), stepNumber = number) }
+            },
+            ingredients = state.ingredientsForStep,
+            scale = state.scale,
+            durations = state.stepDurations,
+            onStartTimer = onStartTimer,
+        )
+    }
+}
+
+/**
+ * Offered at the end of the recipe: record it as cooked in Mealie, or just
+ * leave. [onClose] is called before leaving or dismissing it.
+ */
 @Composable
 private fun FinishDialog(
     marking: Boolean,
@@ -430,9 +318,15 @@ private fun FinishDialog(
     onMarkCooked: () -> Unit,
     onLeave: () -> Unit,
     onDismiss: () -> Unit,
+    onClose: () -> Unit,
 ) {
     AlertDialog(
-        onDismissRequest = { if (!marking) onDismiss() },
+        onDismissRequest = {
+            if (!marking) {
+                onClose()
+                onDismiss()
+            }
+        },
         title = { Text(stringResource(R.string.cooking_done_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -457,7 +351,13 @@ private fun FinishDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onLeave, enabled = !marking) {
+            TextButton(
+                onClick = {
+                    onClose()
+                    onLeave()
+                },
+                enabled = !marking,
+            ) {
                 Text(stringResource(R.string.cooking_leave))
             }
         },
@@ -492,86 +392,17 @@ private fun CookingControls(
                 Spacer(Modifier.size(8.dp))
                 Text(stringResource(R.string.cooking_previous))
             }
-
             Button(
                 onClick = if (isLastStep) onFinish else onNext,
                 modifier = Modifier
                     .weight(1f)
                     .heightIn(min = 56.dp),
             ) {
-                Text(
-                    stringResource(
-                        if (isLastStep) R.string.cooking_finish else R.string.cooking_next,
-                    ),
-                )
+                Text(stringResource(if (isLastStep) R.string.cooking_finish else R.string.cooking_next))
                 if (!isLastStep) {
                     Spacer(Modifier.size(8.dp))
                     Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null)
                 }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun StepListSheet(
-    steps: List<String>,
-    currentStep: Int,
-    onSelect: (Int) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(
-            modifier = Modifier
-                .navigationBarsPadding()
-                .fillMaxHeight(0.8f)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            Text(
-                text = stringResource(R.string.cooking_steps),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp),
-            )
-            HorizontalDivider()
-            steps.forEachIndexed { index, label ->
-                ListItem(
-                    headlineContent = {
-                        Text(
-                            text = label.lineSequence().firstOrNull().orEmpty().ifBlank {
-                                stringResource(R.string.cooking_step_position, index + 1, steps.size)
-                            },
-                            maxLines = 2,
-                        )
-                    },
-                    leadingContent = {
-                        Surface(
-                            shape = CircleShape,
-                            color = if (index == currentStep) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.surfaceContainerHighest
-                            },
-                            modifier = Modifier.size(32.dp),
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = (index + 1).toString(),
-                                    textAlign = TextAlign.Center,
-                                    color = if (index == currentStep) {
-                                        MaterialTheme.colorScheme.onPrimary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface
-                                    },
-                                )
-                            }
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onSelect(index) },
-                )
             }
         }
     }

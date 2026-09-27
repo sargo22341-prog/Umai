@@ -6,8 +6,10 @@ import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.JsonElement
 
@@ -26,7 +28,7 @@ object ScalarAsStringSerializer : KSerializer<String?> {
         return when (val element: JsonElement = jsonDecoder.decodeJsonElement()) {
             is JsonNull -> null
             is JsonPrimitive -> element.content.takeIf { it.isNotBlank() }
-            else -> null
+            is JsonObject, is JsonArray -> null
         }
     }
 

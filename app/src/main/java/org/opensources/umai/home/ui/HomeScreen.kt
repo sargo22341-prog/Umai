@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
@@ -94,28 +95,14 @@ fun HomeScreen(
 
     Scaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(title = { Text(stringResource(R.string.home_title)) })
-        },
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.home_title)) }) },
     ) { padding ->
-        PullToRefreshBox(
-            isRefreshing = state.refreshing,
-            onRefresh = onRefresh,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
+        PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize().padding(padding)) {
             val error = state.error
             when {
                 state.loading -> LoadingView()
-
                 error != null && state.latest.items.isEmpty() ->
-                    NetworkErrorView(
-                        error = error,
-                        modifier = Modifier.fillMaxSize(),
-                        onRetry = onRetry,
-                    )
-
+                    NetworkErrorView(error = error, modifier = Modifier.fillMaxSize(), onRetry = onRetry)
                 state.isEmpty -> EmptyView(
                     title = stringResource(R.string.home_empty_title),
                     message = stringResource(R.string.home_empty_message),
@@ -130,45 +117,8 @@ fun HomeScreen(
                     horizontalArrangement = RecipeGridArrangement,
                     verticalArrangement = RecipeGridArrangement,
                 ) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        SearchShortcut(onClick = onSearchClick)
-                    }
-
-                    if (state.discovery.isNotEmpty()) {
-                        item(key = DISCOVERY_TITLE_KEY, span = { GridItemSpan(maxLineSpan) }) {
-                            SectionTitle(
-                                text = stringResource(R.string.home_section_discover),
-                                modifier = Modifier.animateItem(),
-                            )
-                        }
-                        item(key = DISCOVERY_KEY, span = { GridItemSpan(maxLineSpan) }) {
-                            DiscoveryCarousel(
-                                recipes = state.discovery,
-                                imageUrl = discoveryImageUrl,
-                                onRecipeClick = { onRecipeClick(it.slug) },
-                                edgeBleed = GRID_PADDING,
-                                modifier = Modifier.animateItem(),
-                            )
-                        }
-                    }
-
-                    if (state.recentlyViewed.isNotEmpty()) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            SectionTitle(stringResource(R.string.home_section_recent))
-                        }
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            RecentRow(
-                                recipes = state.recentlyViewed,
-                                onRecipeClick = { onRecipeClick(it.slug) },
-                                recipeImageUrl = recipeImageUrl,
-                            )
-                        }
-                    }
-
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        SectionTitle(stringResource(R.string.home_section_latest))
-                    }
-
+                    item(span = { GridItemSpan(maxLineSpan) }) { SearchShortcut(onClick = onSearchClick) }
+                    homeSections(state, onRecipeClick, recipeImageUrl, discoveryImageUrl)
                     recipeCards(
                         recipes = state.latest.items,
                         layout = state.layout,
@@ -180,6 +130,40 @@ fun HomeScreen(
             }
         }
     }
+}
+
+/** The recipes drawn to discover, the ones seen lately, and the title of the latest ones. */
+private fun LazyGridScope.homeSections(
+    state: HomeUiState,
+    onRecipeClick: (String) -> Unit,
+    recipeImageUrl: (RecipeSummary) -> String?,
+    discoveryImageUrl: (RecipeSummary) -> String?,
+) {
+    if (state.discovery.isNotEmpty()) {
+        item(key = DISCOVERY_TITLE_KEY, span = { GridItemSpan(maxLineSpan) }) {
+            SectionTitle(text = stringResource(R.string.home_section_discover), modifier = Modifier.animateItem())
+        }
+        item(key = DISCOVERY_KEY, span = { GridItemSpan(maxLineSpan) }) {
+            DiscoveryCarousel(
+                recipes = state.discovery,
+                imageUrl = discoveryImageUrl,
+                onRecipeClick = { onRecipeClick(it.slug) },
+                edgeBleed = GRID_PADDING,
+                modifier = Modifier.animateItem(),
+            )
+        }
+    }
+    if (state.recentlyViewed.isNotEmpty()) {
+        item(span = { GridItemSpan(maxLineSpan) }) { SectionTitle(stringResource(R.string.home_section_recent)) }
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            RecentRow(
+                recipes = state.recentlyViewed,
+                onRecipeClick = { onRecipeClick(it.slug) },
+                recipeImageUrl = recipeImageUrl,
+            )
+        }
+    }
+    item(span = { GridItemSpan(maxLineSpan) }) { SectionTitle(stringResource(R.string.home_section_latest)) }
 }
 
 @Composable

@@ -2,6 +2,7 @@ package org.opensources.umai.recipe.domain
 
 import org.opensources.umai.youtube.domain.YouTubeLinks
 import java.net.URI
+import java.net.URISyntaxException
 
 /** Web addresses of recipe pages, as they are shared and as Mealie stores them. */
 object RecipeLinks {
@@ -29,10 +30,14 @@ object RecipeLinks {
     /** A fragment of the address specific enough to look it up with `LIKE`. */
     fun searchFragment(url: String): String? = key(url)?.takeIf { '"' !in it && '\\' !in it }
 
-    private fun key(url: String): String? = YouTubeLinks.videoId(url)?.let { "youtube.com/watch?v=$it" } ?: runCatching {
-        val uri = URI(url.trim())
+    private fun key(url: String): String? {
+        YouTubeLinks.videoId(url)?.let { return "youtube.com/watch?v=$it" }
+        val uri = try {
+            URI(url.trim())
+        } catch (_: URISyntaxException) {
+            return null
+        }
         val host = uri.host?.lowercase()?.removePrefix("www.") ?: return null
-        val path = uri.rawPath.orEmpty().trimEnd('/')
-        "$host$path"
-    }.getOrNull()
+        return "$host${uri.rawPath.orEmpty().trimEnd('/')}"
+    }
 }

@@ -7,6 +7,7 @@ import org.opensources.umai.provider.domain.RecipeProvider
 import org.opensources.umai.provider.domain.isPageOf
 import org.opensources.umai.provider.schema.SchemaOrgRecipe
 import java.net.URI
+import java.net.URISyntaxException
 
 /**
  * Marmiton (marmiton.org). A step that has a photo gives it as the `image` of
@@ -35,13 +36,18 @@ object MarmitonProvider : RecipeProvider {
     }
 
     /** The picture at [url] in the size kept for a step; any other address is left as is. */
-    fun stepSize(url: String): String = runCatching {
+    fun stepSize(url: String): String = try {
         val uri = URI(url)
-        if (uri.host?.lowercase() != PICTURE_HOST) return url
-        val path = sizedPicture.matchEntire(uri.path.orEmpty()) ?: return url
-        val (picture, extension) = path.destructured
-        URI(uri.scheme, uri.authority, "${picture}_w$STEP_WIDTH.$extension", null, null).toString()
-    }.getOrDefault(url)
+        val path = sizedPicture.matchEntire(uri.path.orEmpty())
+        if (uri.host?.lowercase() != PICTURE_HOST || path == null) {
+            url
+        } else {
+            val (picture, extension) = path.destructured
+            URI(uri.scheme, uri.authority, "${picture}_w$STEP_WIDTH.$extension", null, null).toString()
+        }
+    } catch (_: URISyntaxException) {
+        url
+    }
 
     private const val PICTURE_HOST = "assets.afcdn.com"
     private const val STEP_WIDTH = 1024

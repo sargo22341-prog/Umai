@@ -41,6 +41,7 @@ import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.format.rememberDateFormatter
 import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.model.RecipeSummary
+import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
 import org.opensources.umai.recipe.ui.labelRes
@@ -101,7 +102,6 @@ fun PlanRecipePickerRoute(
  * animation starts once the field is measured and plays whole, however long the
  * screen took to compose. The keyboard comes up once the field is in its place.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlanRecipePickerScreen(
     state: PlanRecipePickerUiState,
@@ -129,55 +129,13 @@ fun PlanRecipePickerScreen(
     }
     val background = MaterialTheme.colorScheme.background
     val snackbarHostState = remember { SnackbarHostState() }
-    val dateFormatter = rememberDateFormatter(FormatStyle.MEDIUM)
-
-    val error = state.error
-    val errorMessage = error?.let { "${it.title()}\n${it.message()}" }
-    LaunchedEffect(error) {
-        if (errorMessage != null) {
-            snackbarHostState.showSnackbar(errorMessage)
-            onErrorShown()
-        }
-    }
-
+    ErrorSnackbar(state.error, snackbarHostState, onShown = onErrorShown)
     Scaffold(
         // Transparent before the entrance: the week shows under the sheet until it goes.
         modifier = modifier.drawBehind { drawRect(background, alpha = reveal.value) },
         containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                modifier = Modifier.graphicsLayer { alpha = reveal.value },
-                title = {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.planning_choose_recipe),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = stringResource(
-                                R.string.planning_entry_for,
-                                "${state.date.label()} ${state.date.format(dateFormatter)}",
-                                stringResource(state.mealType.labelRes()),
-                            ),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = stringResource(R.string.action_back),
-                        )
-                    }
-                },
-            )
-        },
+        topBar = { PickerTopBar(state, onBack = onBack, modifier = Modifier.graphicsLayer { alpha = reveal.value }) },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (state.adding) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -203,6 +161,49 @@ fun PlanRecipePickerScreen(
             )
         }
     }
+}
+
+/** Shows why the recipe could not be added, once. */
+@Composable
+private fun ErrorSnackbar(error: NetworkError?, snackbarHostState: SnackbarHostState, onShown: () -> Unit) {
+    val errorMessage = error?.let { "${it.title()}\n${it.message()}" }
+    LaunchedEffect(error) {
+        if (errorMessage != null) {
+            snackbarHostState.showSnackbar(errorMessage)
+            onShown()
+        }
+    }
+}
+
+/** The screen's title, and for which day and meal the recipe is chosen. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PickerTopBar(state: PlanRecipePickerUiState, onBack: () -> Unit, modifier: Modifier = Modifier) {
+    val dateFormatter = rememberDateFormatter(FormatStyle.MEDIUM)
+    TopAppBar(
+        modifier = modifier,
+        title = {
+            Column {
+                Text(text = stringResource(R.string.planning_choose_recipe), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    text = stringResource(
+                        R.string.planning_entry_for,
+                        "${state.date.label()} ${state.date.format(dateFormatter)}",
+                        stringResource(state.mealType.labelRes()),
+                    ),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        },
+        navigationIcon = {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
+            }
+        },
+    )
 }
 
 /** The results wait for the field to be well on its way before fading in. */

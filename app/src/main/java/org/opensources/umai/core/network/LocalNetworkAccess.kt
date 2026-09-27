@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.net.InetAddress
+import java.net.UnknownHostException
 
 /**
  * Android 17 gates connections to the local network behind the
@@ -31,7 +32,11 @@ object LocalNetworkAccess {
      */
     suspend fun isLocalInstance(baseUrl: String): Boolean = withContext(Dispatchers.IO) {
         val host = baseUrl.toHttpUrlOrNull()?.host ?: return@withContext false
-        runCatching { InetAddress.getAllByName(host).any { it.isLocal() } }.getOrDefault(false)
+        try {
+            InetAddress.getAllByName(host).any { it.isLocal() }
+        } catch (_: UnknownHostException) {
+            false
+        }
     }
 
     /** Private ranges, link-local, loopback and IPv6 unique local addresses. */

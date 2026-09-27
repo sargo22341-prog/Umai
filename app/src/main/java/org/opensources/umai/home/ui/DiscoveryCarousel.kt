@@ -182,50 +182,56 @@ private fun DiscoveryCard(
                 }
                 .semantics { stateDescription = position },
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                RemoteImage(
-                    url = imageUrl,
-                    contentDescription = if (recipe.hasImage) {
-                        stringResource(R.string.cd_recipe_image, recipe.name)
-                    } else {
-                        stringResource(R.string.cd_recipe_no_image)
-                    },
-                    placeholderIconSize = 56.dp,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            // Parallax: the picture slides slower than its card.
-                            // It is enlarged just enough never to uncover an edge.
-                            scaleX = PARALLAX_SCALE
-                            scaleY = PARALLAX_SCALE
-                            translationX = offset() * size.width * PARALLAX_SHIFT
-                        },
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                0f to Color.Transparent,
-                                0.45f to Color.Transparent,
-                                1f to Color.Black.copy(alpha = 0.85f),
-                            ),
-                        ),
-                )
-                CardCaption(
-                    recipe = recipe,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(20.dp)
-                        .graphicsLayer {
-                            // The title rises into place as its card arrives.
-                            val away = offset().absoluteValue
-                            translationY = away * CAPTION_RISE.toPx()
-                            alpha = 1f - away
-                        },
-                )
-            }
+            CardArtwork(recipe, imageUrl, offset)
         }
+    }
+}
+
+/** The picture sliding behind its card, darkened towards the caption, and the caption rising into place. */
+@Composable
+private fun CardArtwork(recipe: RecipeSummary, imageUrl: String?, offset: () -> Float) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        RemoteImage(
+            url = imageUrl,
+            contentDescription = if (recipe.hasImage) {
+                stringResource(R.string.cd_recipe_image, recipe.name)
+            } else {
+                stringResource(R.string.cd_recipe_no_image)
+            },
+            placeholderIconSize = 56.dp,
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    // Parallax: the picture slides slower than its card.
+                    // It is enlarged just enough never to uncover an edge.
+                    scaleX = PARALLAX_SCALE
+                    scaleY = PARALLAX_SCALE
+                    translationX = offset() * size.width * PARALLAX_SHIFT
+                },
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        0.45f to Color.Transparent,
+                        1f to Color.Black.copy(alpha = 0.85f),
+                    ),
+                ),
+        )
+        CardCaption(
+            recipe = recipe,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(20.dp)
+                .graphicsLayer {
+                    // The title rises into place as its card arrives.
+                    val away = offset().absoluteValue
+                    translationY = away * CAPTION_RISE.toPx()
+                    alpha = 1f - away
+                },
+        )
     }
 }
 

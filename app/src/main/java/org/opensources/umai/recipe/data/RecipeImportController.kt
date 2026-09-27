@@ -119,8 +119,9 @@ class RecipeImportController(
             is ApiResult.Failure -> return ImportOutcome.Failed(result.error)
             is ApiResult.Success -> result.value
         }
-        // The recipe exists by now: what follows only completes it.
-        calorieTags.sync(slug)
+        // The recipe exists by now: what follows only completes it. A calorie tag left
+        // behind is caught up by the settings' tag sync, so it does not fail the import.
+        val _ = calorieTags.sync(slug)
         val provider = providers.forUrl(url)
         val mediaFailed = if (provider != null && providerSettings.importsMediaNow(provider.id)) {
             progress { it.copy(phase = ImportPhase.FETCHING_MEDIA) }
@@ -146,7 +147,8 @@ class RecipeImportController(
         return when (outcome) {
             is VideoImportOutcome.Imported -> {
                 val result = outcome.result
-                calorieTags.sync(result.slug)
+                // Caught up by the settings' tag sync when it fails, as for a page.
+                val _ = calorieTags.sync(result.slug)
                 val notice = when {
                     result.modelFailure != null -> ImportNotice.VIDEO_MODEL_FAILED
                     result.captionsRefused && !result.videoLinked -> ImportNotice.VIDEO_CAPTIONS_REFUSED

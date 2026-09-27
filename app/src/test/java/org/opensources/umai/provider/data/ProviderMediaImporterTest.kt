@@ -61,6 +61,19 @@ class ProviderMediaImporterTest {
     }
 
     @Test
+    fun `a step photo Mealie refuses is reported, not dropped`() = runTest {
+        fake.enqueueJson(recipe(assets = emptyList()))
+        fake.enqueueJson(SCHEMA)
+        fake.enqueueJson(ASSET)
+        fake.enqueueError(500)
+
+        val result = importer.import("carbonara")
+
+        assertTrue(result is ApiResult.Failure)
+        assertEquals(4, fake.server.requestCount)
+    }
+
+    @Test
     fun `what the recipe already has is not written again`() = runTest {
         fake.enqueueJson(recipe(assets = listOf(CHAPTERS, "step-1.jpg")))
         fake.enqueueJson(SCHEMA)

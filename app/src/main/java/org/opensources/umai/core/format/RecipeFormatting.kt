@@ -16,7 +16,11 @@ object DurationText {
     fun isoMinutes(raw: String?): Long? {
         val value = raw?.trim().orEmpty()
         if (!value.startsWith("PT", ignoreCase = true)) return null
-        return runCatching { Duration.parse(value).toMinutes() }.getOrNull()
+        return try {
+            Duration.parse(value).toMinutes()
+        } catch (_: DateTimeParseException) {
+            null
+        }
     }
 
     /**
@@ -51,7 +55,11 @@ object ApiDates {
 
     fun parseDateTime(raw: String?): OffsetDateTime? =
         raw?.trim()?.takeIf { it.isNotEmpty() }?.let {
-            runCatching { OffsetDateTime.parse(it) }.getOrNull()
+            try {
+                OffsetDateTime.parse(it)
+            } catch (_: DateTimeParseException) {
+                null
+            }
         }
 
     fun format(date: LocalDate): String = date.toString()

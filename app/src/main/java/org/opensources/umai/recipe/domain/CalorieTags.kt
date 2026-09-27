@@ -69,7 +69,8 @@ fun CalorieFilter.queryClause(tags: List<CalorieTag>): String? {
             // No calorie tag at all: every recipe lacks calories.
             return all.takeIf { it.isNotEmpty() }?.let { "tags.slug NOT IN ${it.asList()}" }
         }
-        else -> tags.filter { it.calories <= checkNotNull(maxCalories) }.map { it.slug }.distinct()
+        CalorieFilter.UP_TO_300, CalorieFilter.UP_TO_500, CalorieFilter.UP_TO_700 ->
+            tags.filter { it.calories <= checkNotNull(maxCalories) }.map { it.slug }.distinct()
     }
     return if (slugs.isEmpty()) NO_MATCH else "tags.slug IN ${slugs.asList()}"
 }

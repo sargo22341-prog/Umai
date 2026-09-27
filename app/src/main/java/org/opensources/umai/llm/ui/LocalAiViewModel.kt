@@ -13,8 +13,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.opensources.umai.core.di.AppContainer
 import org.opensources.umai.core.download.DownloadState
-import org.opensources.umai.llm.data.ActiveBackend
-import org.opensources.umai.llm.data.LlmBenchmark
+import org.opensources.umai.llm.domain.ActiveBackend
+import org.opensources.umai.llm.domain.LlmBenchmark
 import org.opensources.umai.llm.data.LocalAiSettings
 import org.opensources.umai.llm.domain.DeviceProfile
 import org.opensources.umai.llm.domain.LocalModel

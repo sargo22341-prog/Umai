@@ -46,9 +46,14 @@ class BarcodeFrameAnalyzer(private val onFound: (String) -> Unit) : ImageAnalysi
 
     /** Where the user aims; the whole frame is read until it is known. */
     @Volatile
-    var window: ScanWindow? = null
+    private var window: ScanWindow? = null
 
     private val found = AtomicBoolean(false)
+
+    /** Reads only [window] of the next frames: what the aiming frame covers on screen. */
+    fun aimAt(window: ScanWindow) {
+        this.window = window
+    }
 
     override fun analyze(image: ImageProxy) {
         image.use {

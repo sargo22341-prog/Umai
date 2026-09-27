@@ -122,7 +122,7 @@ class RecipeEditRepositoryTest {
         fake.enqueueJson(CREATED_RECIPE)
         fake.enqueueJson(CREATED_RECIPE)
 
-        repository.create(
+        val _ = repository.create(
             RecipeDraft(
                 id = "d1",
                 name = "Test",
@@ -145,7 +145,7 @@ class RecipeEditRepositoryTest {
         fake.enqueueJson(CREATED_RECIPE)
         fake.enqueueJson(CREATED_RECIPE)
 
-        repository.create(RecipeDraft(id = "d1", name = "Gratin de courgettes", description = "Sans rien"))
+        val _ = repository.create(RecipeDraft(id = "d1", name = "Gratin de courgettes", description = "Sans rien"))
 
         fake.takeRequest()
         fake.takeRequest()

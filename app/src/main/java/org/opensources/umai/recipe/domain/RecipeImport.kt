@@ -66,3 +66,12 @@ data class RecipeImportRun(
 ) {
     val running: Boolean get() = outcome == null
 }
+
+/** What a notification of an import asks the app to open. */
+sealed interface ImportRequest {
+    /** The import screen, where the import runs or tells how it ended. */
+    data object OpenImport : ImportRequest
+
+    /** The recipe the import created. */
+    data class OpenRecipe(val slug: String) : ImportRequest
+}

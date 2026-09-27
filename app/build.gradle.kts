@@ -289,10 +289,13 @@ tasks.configureEach {
 }
 
 // The extra checkers of the compiler (redundant calls, `var` never reassigned…), and no
-// warning left standing.
+// warning left standing. The return value checker reports every result left unused, ours
+// and the standard library's: one ignored on purpose is written `val _ = …`, or its
+// function is marked `@IgnorableReturnValue` when the result is only ever optional.
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
     compilerOptions {
         extraWarnings.set(true)
         allWarningsAsErrors.set(true)
+        freeCompilerArgs.add("-Xreturn-value-checker=full")
     }
 }

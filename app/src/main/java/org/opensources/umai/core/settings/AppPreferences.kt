@@ -116,7 +116,7 @@ class AppPreferencesRepository(context: Context) {
     }
 
     private inline fun <reified T : Enum<T>> String?.toEnum(fallback: T): T =
-        this?.let { runCatching { enumValueOf<T>(it) }.getOrNull() } ?: fallback
+        enumValues<T>().firstOrNull { it.name == this } ?: fallback
 
     private companion object {
         val KeyTheme = stringPreferencesKey("theme_mode")

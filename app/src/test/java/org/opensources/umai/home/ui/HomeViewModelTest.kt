@@ -71,6 +71,7 @@ class HomeViewModelTest {
     )
 
     /** The draw is published with the latest recipes, the recently viewed ones come last. */
+    @IgnorableReturnValue
     private suspend fun HomeViewModel.awaitLoaded(): HomeUiState = withTimeout(TIMEOUT_MS) {
         state.first { !it.loading && !it.refreshing && it.recentlyViewed.isNotEmpty() }
     }

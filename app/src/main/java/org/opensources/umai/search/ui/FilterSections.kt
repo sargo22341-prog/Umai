@@ -173,7 +173,6 @@ internal fun ToolSection(
  * removable chips, and the suggestions appear — animated — as soon as the
  * query matches something.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun SearchablePicker(
     title: String,
@@ -191,26 +190,7 @@ internal fun SearchablePicker(
 ) {
     Column {
         SectionHeader(title)
-
-        if (selected.isNotEmpty()) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                selected.forEach { entry ->
-                    InputChip(
-                        selected = true,
-                        onClick = { onRemove(entry) },
-                        label = { Text(entry.name) },
-                        trailingIcon = {
-                            Icon(
-                                imageVector = Icons.Outlined.Close,
-                                contentDescription = stringResource(R.string.filter_remove_entry, entry.name),
-                                modifier = Modifier.size(18.dp),
-                            )
-                        },
-                    )
-                }
-            }
-        }
-
+        if (selected.isNotEmpty()) PickedChips(selected, onRemove)
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
@@ -223,10 +203,7 @@ internal fun SearchablePicker(
             trailingIcon = {
                 if (query.isNotEmpty()) {
                     IconButton(onClick = { onQueryChange("") }) {
-                        Icon(
-                            imageVector = Icons.Outlined.Close,
-                            contentDescription = stringResource(R.string.action_clear),
-                        )
+                        Icon(imageVector = Icons.Outlined.Close, contentDescription = stringResource(R.string.action_clear))
                     }
                 }
             },
@@ -234,37 +211,60 @@ internal fun SearchablePicker(
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         )
-
         AnimatedVisibility(
             visible = query.isNotBlank(),
             enter = fadeIn() + expandVertically(),
             exit = fadeOut() + shrinkVertically(),
         ) {
-            if (suggestions.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.filter_no_match),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 4.dp),
-                )
-            } else {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    suggestions.forEach { entry ->
-                        SuggestionChip(
-                            onClick = { onAdd(entry) },
-                            label = { Text(entry.name) },
-                        )
-                    }
-                }
-            }
+            Suggestions(suggestions, onAdd)
         }
-
         if (selected.size > 1) {
             ToggleRow(
                 label = stringResource(R.string.filter_require_all),
                 checked = requireAll,
                 onCheckedChange = onRequireAllChange,
             )
+        }
+    }
+}
+
+/** What was picked, each removed with a tap. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PickedChips(selected: List<PickerEntry>, onRemove: (PickerEntry) -> Unit) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        selected.forEach { entry ->
+            InputChip(
+                selected = true,
+                onClick = { onRemove(entry) },
+                label = { Text(entry.name) },
+                trailingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = stringResource(R.string.filter_remove_entry, entry.name),
+                        modifier = Modifier.size(18.dp),
+                    )
+                },
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun Suggestions(suggestions: List<PickerEntry>, onAdd: (PickerEntry) -> Unit) {
+    if (suggestions.isEmpty()) {
+        Text(
+            text = stringResource(R.string.filter_no_match),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(vertical = 4.dp),
+        )
+    } else {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            suggestions.forEach { entry ->
+                SuggestionChip(onClick = { onAdd(entry) }, label = { Text(entry.name) })
+            }
         }
     }
 }

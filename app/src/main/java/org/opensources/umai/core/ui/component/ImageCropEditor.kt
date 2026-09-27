@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -105,9 +107,7 @@ fun ImageCropEditor(
                 color = Color.White.copy(alpha = 0.8f),
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
-
             var geometry by remember(sourceUri) { mutableStateOf<CropGeometry?>(null) }
-
             CropArea(
                 sourceUri = sourceUri,
                 frame = frame,
@@ -117,45 +117,41 @@ fun ImageCropEditor(
                     .weight(1f)
                     .fillMaxWidth(),
             )
-
             val current = geometry
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Icon(Icons.Outlined.ZoomIn, contentDescription = null, tint = Color.White)
-                val zoomLabel = stringResource(R.string.crop_zoom)
-                Slider(
-                    value = current?.zoom ?: CropGeometry.MIN_ZOOM,
-                    onValueChange = { value ->
-                        current?.let { geometry = it.copy(zoom = value).clamped() }
-                    },
-                    valueRange = CropGeometry.MIN_ZOOM..CropGeometry.MAX_ZOOM,
-                    enabled = current != null,
-                    modifier = Modifier
-                        .weight(1f)
-                        .semantics { contentDescription = zoomLabel },
-                )
-            }
-
+            ZoomSlider(current, onZoom = { zoom -> current?.let { geometry = it.copy(zoom = zoom).clamped() } })
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
             ) {
-                TextButton(onClick = onCancel) {
-                    Text(stringResource(R.string.action_cancel), color = Color.White)
-                }
-                Button(
-                    onClick = { current?.let { onConfirm(it.region()) } },
-                    enabled = current != null,
-                ) {
+                TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel), color = Color.White) }
+                Button(onClick = { current?.let { onConfirm(it.region()) } }, enabled = current != null) {
                     Text(stringResource(R.string.crop_confirm))
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ZoomSlider(geometry: CropGeometry?, onZoom: (Float) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(Icons.Outlined.ZoomIn, contentDescription = null, tint = Color.White)
+        val zoomLabel = stringResource(R.string.crop_zoom)
+        Slider(
+            value = geometry?.zoom ?: CropGeometry.MIN_ZOOM,
+            onValueChange = onZoom,
+            valueRange = CropGeometry.MIN_ZOOM..CropGeometry.MAX_ZOOM,
+            enabled = geometry != null,
+            modifier = Modifier
+                .weight(1f)
+                .semantics { contentDescription = zoomLabel },
+        )
     }
 }
 
@@ -178,16 +174,13 @@ private fun CropArea(
     )
     val painterState by painter.state.collectAsState()
     val density = LocalDensity.current
-    // The gesture detectors outlive a recomposition: they read the latest values here.
-    val latestGeometry by rememberUpdatedState(geometry)
-    val latestOnChange by rememberUpdatedState(onGeometryChange)
+    // The gesture detectors outlive a recomposition: they read the latest values from these.
+    val latestOnChange = rememberUpdatedState(onGeometryChange)
 
     // Clipped: a zoomed picture must not spill over the title and the zoom slider.
     BoxWithConstraints(modifier = modifier.clipToBounds(), contentAlignment = Alignment.Center) {
-        val areaWidth = constraints.maxWidth.toFloat()
-        val areaHeight = constraints.maxHeight.toFloat()
         val margin = with(density) { FRAME_MARGIN.toPx() }
-        val frameWidth = minOf(areaWidth - 2 * margin, (areaHeight - 2 * margin) * frame.aspectRatio)
+        val frameWidth = minOf(constraints.maxWidth - 2 * margin, (constraints.maxHeight - 2 * margin) * frame.aspectRatio)
         val frameHeight = frameWidth / frame.aspectRatio
         val loaded = painterState is AsyncImagePainter.State.Success
 
@@ -198,7 +191,7 @@ private fun CropArea(
             val size = painter.intrinsicSize
             CropGeometry(size.width, size.height, frameWidth, frameHeight)
                 .takeIf { it.isValid }
-                ?.let(latestOnChange)
+                ?.let(latestOnChange.value)
         }
 
         when {
@@ -208,43 +201,45 @@ private fun CropArea(
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.padding(24.dp),
             )
-
             geometry == null -> CircularProgressIndicator(color = Color.White)
-
             else -> Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectTransformGestures { _, pan, zoomChange, _ ->
-                            latestGeometry?.let { latestOnChange(it.transformed(pan.x, pan.y, zoomChange)) }
-                        }
-                    }
-                    .pointerInput(Unit) {
-                        // A double tap zooms in, or back out when already zoomed.
-                        detectTapGestures(onDoubleTap = {
-                            latestGeometry?.let {
-                                val zoom = if (it.zoom > DOUBLE_TAP_ZOOM / 2 + 0.5f) 1f else DOUBLE_TAP_ZOOM
-                                latestOnChange(it.copy(zoom = zoom).clamped())
-                            }
-                        })
-                    },
+                modifier = Modifier.fillMaxSize().cropGestures(rememberUpdatedState(geometry), latestOnChange),
                 contentAlignment = Alignment.Center,
             ) {
-                with(density) {
-                    Image(
-                        painter = painter,
-                        contentDescription = stringResource(R.string.crop_image),
-                        contentScale = ContentScale.FillBounds,
-                        modifier = Modifier
-                            .requiredSize(geometry.displayedWidth.toDp(), geometry.displayedHeight.toDp())
-                            .offset { IntOffset(geometry.offsetX.roundToInt(), geometry.offsetY.roundToInt()) },
-                    )
-                }
+                PlacedPicture(painter, geometry)
                 FrameOverlay(frame = frame, frameWidth = frameWidth, frameHeight = frameHeight)
             }
         }
     }
 }
+
+/** The picture at the size and place [geometry] gives it; moving it only lays it out again. */
+@Composable
+private fun PlacedPicture(painter: Painter, geometry: CropGeometry) {
+    with(LocalDensity.current) {
+        Image(
+            painter = painter,
+            contentDescription = stringResource(R.string.crop_image),
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier
+                .requiredSize(geometry.displayedWidth.toDp(), geometry.displayedHeight.toDp())
+                .offset { IntOffset(geometry.offsetX.roundToInt(), geometry.offsetY.roundToInt()) },
+        )
+    }
+}
+
+/** Pinch and drag to frame the picture; a double tap zooms in, or back out when already zoomed. */
+private fun Modifier.cropGestures(geometry: State<CropGeometry>, onGeometryChange: State<(CropGeometry) -> Unit>): Modifier =
+    pointerInput(Unit) {
+        detectTransformGestures { _, pan, zoomChange, _ ->
+            onGeometryChange.value(geometry.value.transformed(pan.x, pan.y, zoomChange))
+        }
+    }.pointerInput(Unit) {
+        detectTapGestures(onDoubleTap = {
+            val zoom = if (geometry.value.zoom > DOUBLE_TAP_ZOOM / 2 + 0.5f) 1f else DOUBLE_TAP_ZOOM
+            onGeometryChange.value(geometry.value.copy(zoom = zoom).clamped())
+        })
+    }
 
 /** Dims everything outside the frame and outlines the frame itself. */
 @Composable

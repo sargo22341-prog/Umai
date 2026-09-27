@@ -104,7 +104,7 @@ fun FoodEntryRoute(
     val actions = remember(viewModel, labels) {
         FoodEntryActions(
             onLeave = onBack,
-            onPrevious = { viewModel.previous() },
+            onPrevious = { if (!viewModel.previous()) onBack() },
             onNext = viewModel::next,
             onAdd = { viewModel.save(labels) },
             onModeChange = viewModel::setMode,

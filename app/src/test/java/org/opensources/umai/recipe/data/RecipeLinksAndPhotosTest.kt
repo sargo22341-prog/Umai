@@ -59,7 +59,7 @@ class RecipeLinksAndPhotosTest {
         fake.enqueueJson(CREATED)
         fake.enqueueJson(CREATED)
 
-        repository.create(
+        val _ = repository.create(
             RecipeDraft(
                 id = "d1",
                 name = "Gratin",
@@ -88,7 +88,7 @@ class RecipeLinksAndPhotosTest {
             steps = original.steps.map { it.copy(ingredientReferences = it.ingredientReferences + "ref-2" + "ref-new") },
         )
 
-        repository.update("tarte", original, edited)
+        val _ = repository.update("tarte", original, edited)
 
         fake.takeRequest()
         val body = fake.takeRequest().body?.utf8().orEmpty()

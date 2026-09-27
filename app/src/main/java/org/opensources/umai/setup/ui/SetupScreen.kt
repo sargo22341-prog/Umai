@@ -121,57 +121,9 @@ fun SetupScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Header(expiredForUrl = state.expiredForUrl)
-
-                OutlinedTextField(
-                    value = state.url,
-                    onValueChange = onUrlChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.setup_url_label)) },
-                    placeholder = { Text(stringResource(R.string.setup_url_placeholder)) },
-                    supportingText = { Text(stringResource(R.string.setup_url_helper)) },
-                    singleLine = true,
-                    enabled = !state.connecting,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Uri,
-                        imeAction = ImeAction.Next,
-                    ),
-                )
-
+                UrlField(state, onUrlChange)
                 if (state.cleartextWarning) CleartextWarning()
-
-                Text(
-                    text = stringResource(R.string.setup_auth_method),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                // Both labels stay on a single line: a label that wraps makes
-                // its segment taller than the other one and the row lopsided.
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    SetupAuthMethod.entries.forEachIndexed { index, method ->
-                        SegmentedButton(
-                            selected = state.authMethod == method,
-                            onClick = { onAuthMethodChange(method) },
-                            enabled = !state.connecting,
-                            shape = SegmentedButtonDefaults.itemShape(
-                                index = index,
-                                count = SetupAuthMethod.entries.size,
-                            ),
-                            label = {
-                                Text(
-                                    text = when (method) {
-                                        SetupAuthMethod.PASSWORD ->
-                                            stringResource(R.string.setup_auth_password)
-                                        SetupAuthMethod.API_TOKEN ->
-                                            stringResource(R.string.setup_auth_token)
-                                    },
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            },
-                        )
-                    }
-                }
-
+                AuthMethodChoice(state, onAuthMethodChange)
                 when (state.authMethod) {
                     SetupAuthMethod.PASSWORD -> PasswordFields(
                         state = state,
@@ -181,39 +133,78 @@ fun SetupScreen(
                     )
                     SetupAuthMethod.API_TOKEN -> TokenField(state, onApiTokenChange)
                 }
-
                 state.formError?.let { ErrorBlock(stringResource(it)) }
-                state.networkError?.let { error ->
-                    ErrorBlock("${error.title()}\n${error.message()}")
-                }
-
-                Button(
-                    onClick = onConnect,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = state.canSubmit,
-                ) {
-                    if (state.connecting) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                        Spacer(Modifier.size(12.dp))
-                        Text(stringResource(R.string.setup_connecting))
-                    } else {
-                        Text(stringResource(R.string.action_connect))
-                    }
-                }
-
+                state.networkError?.let { error -> ErrorBlock("${error.title()}\n${error.message()}") }
+                ConnectButton(state, onConnect)
                 if (state.expiredForUrl != null) {
-                    TextButton(
-                        onClick = onUseAnotherInstance,
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
-                    ) {
+                    TextButton(onClick = onUseAnotherInstance, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                         Text(stringResource(R.string.setup_use_other_instance))
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun UrlField(state: SetupUiState, onUrlChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = state.url,
+        onValueChange = onUrlChange,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(stringResource(R.string.setup_url_label)) },
+        placeholder = { Text(stringResource(R.string.setup_url_placeholder)) },
+        supportingText = { Text(stringResource(R.string.setup_url_helper)) },
+        singleLine = true,
+        enabled = !state.connecting,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
+    )
+}
+
+@Composable
+private fun AuthMethodChoice(state: SetupUiState, onAuthMethodChange: (SetupAuthMethod) -> Unit) {
+    Text(
+        text = stringResource(R.string.setup_auth_method),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    // Both labels stay on a single line: a label that wraps makes
+    // its segment taller than the other one and the row lopsided.
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+        SetupAuthMethod.entries.forEachIndexed { index, method ->
+            SegmentedButton(
+                selected = state.authMethod == method,
+                onClick = { onAuthMethodChange(method) },
+                enabled = !state.connecting,
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = SetupAuthMethod.entries.size),
+                label = {
+                    Text(
+                        text = when (method) {
+                            SetupAuthMethod.PASSWORD -> stringResource(R.string.setup_auth_password)
+                            SetupAuthMethod.API_TOKEN -> stringResource(R.string.setup_auth_token)
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ConnectButton(state: SetupUiState, onConnect: () -> Unit) {
+    Button(onClick = onConnect, modifier = Modifier.fillMaxWidth(), enabled = state.canSubmit) {
+        if (state.connecting) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.onPrimary,
+            )
+            Spacer(Modifier.size(12.dp))
+            Text(stringResource(R.string.setup_connecting))
+        } else {
+            Text(stringResource(R.string.action_connect))
         }
     }
 }

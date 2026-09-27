@@ -34,6 +34,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -69,7 +70,6 @@ data class StepsFormState(
  * an optional photo. [photoUrl] gives the photo to show for a step: the one
  * framed on the device, or else the one it has on Mealie.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun InstructionsSection(
     draft: RecipeDraft,
@@ -101,80 +101,88 @@ internal fun InstructionsSection(
         )
     }
 
-    val ingredients = draft.ingredients.associateBy { it.referenceId }
+    val ingredients = remember(draft.ingredients) { draft.ingredients.associateBy { it.referenceId } }
     draft.steps.forEachIndexed { index, step ->
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = stringResource(R.string.create_step_label, index + 1),
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                IconButton(onClick = { actions.onRemoveStep(index) }) {
-                    Icon(
-                        Icons.Outlined.Delete,
-                        contentDescription = stringResource(R.string.create_remove_step),
-                    )
-                }
-            }
-            OutlinedTextField(
-                value = step.title,
-                onValueChange = { actions.onStepTitleChange(index, it) },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.create_step_title_label)) },
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = step.text,
-                onValueChange = { actions.onStepTextChange(index, it) },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.create_step_text_label)) },
-                minLines = 3,
-                maxLines = 8,
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Sentences,
-                    keyboardType = KeyboardType.Text,
-                ),
-            )
-
-            val linked = step.ingredientReferences.mapNotNull { ingredients[it] }.filter { it.text.isNotBlank() }
-            if (linked.isNotEmpty()) {
-                Text(
-                    text = stringResource(R.string.links_step_ingredients),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    linked.forEach { ingredient -> LinkedChip(ingredient) { actions.onUnlinkIngredient(index, ingredient.referenceId) } }
-                }
-            }
-
-            StepPhoto(
-                stepNumber = index + 1,
-                url = photoUrl(step),
-                processing = state.processingPhoto == index,
-                canRemove = step.photoPath != null,
-                onPick = {
-                    pickingFor = index
-                    picker.open()
-                },
-                onRemove = { actions.onRemoveStepPhoto(index) },
-            )
-        }
+        StepEditor(
+            index = index,
+            step = step,
+            linked = step.ingredientReferences.mapNotNull { ingredients[it] }.filter { it.text.isNotBlank() },
+            photoUrl = photoUrl(step),
+            processingPhoto = state.processingPhoto == index,
+            actions = actions,
+            onPickPhoto = {
+                pickingFor = index
+                picker.open()
+            },
+        )
     }
 
     OutlinedButton(onClick = actions.onAddStep, modifier = Modifier.fillMaxWidth()) {
         Icon(Icons.Outlined.Add, contentDescription = null)
-        Text(
-            text = stringResource(R.string.create_add_step),
-            modifier = Modifier.padding(start = 8.dp),
+        Text(text = stringResource(R.string.create_add_step), modifier = Modifier.padding(start = 8.dp))
+    }
+}
+
+/** One step: its heading, its text, the ingredients linked to it, and its photo. */
+@Composable
+private fun StepEditor(
+    index: Int,
+    step: DraftStep,
+    linked: List<DraftIngredient>,
+    photoUrl: String?,
+    processingPhoto: Boolean,
+    actions: RecipeFormActions,
+    onPickPhoto: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(text = stringResource(R.string.create_step_label, index + 1), style = MaterialTheme.typography.titleSmall)
+            IconButton(onClick = { actions.onRemoveStep(index) }) {
+                Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.create_remove_step))
+            }
+        }
+        OutlinedTextField(
+            value = step.title,
+            onValueChange = { actions.onStepTitleChange(index, it) },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.create_step_title_label)) },
+            singleLine = true,
         )
+        OutlinedTextField(
+            value = step.text,
+            onValueChange = { actions.onStepTextChange(index, it) },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.create_step_text_label)) },
+            minLines = 3,
+            maxLines = 8,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, keyboardType = KeyboardType.Text),
+        )
+        if (linked.isNotEmpty()) LinkedIngredients(linked, onUnlink = { actions.onUnlinkIngredient(index, it.referenceId) })
+        StepPhoto(
+            stepNumber = index + 1,
+            url = photoUrl,
+            processing = processingPhoto,
+            canRemove = step.photoPath != null,
+            onPick = onPickPhoto,
+            onRemove = { actions.onRemoveStepPhoto(index) },
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LinkedIngredients(linked: List<DraftIngredient>, onUnlink: (DraftIngredient) -> Unit) {
+    Text(
+        text = stringResource(R.string.links_step_ingredients),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        linked.forEach { ingredient -> LinkedChip(ingredient) { onUnlink(ingredient) } }
     }
 }
 

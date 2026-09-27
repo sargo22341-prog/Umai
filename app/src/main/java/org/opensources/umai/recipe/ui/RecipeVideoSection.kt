@@ -114,33 +114,38 @@ internal fun VideoSection(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            val canUsePlayer = video.stream != null
+            ChapterRows(draft, player, canUsePlayer = video.stream != null, actions = actions)
+            Spacer(Modifier.size(12.dp))
+        }
+    }
+}
+
+/** The ingredients, then each step written, with where it is in the video. */
+@Composable
+private fun ChapterRows(draft: RecipeDraft, player: ChapterPlayerState, canUsePlayer: Boolean, actions: VideoChapterActions) {
+    ChapterRow(
+        title = stringResource(R.string.recipe_ingredients),
+        subtitle = null,
+        chapter = draft.video?.ingredients,
+        stepIndex = VideoChapters.INGREDIENTS,
+        player = player,
+        canUsePlayer = canUsePlayer,
+        actions = actions,
+    )
+    // The file numbers the steps as they are written: an empty step is not one.
+    draft.steps.withIndex()
+        .filter { (_, step) -> step.text.isNotBlank() || step.title.isNotBlank() }
+        .forEachIndexed { position, (index, step) ->
             ChapterRow(
-                title = stringResource(R.string.recipe_ingredients),
-                subtitle = null,
-                chapter = draft.video?.ingredients,
-                stepIndex = VideoChapters.INGREDIENTS,
+                title = stringResource(R.string.create_step_label, position + 1),
+                subtitle = step.title.ifBlank { step.text }.trim(),
+                chapter = step.chapter,
+                stepIndex = index,
                 player = player,
                 canUsePlayer = canUsePlayer,
                 actions = actions,
             )
-            // The file numbers the steps as they are written: an empty step is not one.
-            draft.steps.withIndex()
-                .filter { (_, step) -> step.text.isNotBlank() || step.title.isNotBlank() }
-                .forEachIndexed { position, (index, step) ->
-                    ChapterRow(
-                        title = stringResource(R.string.create_step_label, position + 1),
-                        subtitle = step.title.ifBlank { step.text }.trim(),
-                        chapter = step.chapter,
-                        stepIndex = index,
-                        player = player,
-                        canUsePlayer = canUsePlayer,
-                        actions = actions,
-                    )
-                }
-            Spacer(Modifier.size(12.dp))
         }
-    }
 }
 
 @Composable
@@ -162,7 +167,6 @@ private fun VideoPlaceholder(content: @Composable () -> Unit) {
 }
 
 /** One step: where it starts and ends in the video. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ChapterRow(
     title: String,
@@ -189,53 +193,67 @@ private fun ChapterRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            FlowRow(
-                verticalArrangement = Arrangement.Center,
-                itemVerticalAlignment = Alignment.CenterVertically,
-            ) {
-                ChapterTimeField(
-                    value = chapter?.start,
-                    onValueChange = { actions.onStartChange(stepIndex, it) },
-                    label = stringResource(R.string.edit_video_start),
-                    placeholder = stringResource(R.string.edit_video_not_placed),
-                    error = null,
-                )
-                IconButton(
-                    onClick = { actions.onStartChange(stepIndex, player.positionSeconds) },
-                    enabled = canUsePlayer,
-                ) {
-                    Icon(Icons.Outlined.Start, contentDescription = stringResource(R.string.edit_video_start_here, title))
-                }
-                IconButton(
-                    onClick = { chapter?.let { player.playFrom(it.start) } },
-                    enabled = canUsePlayer && chapter != null,
-                ) {
-                    Icon(Icons.Outlined.PlayCircle, contentDescription = stringResource(R.string.edit_video_play_step, title))
-                }
-                IconButton(onClick = { actions.onStartChange(stepIndex, null) }, enabled = chapter != null) {
-                    Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.edit_video_remove, title))
-                }
-            }
-            if (chapter != null) {
-                FlowRow(itemVerticalAlignment = Alignment.CenterVertically) {
-                    ChapterTimeField(
-                        value = chapter.end,
-                        onValueChange = { actions.onEndChange(stepIndex, it) },
-                        label = stringResource(R.string.edit_video_end),
-                        placeholder = stringResource(R.string.edit_video_end_next),
-                        error = stringResource(R.string.edit_video_end_before_start).takeUnless { chapter.isValid },
-                    )
-                    IconButton(
-                        onClick = { actions.onEndChange(stepIndex, player.positionSeconds) },
-                        enabled = canUsePlayer,
-                    ) {
-                        Icon(Icons.AutoMirrored.Outlined.KeyboardTab, contentDescription = stringResource(R.string.edit_video_end_here, title))
-                    }
-                    IconButton(onClick = { actions.onEndChange(stepIndex, null) }, enabled = chapter.end != null) {
-                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.edit_video_end_clear, title))
-                    }
-                }
-            }
+            StartControls(title, chapter, stepIndex, player, canUsePlayer, actions)
+            if (chapter != null) EndControls(title, chapter, stepIndex, player, canUsePlayer, actions)
+        }
+    }
+}
+
+/** Where the step starts: typed, taken from the player, played, or removed. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun StartControls(
+    title: String,
+    chapter: DraftChapter?,
+    stepIndex: Int,
+    player: ChapterPlayerState,
+    canUsePlayer: Boolean,
+    actions: VideoChapterActions,
+) {
+    FlowRow(verticalArrangement = Arrangement.Center, itemVerticalAlignment = Alignment.CenterVertically) {
+        ChapterTimeField(
+            value = chapter?.start,
+            onValueChange = { actions.onStartChange(stepIndex, it) },
+            label = stringResource(R.string.edit_video_start),
+            placeholder = stringResource(R.string.edit_video_not_placed),
+            error = null,
+        )
+        IconButton(onClick = { actions.onStartChange(stepIndex, player.positionSeconds) }, enabled = canUsePlayer) {
+            Icon(Icons.Outlined.Start, contentDescription = stringResource(R.string.edit_video_start_here, title))
+        }
+        IconButton(onClick = { chapter?.let { player.playFrom(it.start) } }, enabled = canUsePlayer && chapter != null) {
+            Icon(Icons.Outlined.PlayCircle, contentDescription = stringResource(R.string.edit_video_play_step, title))
+        }
+        IconButton(onClick = { actions.onStartChange(stepIndex, null) }, enabled = chapter != null) {
+            Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.edit_video_remove, title))
+        }
+    }
+}
+
+/** Where the step ends: typed, taken from the player, or left to the next step. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun EndControls(
+    title: String,
+    chapter: DraftChapter,
+    stepIndex: Int,
+    player: ChapterPlayerState,
+    canUsePlayer: Boolean,
+    actions: VideoChapterActions,
+) {
+    FlowRow(itemVerticalAlignment = Alignment.CenterVertically) {
+        ChapterTimeField(
+            value = chapter.end,
+            onValueChange = { actions.onEndChange(stepIndex, it) },
+            label = stringResource(R.string.edit_video_end),
+            placeholder = stringResource(R.string.edit_video_end_next),
+            error = stringResource(R.string.edit_video_end_before_start).takeUnless { chapter.isValid },
+        )
+        IconButton(onClick = { actions.onEndChange(stepIndex, player.positionSeconds) }, enabled = canUsePlayer) {
+            Icon(Icons.AutoMirrored.Outlined.KeyboardTab, contentDescription = stringResource(R.string.edit_video_end_here, title))
+        }
+        IconButton(onClick = { actions.onEndChange(stepIndex, null) }, enabled = chapter.end != null) {
+            Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.edit_video_end_clear, title))
         }
     }
 }

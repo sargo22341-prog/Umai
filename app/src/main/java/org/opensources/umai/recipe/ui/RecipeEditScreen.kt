@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
@@ -37,7 +36,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -52,6 +50,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.opensources.umai.R
 import org.opensources.umai.core.di.LocalAppContainer
+import org.opensources.umai.core.ui.component.BackTopAppBar
 import org.opensources.umai.core.ui.component.LoadingView
 import org.opensources.umai.core.ui.component.NetworkErrorView
 import org.opensources.umai.core.ui.component.message
@@ -97,33 +96,19 @@ fun RecipeEditRoute(
     BackHandler(onBack = requestLeave)
 
     if (confirmDiscard) {
-        AlertDialog(
-            onDismissRequest = { confirmDiscard = false },
-            title = { Text(stringResource(R.string.edit_discard_title)) },
-            text = { Text(stringResource(R.string.edit_discard_message)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmDiscard = false
-                    leave()
-                }) {
-                    Text(stringResource(R.string.edit_discard_confirm))
-                }
+        DiscardDialog(
+            onDiscard = {
+                confirmDiscard = false
+                leave()
             },
-            dismissButton = {
-                TextButton(onClick = { confirmDiscard = false }) {
-                    Text(stringResource(R.string.edit_keep_editing))
-                }
-            },
+            onDismiss = { confirmDiscard = false },
         )
     }
 
-    val actions = remember(viewModel) { RecipeFormActions(viewModel) }
-    val videoActions = remember(viewModel) { VideoChapterActions(viewModel) }
-
     RecipeEditScreen(
         state = state,
-        actions = actions,
-        videoActions = videoActions,
+        actions = remember(viewModel) { RecipeFormActions(viewModel) },
+        videoActions = remember(viewModel) { VideoChapterActions(viewModel) },
         currentImageUrl = state.recipe?.let { container.imageUrls.original(it.recipeId, it.imageToken) },
         stepPhotoUrl = { step ->
             step.photoPath?.let { Uri.fromFile(File(it)).toString() }
@@ -141,11 +126,21 @@ fun RecipeEditRoute(
     )
 }
 
+@Composable
+private fun DiscardDialog(onDiscard: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.edit_discard_title)) },
+        text = { Text(stringResource(R.string.edit_discard_message)) },
+        confirmButton = { TextButton(onClick = onDiscard) { Text(stringResource(R.string.edit_discard_confirm)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.edit_keep_editing)) } },
+    )
+}
+
 /**
  * Stateless editor, driven by [RecipeEditUiState]. [videoPlayer] plays the
  * recipe video in the video section; a test puts a still stand-in there.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeEditScreen(
     state: RecipeEditUiState,
@@ -173,37 +168,11 @@ fun RecipeEditScreen(
             onDismiss = { confirmDelete = false },
         )
     }
-
     Scaffold(
         modifier = modifier,
         topBar = {
             Column {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.edit_title)) },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                                contentDescription = stringResource(R.string.action_back),
-                            )
-                        }
-                    },
-                    actions = {
-                        if (state.saving || state.deleting) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.padding(horizontal = 16.dp).size(22.dp),
-                                strokeWidth = 2.dp,
-                            )
-                        } else {
-                            TextButton(onClick = onSave, enabled = state.canSave) {
-                                Text(stringResource(R.string.edit_save))
-                            }
-                        }
-                        if (state.recipe != null) {
-                            EditMenu(enabled = state.canDelete, onDelete = { confirmDelete = true })
-                        }
-                    },
-                )
+                EditTopBar(state, onBack = onBack, onSave = onSave, onDelete = { confirmDelete = true })
                 if (state.recipe != null) {
                     SectionTabs(sections = state.sections, selected = state.section, onSelect = actions.onShowSection)
                 }
@@ -213,29 +182,8 @@ fun RecipeEditScreen(
         val loadError = state.loadError
         when {
             state.loading -> LoadingView(Modifier.padding(padding))
-
-            loadError != null -> NetworkErrorView(
-                error = loadError,
-                modifier = Modifier.fillMaxSize().padding(padding),
-                onRetry = onRetry,
-            )
-
-            else -> AnimatedContent(
-                targetState = state.section,
-                modifier = Modifier.fillMaxSize().padding(padding).imePadding(),
-                transitionSpec = {
-                    // Slides the way the tabs are laid out: towards a later
-                    // section from the end edge, towards an earlier one from the start.
-                    val forward = targetState.ordinal > initialState.ordinal
-                    val direction = if (forward) 1 else -1
-                    (slideInHorizontally(tween(SECTION_MILLIS)) { it / 4 * direction } + fadeIn(tween(SECTION_MILLIS)))
-                        .togetherWith(
-                            slideOutHorizontally(tween(SECTION_MILLIS)) { -it / 4 * direction } +
-                                fadeOut(tween(SECTION_MILLIS / 2)),
-                        )
-                },
-                label = "editSection",
-            ) { section ->
+            loadError != null -> NetworkErrorView(loadError, Modifier.fillMaxSize().padding(padding), onRetry = onRetry)
+            else -> SlidingSections(state.section, Modifier.fillMaxSize().padding(padding).imePadding()) { section ->
                 val banners = @Composable { EditBanners(state, onDismissError, onDismissDeleteError) }
                 // The player stays in view while the steps scroll under it.
                 if (section == RecipeFormSection.VIDEO) {
@@ -246,44 +194,101 @@ fun RecipeEditScreen(
                         videoPlayer = videoPlayer,
                         banners = banners,
                     )
-                    return@AnimatedContent
-                }
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp, vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    banners()
-
-                    when (section) {
-                        RecipeFormSection.BASICS -> BasicsSection(state.draft, actions)
-                        RecipeFormSection.IMAGE -> ImageSection(
-                            imageUrl = state.newImagePath?.let { Uri.fromFile(File(it)).toString() }
-                                ?: currentImageUrl,
-                            processing = state.processingImage,
-                            canRemove = state.newImagePath != null,
-                            failed = state.imageFailed,
-                            actions = actions,
-                        )
-                        RecipeFormSection.INGREDIENTS -> IngredientsSection(state.draft, actions)
-                        RecipeFormSection.INSTRUCTIONS -> InstructionsSection(state.draft, state.steps, stepPhotoUrl, actions)
-                        RecipeFormSection.ORGANIZERS -> OrganizersSection(
-                            draft = state.draft,
-                            categories = state.categories,
-                            tags = state.tags,
-                            loading = state.loadingOrganizers,
-                            actions = actions,
-                        )
-                        // Laid out above, outside this scrolling column.
-                        RecipeFormSection.VIDEO -> Unit
-                    }
-
-                    Spacer(Modifier.size(12.dp))
+                } else {
+                    FormSection(section, state, currentImageUrl, stepPhotoUrl, actions, onDismissError, onDismissDeleteError)
                 }
             }
         }
+    }
+}
+
+/**
+ * Slides from one section to the next the way the tabs are laid out: towards a
+ * later section from the end edge, towards an earlier one from the start.
+ */
+@Composable
+private fun SlidingSections(
+    section: RecipeFormSection,
+    modifier: Modifier,
+    content: @Composable (RecipeFormSection) -> Unit,
+) {
+    AnimatedContent(
+        targetState = section,
+        modifier = modifier,
+        transitionSpec = {
+            val direction = if (targetState.ordinal > initialState.ordinal) 1 else -1
+            (slideInHorizontally(tween(SECTION_MILLIS)) { it / 4 * direction } + fadeIn(tween(SECTION_MILLIS)))
+                .togetherWith(
+                    slideOutHorizontally(tween(SECTION_MILLIS)) { -it / 4 * direction } +
+                        fadeOut(tween(SECTION_MILLIS / 2)),
+                )
+        },
+        label = "editSection",
+    ) { shown -> content(shown) }
+}
+
+@Composable
+private fun EditTopBar(state: RecipeEditUiState, onBack: () -> Unit, onSave: () -> Unit, onDelete: () -> Unit) {
+    BackTopAppBar(
+        title = stringResource(R.string.edit_title),
+        onBack = onBack,
+        actions = {
+            if (state.saving || state.deleting) {
+                CircularProgressIndicator(
+                    modifier = Modifier.padding(horizontal = 16.dp).size(22.dp),
+                    strokeWidth = 2.dp,
+                )
+            } else {
+                TextButton(onClick = onSave, enabled = state.canSave) {
+                    Text(stringResource(R.string.edit_save))
+                }
+            }
+            if (state.recipe != null) EditMenu(enabled = state.canDelete, onDelete = onDelete)
+        },
+    )
+}
+
+/** One section of the form but the video, which keeps its player in view: it scrolls whole. */
+@Composable
+private fun FormSection(
+    section: RecipeFormSection,
+    state: RecipeEditUiState,
+    currentImageUrl: String?,
+    stepPhotoUrl: (DraftStep) -> String?,
+    actions: RecipeFormActions,
+    onDismissError: () -> Unit,
+    onDismissDeleteError: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        EditBanners(state, onDismissError, onDismissDeleteError)
+        when (section) {
+            RecipeFormSection.BASICS -> BasicsSection(state.draft, actions)
+            RecipeFormSection.IMAGE -> ImageSection(
+                imageUrl = state.newImagePath?.let { Uri.fromFile(File(it)).toString() } ?: currentImageUrl,
+                processing = state.processingImage,
+                canRemove = state.newImagePath != null,
+                failed = state.imageFailed,
+                actions = actions,
+            )
+            RecipeFormSection.INGREDIENTS -> IngredientsSection(state.draft, actions)
+            RecipeFormSection.INSTRUCTIONS -> InstructionsSection(state.draft, state.steps, stepPhotoUrl, actions)
+            RecipeFormSection.ORGANIZERS -> OrganizersSection(
+                draft = state.draft,
+                categories = state.categories,
+                tags = state.tags,
+                loading = state.loadingOrganizers,
+                actions = actions,
+            )
+            // Laid out by the caller, outside this scrolling column.
+            RecipeFormSection.VIDEO -> Unit
+        }
+        Spacer(Modifier.size(12.dp))
     }
 }
 

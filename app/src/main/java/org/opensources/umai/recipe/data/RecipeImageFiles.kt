@@ -7,6 +7,7 @@ import org.opensources.umai.core.image.CropRegion
 import org.opensources.umai.core.image.EncodedImage
 import org.opensources.umai.core.image.ImageCropper
 import java.io.File
+import java.io.IOException
 import java.util.UUID
 
 /**
@@ -35,20 +36,26 @@ class DeviceRecipeImageFiles(
     override suspend fun save(sourceUri: String, region: CropRegion): String? {
         val image = cropper.crop(sourceUri, region, MAX_SIDE) ?: return null
         return withContext(Dispatchers.IO) {
-            runCatching {
-                directory.mkdirs()
-                // A new name each time: an image loader never shows a stale picture.
-                val file = File(directory, "${UUID.randomUUID()}.${image.extension}")
+            directory.mkdirs()
+            // A new name each time: an image loader never shows a stale picture.
+            val file = File(directory, "${UUID.randomUUID()}.${image.extension}")
+            try {
                 file.writeBytes(image.bytes)
                 file.absolutePath
-            }.getOrNull()
+            } catch (_: IOException) {
+                // The device is full.
+                null
+            }
         }
     }
 
     override suspend fun read(path: String): EncodedImage? = withContext(Dispatchers.IO) {
         val file = File(path).takeIf { it.isOwned() && it.isFile } ?: return@withContext null
-        runCatching { EncodedImage(file.readBytes(), mediaType = EncodedImage.JPEG, extension = file.extension) }
-            .getOrNull()
+        try {
+            EncodedImage(file.readBytes(), mediaType = EncodedImage.JPEG, extension = file.extension)
+        } catch (_: IOException) {
+            null
+        }
     }
 
     override fun delete(path: String) {

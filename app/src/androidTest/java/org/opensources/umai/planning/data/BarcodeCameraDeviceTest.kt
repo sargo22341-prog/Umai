@@ -57,7 +57,7 @@ class BarcodeCameraDeviceTest {
         val analyzer = BarcodeFrameAnalyzer { read.complete(it) }
         val screen = context.resources.displayMetrics
         val frameWidth = (screen.widthPixels * 0.8f).toInt()
-        analyzer.window = ScanWindow(screen.widthPixels, screen.heightPixels, frameWidth, (frameWidth * 0.55f).toInt())
+        analyzer.aimAt(ScanWindow(screen.widthPixels, screen.heightPixels, frameWidth, (frameWidth * 0.55f).toInt()))
         val executor = Executors.newSingleThreadExecutor()
         val analysis = ImageAnalysis.Builder()
             .setResolutionSelector(

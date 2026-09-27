@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import org.opensources.umai.llm.domain.ActiveBackend
 import org.opensources.umai.llm.domain.AiBackend
 import org.opensources.umai.llm.domain.AiBackendUnavailable
 import org.opensources.umai.llm.domain.AiEngine
@@ -22,6 +23,7 @@ import org.opensources.umai.llm.domain.AiEngineLoader
 import org.opensources.umai.llm.domain.AiSense
 import org.opensources.umai.llm.domain.DeviceProfile
 import org.opensources.umai.llm.domain.LanguageModel
+import org.opensources.umai.llm.domain.LlmBenchmark
 import org.opensources.umai.llm.domain.LlmFailure
 import org.opensources.umai.llm.domain.LlmOutcome
 import org.opensources.umai.llm.domain.LlmProgress
@@ -40,23 +42,6 @@ interface ModelWork {
 
     fun end()
 }
-
-/** Where the model runs now, as proven when it was loaded. */
-data class ActiveBackend(val backend: AiBackend, val model: String, val soc: String)
-
-/** What a test run of the model measured. */
-data class LlmBenchmark(
-    val loadMillis: Long,
-    val promptTokens: Int,
-    /** Prompt tokens read per second. */
-    val promptSpeed: Double,
-    val generatedTokens: Int,
-    /** Tokens written per second. */
-    val generationSpeed: Double,
-    /** Memory of the app while the model was loaded, in bytes. */
-    val memoryBytes: Long,
-    val backend: AiBackend,
-)
 
 /**
  * The installed model, run by an [AiEngine] on the fastest backend that
@@ -140,9 +125,15 @@ class LocalLanguageModel(
                 val start = SystemClock.elapsedRealtime()
                 val engine = routes(model).firstNotNullOfOrNull { load(model, it, sense = null) } ?: return@withContext null
                 val loadMillis = SystemClock.elapsedRealtime() - start
-                runCatching { engine.generate(BENCH_REQUEST).collect {} }
-                    .onFailure { if (it is CancellationException) throw it }
-                    .getOrNull() ?: return@withContext null
+                try {
+                    engine.generate(BENCH_REQUEST).collect {}
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // The runtime reports its failures with exceptions of its own: the screen says the test failed.
+                    Log.w(TAG, "Backend: ${engine.backend} failed the benchmark", e)
+                    return@withContext null
+                }
                 val speed = engine.lastSpeed ?: return@withContext null
                 logSpeed(model, engine)
                 LlmBenchmark(

@@ -10,6 +10,7 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.core.SurfaceRequest
+import androidx.camera.core.UseCase
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
@@ -142,12 +143,10 @@ private fun CameraScanner(
     onScanned: (String) -> Unit,
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
     val haptics = LocalHapticFeedback.current
     val scanned by rememberUpdatedState(onScanned)
     var surfaceRequest by remember { mutableStateOf<SurfaceRequest?>(null) }
     var camera by remember { mutableStateOf<Camera?>(null) }
-
     val analyzer = remember {
         BarcodeFrameAnalyzer { code ->
             context.mainExecutor.execute {
@@ -156,49 +155,15 @@ private fun CameraScanner(
             }
         }
     }
-    val executor = remember { Executors.newSingleThreadExecutor() }
-    DisposableEffect(executor) { onDispose { executor.shutdown() } }
-
-    val useCases = remember {
-        // Preview and analysis share one aspect ratio, so the frame drawn on the one lies over the same part of the other.
-        val sameView = ResolutionSelector.Builder()
-            .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
-        val preview = Preview.Builder().setResolutionSelector(sameView.build()).build()
-        preview.setSurfaceProvider { surfaceRequest = it }
-        // Thin bars need pixels: Full HD keeps a barcode at arm's length readable, and only the frame is read.
-        val analysis = ImageAnalysis.Builder()
-            .setResolutionSelector(
-                sameView.setResolutionStrategy(
-                    ResolutionStrategy(android.util.Size(1920, 1080), ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER),
-                ).build(),
-            )
-            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .build()
-        analysis.setAnalyzer(executor, analyzer)
-        arrayOf(preview, analysis)
-    }
-
-    LaunchedEffect(lifecycleOwner) {
-        val provider = try {
-            ProcessCameraProvider.awaitInstance(context)
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (_: Exception) {
-            onFailed()
-            return@LaunchedEffect
-        }
-        try {
-            val bound = provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, *useCases)
-            camera = bound
-            onTorchAvailable(bound.cameraInfo.hasFlashUnit())
-            awaitCancellation()
-        } catch (_: IllegalArgumentException) {
-            // No back camera on this device.
-            onFailed()
-        } finally {
-            provider.unbind(*useCases)
-        }
-    }
+    val useCases = rememberScannerUseCases(analyzer, onSurfaceRequest = { surfaceRequest = it })
+    BindCamera(
+        useCases = useCases,
+        onBound = {
+            camera = it
+            onTorchAvailable(it.cameraInfo.hasFlashUnit())
+        },
+        onFailed = onFailed,
+    )
     LaunchedEffect(camera, torchOn) {
         camera?.cameraControl?.enableTorch(torchOn)
     }
@@ -210,7 +175,7 @@ private fun CameraScanner(
             .onSizeChanged { size ->
                 viewSize = size
                 val frame = aimingFrame(size.width.toFloat())
-                analyzer.window = ScanWindow(size.width, size.height, frame.width.roundToInt(), frame.height.roundToInt())
+                analyzer.aimAt(ScanWindow(size.width, size.height, frame.width.roundToInt(), frame.height.roundToInt()))
             },
     ) {
         surfaceRequest?.let { CameraXViewfinder(surfaceRequest = it, modifier = Modifier.fillMaxSize()) }
@@ -226,6 +191,61 @@ private fun CameraScanner(
                 .safeDrawingPadding()
                 .padding(horizontal = 32.dp, vertical = 48.dp),
         )
+    }
+}
+
+/**
+ * The preview, and the analysis that reads its frames with [analyzer] on a
+ * thread of its own, which ends when the scanner leaves the screen.
+ */
+@Composable
+private fun rememberScannerUseCases(analyzer: BarcodeFrameAnalyzer, onSurfaceRequest: (SurfaceRequest) -> Unit): Array<UseCase> {
+    val executor = remember { Executors.newSingleThreadExecutor() }
+    DisposableEffect(executor) { onDispose { executor.shutdown() } }
+    return remember {
+        // Preview and analysis share one aspect ratio, so the frame drawn on the one lies over the same part of the other.
+        val sameView = ResolutionSelector.Builder()
+            .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
+        val preview = Preview.Builder().setResolutionSelector(sameView.build()).build()
+        preview.setSurfaceProvider { onSurfaceRequest(it) }
+        // Thin bars need pixels: Full HD keeps a barcode at arm's length readable, and only the frame is read.
+        val analysis = ImageAnalysis.Builder()
+            .setResolutionSelector(
+                sameView.setResolutionStrategy(
+                    ResolutionStrategy(android.util.Size(1920, 1080), ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER),
+                ).build(),
+            )
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .build()
+        analysis.setAnalyzer(executor, analyzer)
+        arrayOf(preview, analysis)
+    }
+}
+
+/** Binds [useCases] to the back camera while the scanner is on screen. */
+@Composable
+private fun BindCamera(useCases: Array<UseCase>, onBound: (Camera) -> Unit, onFailed: () -> Unit) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        val provider = try {
+            ProcessCameraProvider.awaitInstance(context)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // CameraX reports a camera it cannot open with exceptions of its own: the dialog says so.
+            onFailed()
+            return@LaunchedEffect
+        }
+        try {
+            onBound(provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, *useCases))
+            awaitCancellation()
+        } catch (_: IllegalArgumentException) {
+            // No back camera on this device.
+            onFailed()
+        } finally {
+            provider.unbind(*useCases)
+        }
     }
 }
 

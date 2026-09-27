@@ -6,6 +6,7 @@ import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.api.MealieApi
 import org.opensources.umai.core.network.call
 import org.opensources.umai.core.network.dto.ScrapeRecipeTestDto
+import org.opensources.umai.core.network.failureOrNull
 import org.opensources.umai.core.network.map
 import org.opensources.umai.core.network.orInvalid
 import org.opensources.umai.core.network.valueOr
@@ -37,12 +38,13 @@ class ProviderMediaImporter(
         val found = schema?.let { provider.media(it, source) } ?: return ApiResult.Success(Unit)
 
         if (found.video != null && RecipeMediaFiles.chaptersFile(recipe.assets) == null) {
-            media.saveVideoManifest(slug, found.video).valueOr { return it }
+            media.saveVideoManifest(slug, found.video).failureOrNull()?.let { return it }
         }
         val photos = RecipeMediaFiles.stepPhotos(recipe.assets).keys
-        found.stepPhotos
+        // Every photo is tried; the first upload refused tells the import that media went missing.
+        val failures = found.stepPhotos
             .filterKeys { number -> number !in photos && number <= recipe.steps.size }
-            .forEach { (number, url) -> downloader.download(url)?.let { media.saveStepPhoto(slug, number, it) } }
-        return ApiResult.Success(Unit)
+            .mapNotNull { (number, url) -> downloader.download(url)?.let { media.saveStepPhoto(slug, number, it).failureOrNull() } }
+        return failures.firstOrNull() ?: ApiResult.Success(Unit)
     }
 }

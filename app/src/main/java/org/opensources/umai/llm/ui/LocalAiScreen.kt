@@ -8,17 +8,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -26,7 +22,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -41,7 +36,8 @@ import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.download.DownloadState
 import org.opensources.umai.core.download.InstallFailure
 import org.opensources.umai.core.format.currentLocale
-import org.opensources.umai.llm.data.LlmBenchmark
+import org.opensources.umai.core.ui.component.BackTopAppBar
+import org.opensources.umai.llm.domain.LlmBenchmark
 import org.opensources.umai.llm.domain.AiBackend
 import org.opensources.umai.llm.domain.LocalModel
 import org.opensources.umai.settings.ui.SettingsSectionHeader
@@ -92,21 +88,11 @@ class LocalAiScreenActions(
  * The on-device language model: which one is installed, how fast it runs,
  * and the ones that can replace it. Nothing leaves the phone.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LocalAiScreen(state: LocalAiUiState, actions: LocalAiScreenActions, modifier: Modifier = Modifier) {
     Scaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.local_ai_title)) },
-                navigationIcon = {
-                    IconButton(onClick = actions.onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
-                    }
-                },
-            )
-        },
+        topBar = { BackTopAppBar(title = stringResource(R.string.local_ai_title), onBack = actions.onBack) },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
@@ -114,14 +100,11 @@ fun LocalAiScreen(state: LocalAiUiState, actions: LocalAiScreenActions, modifier
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             item { Paragraph(stringResource(R.string.local_ai_intro)) }
-
             if (!state.supported) {
                 item { Paragraph(stringResource(R.string.local_ai_unsupported)) }
                 return@LazyColumn
             }
-
             item { Paragraph(deviceText(state)) }
-
             item {
                 SettingsSwitchRow(
                     title = stringResource(R.string.local_ai_enabled),
@@ -130,50 +113,48 @@ fun LocalAiScreen(state: LocalAiUiState, actions: LocalAiScreenActions, modifier
                     onCheckedChange = actions.onEnabledChange,
                 )
             }
-
-            item { SettingsSectionHeader(stringResource(R.string.local_ai_section_installed)) }
-            item {
-                val installed = state.installed
-                if (installed == null) {
-                    Paragraph(stringResource(R.string.local_ai_none_installed))
-                } else {
-                    InstalledModelCard(state, installed, actions)
-                }
-            }
-
-            when (val install = state.install) {
-                is DownloadState.Downloading, is DownloadState.Verifying -> item { InstallProgressCard(install, actions) }
-                is DownloadState.Failed -> item { InstallFailureCard(install, actions) }
-                DownloadState.Idle -> Unit
-            }
-
-            item { SettingsSectionHeader(stringResource(R.string.local_ai_section_models)) }
-            item {
-                Paragraph(
-                    stringResource(
-                        R.string.local_ai_device_memory,
-                        gigabytes(state.deviceMemoryBytes),
-                    ),
-                )
-            }
-            items(state.models, key = { it.id }) { model ->
-                CatalogModelCard(
-                    model = model,
-                    recommended = model.id == state.recommended.id,
-                    installed = model.id == state.installed?.id,
-                    sizeBytes = state.downloadSize(model),
-                    tpuChip = state.device.socName.takeIf { state.hasTpuBuild(model) },
-                    tight = state.isTight(model),
-                    enabled = !state.busy,
-                    onDownload = { actions.onDownload(model) },
-                )
-            }
-
+            installedModelItems(state, actions)
+            catalogItems(state, actions)
             item { SettingsSectionHeader(stringResource(R.string.local_ai_section_custom)) }
             item { CustomModelField(state, actions) }
-
             speechModelItems(state, actions.speech)
         }
+    }
+}
+
+/** The model on the phone, and its download while one runs or failed. */
+private fun LazyListScope.installedModelItems(state: LocalAiUiState, actions: LocalAiScreenActions) {
+    item { SettingsSectionHeader(stringResource(R.string.local_ai_section_installed)) }
+    item {
+        val installed = state.installed
+        if (installed == null) {
+            Paragraph(stringResource(R.string.local_ai_none_installed))
+        } else {
+            InstalledModelCard(state, installed, actions)
+        }
+    }
+    when (val install = state.install) {
+        is DownloadState.Downloading, is DownloadState.Verifying -> item { InstallProgressCard(install, actions) }
+        is DownloadState.Failed -> item { InstallFailureCard(install, actions) }
+        DownloadState.Idle -> Unit
+    }
+}
+
+/** The models the app offers, with what each needs of the phone. */
+private fun LazyListScope.catalogItems(state: LocalAiUiState, actions: LocalAiScreenActions) {
+    item { SettingsSectionHeader(stringResource(R.string.local_ai_section_models)) }
+    item { Paragraph(stringResource(R.string.local_ai_device_memory, gigabytes(state.deviceMemoryBytes))) }
+    items(state.models, key = { it.id }) { model ->
+        CatalogModelCard(
+            model = model,
+            recommended = model.id == state.recommended.id,
+            installed = model.id == state.installed?.id,
+            sizeBytes = state.downloadSize(model),
+            tpuChip = state.device.socName.takeIf { state.hasTpuBuild(model) },
+            tight = state.isTight(model),
+            enabled = !state.busy,
+            onDownload = { actions.onDownload(model) },
+        )
     }
 }
 
@@ -276,7 +257,8 @@ private fun InstallProgressCard(install: DownloadState<LocalModel>, actions: Loc
                 )
                 LinearProgressIndicator(progress = { install.fraction }, modifier = Modifier.fillMaxWidth())
             }
-            else -> Unit
+            // Not in progress: the other cards of the section tell these.
+            DownloadState.Idle, is DownloadState.Failed -> Unit
         }
     }
 }

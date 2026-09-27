@@ -72,29 +72,12 @@ fun WeekShoppingSheet(state: WeekShoppingUiState, actions: WeekShoppingActions) 
                 Done(added = added, listName = state.listName.orEmpty(), onClose = actions.onDismiss)
                 return@Column
             }
-
             LazyColumn(
                 modifier = Modifier.weight(1f, fill = false).heightIn(max = 560.dp),
                 contentPadding = PaddingValues(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                item {
-                    Text(
-                        text = stringResource(R.string.week_shopping_title),
-                        style = MaterialTheme.typography.titleLarge,
-                    )
-                    Text(
-                        text = stringResource(
-                            R.string.week_shopping_step,
-                            state.step.ordinal + 1,
-                            WeekShoppingStep.entries.size,
-                            stringResource(state.step.labelRes()),
-                        ),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                    )
-                }
+                item { StepTitle(state.step) }
                 state.error?.let { error ->
                     item {
                         Text(
@@ -113,32 +96,44 @@ fun WeekShoppingSheet(state: WeekShoppingUiState, actions: WeekShoppingActions) 
                     WeekShoppingStep.INGREDIENTS -> ingredientsStep(state, actions)
                 }
             }
-
             HorizontalDivider()
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                if (state.step != WeekShoppingStep.RECIPES) {
-                    OutlinedButton(onClick = actions.onBack, enabled = !state.adding, modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.create_previous))
-                    }
-                }
-                Button(onClick = actions.onNext, enabled = state.canContinue, modifier = Modifier.weight(1f)) {
-                    if (state.adding) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    } else {
-                        Text(
-                            stringResource(
-                                if (state.step == WeekShoppingStep.INGREDIENTS) R.string.action_add else R.string.create_next,
-                            ),
-                        )
-                    }
-                }
+            StepButtons(state, actions)
+        }
+    }
+}
+
+@Composable
+private fun StepTitle(step: WeekShoppingStep) {
+    Text(text = stringResource(R.string.week_shopping_title), style = MaterialTheme.typography.titleLarge)
+    Text(
+        text = stringResource(
+            R.string.week_shopping_step,
+            step.ordinal + 1,
+            WeekShoppingStep.entries.size,
+            stringResource(step.labelRes()),
+        ),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(bottom = 8.dp),
+    )
+}
+
+@Composable
+private fun StepButtons(state: WeekShoppingUiState, actions: WeekShoppingActions) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (state.step != WeekShoppingStep.RECIPES) {
+            OutlinedButton(onClick = actions.onBack, enabled = !state.adding, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.create_previous))
+            }
+        }
+        Button(onClick = actions.onNext, enabled = state.canContinue, modifier = Modifier.weight(1f)) {
+            if (state.adding) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+            } else {
+                Text(stringResource(if (state.step == WeekShoppingStep.INGREDIENTS) R.string.action_add else R.string.create_next))
             }
         }
     }

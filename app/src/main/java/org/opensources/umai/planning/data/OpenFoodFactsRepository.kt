@@ -2,6 +2,7 @@ package org.opensources.umai.planning.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -54,7 +55,12 @@ class OpenFoodFactsRepository(
             is ApiResult.Failure -> return FoodLookup.Failed(answer.error)
             is ApiResult.Success -> answer.value
         }
-        val root = runCatching { Json.parseToJsonElement(body) }.getOrNull() as? JsonObject
+        val root = try {
+            Json.parseToJsonElement(body) as? JsonObject
+        } catch (_: SerializationException) {
+            // An error page instead of JSON: the status code below tells what happened.
+            null
+        }
         // An unknown barcode is answered 404, with a status of 0.
         if (code == HTTP_NOT_FOUND || (root?.get("status") as? JsonPrimitive)?.intOrNull == 0) return FoodLookup.NotFound
         if (code !in 200..299) {

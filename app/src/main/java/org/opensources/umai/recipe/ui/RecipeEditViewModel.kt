@@ -221,67 +221,54 @@ class RecipeEditViewModel(
                 recentRecipes.rename(slug, newSlug)
                 slug = newSlug
             }
-
             val chaptered = when (val chapters = editRepository.saveVideoChapters(newSlug, recipe, current.draft)) {
-                is ApiResult.Failure -> {
-                    // The text is saved; the chapters stay a change to retry.
-                    _state.update {
-                        it.copy(
-                            saving = false,
-                            saveError = chapters.error,
-                            committedSlug = newSlug,
-                            recipe = recipe.copy(draft = current.draft.copy(id = newSlug)),
-                            draft = it.draft.copy(id = newSlug),
-                        )
-                    }
-                    return@launch
-                }
+                is ApiResult.Failure -> return@launch savedPartly(chapters.error, newSlug, recipe, current.draft)
                 is ApiResult.Success -> chapters.value
             }
-
-            val newPhotos = current.draft.writtenSteps.mapIndexedNotNull { index, step ->
-                step.photoPath?.let { path -> imageFiles.read(path)?.let { (index + 1) to it } }
-            }.toMap()
-            val photos = editRepository.saveStepPhotos(newSlug, recipe.recipeId, recipe.draft, current.draft, newPhotos)
-            if (photos is ApiResult.Failure) {
-                // The text is saved; the photos framed here stay, ready for another try.
-                _state.update {
-                    it.copy(
-                        saving = false,
-                        saveError = photos.error,
-                        committedSlug = newSlug,
-                        recipe = chaptered.copy(draft = current.draft.copy(id = newSlug)),
-                        draft = it.draft.copy(id = newSlug),
-                    )
-                }
-                return@launch
-            }
-
-            val imagePath = current.newImagePath
-            if (imagePath != null) {
-                val upload = imageFiles.read(imagePath)
-                    ?.let { editRepository.uploadImage(newSlug, it) }
-                    ?: ApiResult.Failure(NetworkError.InvalidResponse)
-                if (upload is ApiResult.Failure) {
-                    // The text is saved: what is left to retry is the picture
-                    // alone, against the recipe as it now is on Mealie.
-                    _state.update {
-                        it.copy(
-                            saving = false,
-                            saveError = upload.error,
-                            committedSlug = newSlug,
-                            recipe = chaptered.copy(draft = current.draft.copy(id = newSlug)),
-                            draft = it.draft.copy(id = newSlug),
-                        )
-                    }
-                    return@launch
-                }
-                imageFiles.delete(imagePath)
+            saveMedia(newSlug, recipe, current)?.let { error ->
+                return@launch savedPartly(error, newSlug, chaptered, current.draft)
             }
             current.draft.steps.mapNotNull { it.photoPath }.forEach(imageFiles::delete)
-            // The nutrition may have been changed on Mealie: the tag follows it.
-            calorieTags?.sync(newSlug)
+            // The nutrition may have been changed on Mealie: the tag follows it. When that
+            // fails, the settings' tag sync catches it up; the recipe itself is saved.
+            val _ = calorieTags?.sync(newSlug)
             _state.update { it.copy(saving = false, newImagePath = null, savedSlug = newSlug) }
+        }
+    }
+
+    /**
+     * The step photos, then the picture framed here: the first failure, or
+     * `null` once both are on Mealie. A picture left to upload stays on the
+     * device, ready for another try.
+     */
+    private suspend fun saveMedia(newSlug: String, recipe: EditableRecipe, current: RecipeEditUiState): NetworkError? {
+        val newPhotos = current.draft.writtenSteps.mapIndexedNotNull { index, step ->
+            step.photoPath?.let { path -> imageFiles.read(path)?.let { (index + 1) to it } }
+        }.toMap()
+        val photos = editRepository.saveStepPhotos(newSlug, recipe.recipeId, recipe.draft, current.draft, newPhotos)
+        if (photos is ApiResult.Failure) return photos.error
+        val imagePath = current.newImagePath ?: return null
+        val upload = imageFiles.read(imagePath)
+            ?.let { editRepository.uploadImage(newSlug, it) }
+            ?: ApiResult.Failure(NetworkError.InvalidResponse)
+        if (upload is ApiResult.Failure) return upload.error
+        imageFiles.delete(imagePath)
+        return null
+    }
+
+    /**
+     * The text is saved, not all that goes with it: what is left stays a change
+     * to retry, against the recipe as it now is on Mealie, [saved].
+     */
+    private fun savedPartly(error: NetworkError, newSlug: String, saved: EditableRecipe, draft: RecipeDraft) {
+        _state.update {
+            it.copy(
+                saving = false,
+                saveError = error,
+                committedSlug = newSlug,
+                recipe = saved.copy(draft = draft.copy(id = newSlug)),
+                draft = it.draft.copy(id = newSlug),
+            )
         }
     }
 

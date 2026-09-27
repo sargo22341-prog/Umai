@@ -27,7 +27,7 @@ class SessionStore(context: Context, private val vault: SecretVault = SecretVaul
             StoredSession(
                 baseUrl = baseUrl,
                 token = vault.unseal(prefs[KeySealedToken]),
-                authMode = prefs[KeyAuthMode]?.let { runCatching { AuthMode.valueOf(it) }.getOrNull() }
+                authMode = prefs[KeyAuthMode]?.let { name -> AuthMode.entries.firstOrNull { it.name == name } }
                     ?: AuthMode.PASSWORD,
                 username = prefs[KeyUsername],
                 userId = prefs[KeyUserId],

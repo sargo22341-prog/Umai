@@ -34,7 +34,7 @@ class MealPlanRepositoryTest {
     fun `the window is sent as the documented date range`() = runTest {
         fake.enqueueJson(EMPTY_PAGE)
 
-        repository.entries(LocalDate.of(2026, 9, 21), LocalDate.of(2026, 9, 28))
+        val _ = repository.entries(LocalDate.of(2026, 9, 21), LocalDate.of(2026, 9, 28))
 
         val request = fake.takeRequest()
         assertEquals("/api/households/mealplans", request.url.encodedPath)
@@ -120,7 +120,7 @@ class MealPlanRepositoryTest {
             code = 201,
         )
 
-        repository.add(LocalDate.of(2026, 9, 23), MealType.DINNER, recipeId = null, title = "Restaurant")
+        val _ = repository.add(LocalDate.of(2026, 9, 23), MealType.DINNER, recipeId = null, title = "Restaurant")
 
         val body = fake.takeRequest().body?.utf8().orEmpty()
         assertTrue(body.contains(""""title":"Restaurant""""))

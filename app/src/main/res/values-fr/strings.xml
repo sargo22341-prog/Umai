@@ -123,6 +123,7 @@
     <string name="recipe_notes">Notes</string>
     <string name="recipe_nutrition">Nutrition</string>
     <string name="recipe_open_source">Ouvrir la page d’origine</string>
+    <string name="recipe_source_no_app">Aucune application de cet appareil ne peut ouvrir cette page.</string>
     <string name="recipe_cook_mode">Mode cuisine</string>
     <string name="recipe_add_to_list">Ajouter à une liste de courses</string>
     <string name="recipe_add_to_plan">Ajouter au planning</string>

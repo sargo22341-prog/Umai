@@ -2,6 +2,7 @@ package org.opensources.umai.planning.ui
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -47,6 +48,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.opensources.umai.R
 import org.opensources.umai.core.format.rememberDateFormatter
@@ -73,7 +75,7 @@ class AddMealActions(
  * screen, a product with its nutrition, or, as Mealie also allows, a
  * free-text note for a meal that is not a recipe.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddMealSheet(
     date: LocalDate,
@@ -81,9 +83,7 @@ fun AddMealSheet(
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val dateFormatter = rememberDateFormatter(FormatStyle.FULL)
     var mealType by remember { mutableStateOf(MealType.DINNER) }
-    var note by remember { mutableStateOf("") }
     var noteFocused by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
 
@@ -93,17 +93,7 @@ fun AddMealSheet(
     // same place, with nothing shown in between.
     var leftForSearch by remember { mutableStateOf(false) }
 
-    // With the keyboard up, the note at the bottom of the sheet would sit
-    // behind it: the extra room lets the sheet scroll the note up to its top,
-    // so what is typed stays in sight, as in the filters of the search.
-    val keyboardRoom by animateDpAsState(
-        targetValue = if (noteFocused && WindowInsets.isImeVisible) KEYBOARD_ROOM else 0.dp,
-        label = "keyboardRoom",
-    )
-    val roomReady = keyboardRoom == KEYBOARD_ROOM
-    LaunchedEffect(noteFocused, roomReady) {
-        if (noteFocused && roomReady) scrollState.animateScrollTo(scrollState.maxValue)
-    }
+    val keyboardRoom = keyboardRoomFor(noteFocused, scrollState)
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -115,30 +105,9 @@ fun AddMealSheet(
                 .padding(start = 20.dp, end = 20.dp, bottom = 16.dp + keyboardRoom),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = stringResource(R.string.planning_add_meal),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = date.format(dateFormatter),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MealType.displayOrder.forEach { type ->
-                    FilterChip(
-                        selected = type == mealType,
-                        onClick = { mealType = type },
-                        label = { Text(stringResource(type.labelRes())) },
-                    )
-                }
-            }
-
+            SheetHeader(date)
+            MealTypeChoice(selected = mealType, onSelect = { mealType = it })
             HorizontalDivider()
-
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionTitle(stringResource(R.string.planning_choose_recipe))
                 RecipeSearchLauncher(
@@ -150,50 +119,99 @@ fun AddMealSheet(
                     },
                 )
             }
-
             HorizontalDivider()
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SectionTitle(stringResource(R.string.planning_or_food))
-                OutlinedButton(
-                    onClick = {
-                        actions.onAddFood(date)
-                        onDismiss()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Icon(Icons.Outlined.LocalCafe, contentDescription = null)
-                    Text(
-                        text = stringResource(R.string.planning_add_food),
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
-                }
-            }
-
+            FoodChoice(
+                onClick = {
+                    actions.onAddFood(date)
+                    onDismiss()
+                },
+            )
             HorizontalDivider()
+            NoteChoice(
+                onFocusChange = { noteFocused = it },
+                onAdd = { note ->
+                    actions.onAddNote(date, mealType, note)
+                    onDismiss()
+                },
+            )
+        }
+    }
+}
 
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SectionTitle(stringResource(R.string.planning_or_note))
-                OutlinedTextField(
-                    value = note,
-                    onValueChange = { note = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .onFocusChanged { noteFocused = it.isFocused },
-                    placeholder = { Text(stringResource(R.string.planning_note_placeholder)) },
-                    singleLine = true,
-                )
-                Button(
-                    onClick = {
-                        actions.onAddNote(date, mealType, note.trim())
-                        onDismiss()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = note.isNotBlank(),
-                ) {
-                    Text(stringResource(R.string.action_add))
-                }
-            }
+/**
+ * With the keyboard up, the note at the bottom of the sheet would sit behind
+ * it: the extra room lets the sheet scroll the note up to its top, so what is
+ * typed stays in sight, as in the filters of the search.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun keyboardRoomFor(noteFocused: Boolean, scrollState: ScrollState): Dp {
+    val keyboardRoom by animateDpAsState(
+        targetValue = if (noteFocused && WindowInsets.isImeVisible) KEYBOARD_ROOM else 0.dp,
+        label = "keyboardRoom",
+    )
+    val roomReady = keyboardRoom == KEYBOARD_ROOM
+    LaunchedEffect(noteFocused, roomReady) {
+        if (noteFocused && roomReady) scrollState.animateScrollTo(scrollState.maxValue)
+    }
+    return keyboardRoom
+}
+
+@Composable
+private fun FoodChoice(onClick: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SectionTitle(stringResource(R.string.planning_or_food))
+        OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Outlined.LocalCafe, contentDescription = null)
+            Text(text = stringResource(R.string.planning_add_food), modifier = Modifier.padding(start = 8.dp))
+        }
+    }
+}
+
+@Composable
+private fun SheetHeader(date: LocalDate) {
+    val dateFormatter = rememberDateFormatter(FormatStyle.FULL)
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(text = stringResource(R.string.planning_add_meal), style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = date.format(dateFormatter),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MealTypeChoice(selected: MealType, onSelect: (MealType) -> Unit) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        MealType.displayOrder.forEach { type ->
+            FilterChip(
+                selected = type == selected,
+                onClick = { onSelect(type) },
+                label = { Text(stringResource(type.labelRes())) },
+            )
+        }
+    }
+}
+
+/** A meal that is not a recipe, as Mealie allows: a line of free text. */
+@Composable
+private fun NoteChoice(onFocusChange: (Boolean) -> Unit, onAdd: (String) -> Unit) {
+    var note by remember { mutableStateOf("") }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SectionTitle(stringResource(R.string.planning_or_note))
+        OutlinedTextField(
+            value = note,
+            onValueChange = { note = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { onFocusChange(it.isFocused) },
+            placeholder = { Text(stringResource(R.string.planning_note_placeholder)) },
+            singleLine = true,
+        )
+        Button(onClick = { onAdd(note.trim()) }, modifier = Modifier.fillMaxWidth(), enabled = note.isNotBlank()) {
+            Text(stringResource(R.string.action_add))
         }
     }
 }

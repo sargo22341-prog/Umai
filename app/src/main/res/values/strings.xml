@@ -126,6 +126,7 @@
     <string name="recipe_notes">Notes</string>
     <string name="recipe_nutrition">Nutrition</string>
     <string name="recipe_open_source">Open the original page</string>
+    <string name="recipe_source_no_app">No app on this device can open this page.</string>
     <string name="recipe_cook_mode">Cooking mode</string>
     <string name="recipe_add_to_list">Add to a shopping list</string>
     <string name="recipe_add_to_plan">Add to the meal plan</string>

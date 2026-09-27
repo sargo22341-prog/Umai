@@ -151,7 +151,7 @@ class VideoWatcherTest {
     fun `without a language model the video is not looked at`() = runBlocking {
         val media = FakeVideoMedia(sounds = 1)
 
-        VideoWatcher(noModel, FakeTranscriber(), media).complete(silent(), "fr", ingredientsKnown = false) {}
+        val _ = VideoWatcher(noModel, FakeTranscriber(), media).complete(silent(), "fr", ingredientsKnown = false) {}
 
         assertTrue(media.picturesAsked.isEmpty())
     }
@@ -160,7 +160,7 @@ class VideoWatcherTest {
     fun `chapters already place the steps, the video is not looked at`() = runBlocking {
         val media = FakeVideoMedia(sounds = 1)
 
-        VideoWatcher(ScriptedModel(listOf(shown("On coupe."))), FakeTranscriber(), media)
+        val _ = VideoWatcher(ScriptedModel(listOf(shown("On coupe."))), FakeTranscriber(), media)
             .complete(silent(chapters = listOf(ChapterMark("La pâte", 0.0))), "fr", ingredientsKnown = false) {}
 
         assertTrue(media.picturesAsked.isEmpty())
@@ -181,7 +181,7 @@ class VideoWatcherTest {
     fun `a long video is looked at more sparsely`() = runBlocking {
         val media = FakeVideoMedia()
 
-        VideoWatcher(ScriptedModel(listOf(shown("On coupe."))), FakeTranscriber(), media)
+        val _ = VideoWatcher(ScriptedModel(listOf(shown("On coupe."))), FakeTranscriber(), media)
             .complete(silent(duration = 1_800).copy(soundUrl = null), "fr", ingredientsKnown = false) {}
 
         assertEquals(VideoWatcher.MAX_PICTURES, media.picturesAsked.size)

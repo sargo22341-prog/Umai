@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -53,6 +54,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import org.opensources.umai.R
 import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.model.ShoppingItem
+import org.opensources.umai.core.model.ShoppingList
 import org.opensources.umai.core.ui.component.EmptyView
 import org.opensources.umai.core.ui.component.LoadingView
 import org.opensources.umai.core.ui.component.NetworkErrorView
@@ -87,7 +89,6 @@ fun ShoppingRoute(onStartShoppingMode: (String) -> Unit, modifier: Modifier = Mo
 }
 
 /** Stateless shopping screen, driven by [ShoppingUiState]. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShoppingScreen(
     state: ShoppingUiState,
@@ -104,135 +105,37 @@ fun ShoppingScreen(
 ) {
     var newListDialogVisible by remember { mutableStateOf(false) }
     var deleteDialogVisible by remember { mutableStateOf(false) }
-    var menuExpanded by remember { mutableStateOf(false) }
-
-    if (newListDialogVisible) {
-        NewListDialog(
-            onDismiss = { newListDialogVisible = false },
-            onConfirm = {
-                onCreateList(it)
-                newListDialogVisible = false
-            },
-        )
-    }
-
     val currentList = state.list
-    if (deleteDialogVisible && currentList != null) {
-        AlertDialog(
-            onDismissRequest = { deleteDialogVisible = false },
-            title = { Text(stringResource(R.string.shopping_delete_list_title, currentList.name)) },
-            text = { Text(stringResource(R.string.shopping_delete_list_message)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDeleteList(currentList.id)
-                        deleteDialogVisible = false
-                    },
-                ) { Text(stringResource(R.string.action_delete)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { deleteDialogVisible = false }) {
-                    Text(stringResource(R.string.action_cancel))
-                }
-            },
-        )
-    }
-
+    ListDialogs(
+        list = currentList,
+        newListVisible = newListDialogVisible,
+        deleteVisible = deleteDialogVisible,
+        onCreateList = onCreateList,
+        onDeleteList = onDeleteList,
+        onClose = {
+            newListDialogVisible = false
+            deleteDialogVisible = false
+        },
+    )
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.shopping_title)) },
-                actions = {
-                    if (currentList != null && currentList.items.isNotEmpty()) {
-                        TextButton(onClick = { onStartShoppingMode(currentList.id) }) {
-                            Icon(Icons.Outlined.ShoppingBasket, contentDescription = null)
-                            Text(
-                                text = stringResource(R.string.shopping_mode_title),
-                                modifier = Modifier.padding(start = 6.dp),
-                            )
-                        }
-                    }
-                    IconButton(onClick = { newListDialogVisible = true }) {
-                        Icon(
-                            Icons.Outlined.Add,
-                            contentDescription = stringResource(R.string.shopping_new_list),
-                        )
-                    }
-                    if (currentList != null) {
-                        Box {
-                            IconButton(onClick = { menuExpanded = true }) {
-                                Icon(
-                                    Icons.Outlined.MoreVert,
-                                    contentDescription = stringResource(R.string.cd_more_options),
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = menuExpanded,
-                                onDismissRequest = { menuExpanded = false },
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.shopping_delete_list)) },
-                                    leadingIcon = {
-                                        Icon(Icons.Outlined.Delete, contentDescription = null)
-                                    },
-                                    onClick = {
-                                        menuExpanded = false
-                                        deleteDialogVisible = true
-                                    },
-                                )
-                            }
-                        }
-                    }
-                },
+            ShoppingTopBar(
+                list = currentList,
+                onStartShoppingMode = onStartShoppingMode,
+                onNewList = { newListDialogVisible = true },
+                onDeleteList = { deleteDialogVisible = true },
             )
         },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .imePadding(),
-        ) {
-            if (state.lists.size > 1) {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(count = state.lists.size, key = { state.lists[it].id }) { index ->
-                        val list = state.lists[index]
-                        FilterChip(
-                            selected = list.id == state.selectedListId,
-                            onClick = { onSelectList(list.id) },
-                            label = { Text(list.name) },
-                        )
-                    }
-                }
-            }
-
-            val error = state.error
-            when {
-                state.loadingLists -> LoadingView()
-
-                error != null && state.list == null -> NetworkErrorView(
-                    error = error,
-                    modifier = Modifier.fillMaxSize(),
-                    onRetry = onRetry,
-                )
-
-                state.hasNoList -> EmptyView(
-                    title = stringResource(R.string.shopping_no_lists_title),
-                    message = stringResource(R.string.shopping_no_lists_message),
-                    modifier = Modifier.fillMaxSize(),
-                    actionLabel = stringResource(R.string.shopping_new_list),
-                    onAction = { newListDialogVisible = true },
-                )
-
-                else -> PullToRefreshBox(
-                    isRefreshing = state.refreshing,
-                    onRefresh = onRefresh,
-                    modifier = Modifier.fillMaxSize(),
-                ) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding).imePadding()) {
+            if (state.lists.size > 1) ListChips(state, onSelectList)
+            ShoppingBody(
+                state = state,
+                onRetry = onRetry,
+                onRefresh = onRefresh,
+                onNewList = { newListDialogVisible = true },
+                content = {
                     ListContent(
                         items = currentList?.items.orEmpty(),
                         onCheckedChange = onCheckedChange,
@@ -240,8 +143,123 @@ fun ShoppingScreen(
                         onAddItem = onAddItem,
                         isEmpty = state.isListEmpty,
                     )
+                },
+            )
+        }
+    }
+}
+
+/** The list shown, or why there is none. */
+@Composable
+private fun ShoppingBody(
+    state: ShoppingUiState,
+    onRetry: () -> Unit,
+    onRefresh: () -> Unit,
+    onNewList: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val error = state.error
+    when {
+        state.loadingLists -> LoadingView()
+        error != null && state.list == null -> NetworkErrorView(error = error, modifier = Modifier.fillMaxSize(), onRetry = onRetry)
+        state.hasNoList -> EmptyView(
+            title = stringResource(R.string.shopping_no_lists_title),
+            message = stringResource(R.string.shopping_no_lists_message),
+            modifier = Modifier.fillMaxSize(),
+            actionLabel = stringResource(R.string.shopping_new_list),
+            onAction = onNewList,
+        )
+        else -> PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
+            content()
+        }
+    }
+}
+
+/** The dialog open, if any: a new list to name, or the list shown to delete. */
+@Composable
+private fun ListDialogs(
+    list: ShoppingList?,
+    newListVisible: Boolean,
+    deleteVisible: Boolean,
+    onCreateList: (String) -> Unit,
+    onDeleteList: (String) -> Unit,
+    onClose: () -> Unit,
+) {
+    if (newListVisible) {
+        NewListDialog(
+            onDismiss = onClose,
+            onConfirm = {
+                onCreateList(it)
+                onClose()
+            },
+        )
+    }
+    if (deleteVisible && list != null) {
+        DeleteListDialog(
+            name = list.name,
+            onDismiss = onClose,
+            onConfirm = {
+                onDeleteList(list.id)
+                onClose()
+            },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ShoppingTopBar(
+    list: ShoppingList?,
+    onStartShoppingMode: (String) -> Unit,
+    onNewList: () -> Unit,
+    onDeleteList: () -> Unit,
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    TopAppBar(
+        title = { Text(stringResource(R.string.shopping_title)) },
+        actions = {
+            if (list != null && list.items.isNotEmpty()) {
+                TextButton(onClick = { onStartShoppingMode(list.id) }) {
+                    Icon(Icons.Outlined.ShoppingBasket, contentDescription = null)
+                    Text(text = stringResource(R.string.shopping_mode_title), modifier = Modifier.padding(start = 6.dp))
                 }
             }
+            IconButton(onClick = onNewList) {
+                Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.shopping_new_list))
+            }
+            if (list == null) return@TopAppBar
+            Box {
+                IconButton(onClick = { menuExpanded = true }) {
+                    Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.cd_more_options))
+                }
+                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.shopping_delete_list)) },
+                        leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
+                        onClick = {
+                            menuExpanded = false
+                            onDeleteList()
+                        },
+                    )
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun ListChips(state: ShoppingUiState, onSelectList: (String) -> Unit) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(count = state.lists.size, key = { state.lists[it].id }) { index ->
+            val list = state.lists[index]
+            FilterChip(
+                selected = list.id == state.selectedListId,
+                onClick = { onSelectList(list.id) },
+                label = { Text(list.name) },
+            )
         }
     }
 }
@@ -255,17 +273,11 @@ private fun ListContent(
     onAddItem: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var draft by remember { mutableStateOf("") }
-    val unchecked = items.filterNot { it.checked }
-    val checked = items.filter { it.checked }
-    val grouped = remember(unchecked) { unchecked.groupedByLabel() }
+    val grouped = remember(items) { items.filterNot { it.checked }.groupedByLabel() }
+    val checked = remember(items) { items.filter { it.checked } }
     val unlabelled = stringResource(R.string.shopping_unlabelled)
-
     Column(modifier = modifier.fillMaxSize()) {
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(bottom = 12.dp),
-        ) {
+        LazyColumn(modifier = Modifier.weight(1f), contentPadding = PaddingValues(bottom = 12.dp)) {
             if (isEmpty) {
                 item {
                     EmptyView(
@@ -274,71 +286,73 @@ private fun ListContent(
                     )
                 }
             }
-
             grouped.forEach { (label, groupItems) ->
                 item(key = "header-${label ?: "none"}") {
-                    SectionHeader(
-                        text = label ?: unlabelled,
-                        color = groupItems.firstOrNull()?.labelColor,
-                    )
+                    SectionHeader(text = label ?: unlabelled, color = groupItems.firstOrNull()?.labelColor)
                 }
-                items(count = groupItems.size, key = { groupItems[it].id }) { index ->
-                    ShoppingItemRow(
-                        item = groupItems[index],
-                        onCheckedChange = onCheckedChange,
-                        onDelete = onDelete,
-                    )
-                }
+                itemRows(groupItems, onCheckedChange, onDelete)
             }
-
             if (checked.isNotEmpty()) {
                 item(key = "header-checked") {
-                    SectionHeader(
-                        text = stringResource(R.string.shopping_checked_section, checked.size),
-                        color = null,
-                    )
+                    SectionHeader(text = stringResource(R.string.shopping_checked_section, checked.size), color = null)
                 }
-                items(count = checked.size, key = { checked[it].id }) { index ->
-                    ShoppingItemRow(
-                        item = checked[index],
-                        onCheckedChange = onCheckedChange,
-                        onDelete = onDelete,
-                    )
-                }
+                itemRows(checked, onCheckedChange, onDelete)
             }
         }
-
         HorizontalDivider()
+        AddItemBar(onAddItem)
+    }
+}
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+private fun LazyListScope.itemRows(
+    rows: List<ShoppingItem>,
+    onCheckedChange: (ShoppingItem, Boolean) -> Unit,
+    onDelete: (ShoppingItem) -> Unit,
+) {
+    items(count = rows.size, key = { rows[it].id }) { index ->
+        ShoppingItemRow(item = rows[index], onCheckedChange = onCheckedChange, onDelete = onDelete)
+    }
+}
+
+@Composable
+private fun AddItemBar(onAddItem: (String) -> Unit) {
+    var draft by remember { mutableStateOf("") }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        OutlinedTextField(
+            value = draft,
+            onValueChange = { draft = it },
+            modifier = Modifier.weight(1f),
+            placeholder = { Text(stringResource(R.string.shopping_item_placeholder)) },
+            singleLine = true,
+            shape = MaterialTheme.shapes.extraLarge,
+        )
+        IconButton(
+            onClick = {
+                onAddItem(draft)
+                draft = ""
+            },
+            enabled = draft.isNotBlank(),
         ) {
-            OutlinedTextField(
-                value = draft,
-                onValueChange = { draft = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text(stringResource(R.string.shopping_item_placeholder)) },
-                singleLine = true,
-                shape = MaterialTheme.shapes.extraLarge,
-            )
-            IconButton(
-                onClick = {
-                    onAddItem(draft)
-                    draft = ""
-                },
-                enabled = draft.isNotBlank(),
-            ) {
-                Icon(
-                    Icons.Outlined.Add,
-                    contentDescription = stringResource(R.string.shopping_add_item),
-                )
-            }
+            Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.shopping_add_item))
         }
     }
+}
+
+@Composable
+private fun DeleteListDialog(name: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.shopping_delete_list_title, name)) },
+        text = { Text(stringResource(R.string.shopping_delete_list_message)) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.action_delete)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
 }
 
 /** The name of an aisle — a Mealie label — with its colour. */

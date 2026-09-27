@@ -11,6 +11,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.opensources.umai.R
 import org.opensources.umai.recipe.domain.ImportPhase
+import org.opensources.umai.recipe.domain.ImportRequest
 import org.opensources.umai.recipe.domain.RecipeImportRun
 import org.opensources.umai.youtube.domain.WatchProgress
 

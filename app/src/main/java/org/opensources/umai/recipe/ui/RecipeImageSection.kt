@@ -70,8 +70,36 @@ internal fun ImageSection(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 
+    ImagePreview(imageUrl = imageUrl, processing = processing, onClick = picker::open)
+    AnimatedVisibility(visible = failed || cameraUnavailable) {
+        Text(
+            text = stringResource(if (cameraUnavailable) R.string.image_camera_unavailable else R.string.create_image_failed),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Button(onClick = picker::open, enabled = !processing, modifier = Modifier.weight(1f)) {
+            Icon(Icons.Outlined.AddPhotoAlternate, contentDescription = null)
+            Text(
+                text = stringResource(if (imageUrl == null) R.string.create_image_pick else R.string.create_image_change),
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
+        if (canRemove) {
+            OutlinedButton(onClick = actions.onRemoveImage, enabled = !processing) {
+                Icon(Icons.Outlined.Delete, contentDescription = null)
+                Text(text = stringResource(R.string.create_image_remove), modifier = Modifier.padding(start = 8.dp))
+            }
+        }
+    }
+}
+
+/** The picture in the proportions of the recipe page, dimmed while a new one is framed. */
+@Composable
+private fun ImagePreview(imageUrl: String?, processing: Boolean, onClick: () -> Unit) {
     Surface(
-        onClick = picker::open,
+        onClick = onClick,
         enabled = !processing,
         shape = MaterialTheme.shapes.large,
         modifier = Modifier
@@ -82,9 +110,7 @@ internal fun ImageSection(
             Crossfade(targetState = imageUrl, label = "recipeImage") { url ->
                 RemoteImage(
                     url = url,
-                    contentDescription = stringResource(
-                        if (url == null) R.string.cd_recipe_no_image else R.string.create_image_preview,
-                    ),
+                    contentDescription = stringResource(if (url == null) R.string.cd_recipe_no_image else R.string.create_image_preview),
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(MaterialTheme.shapes.large),
@@ -93,44 +119,8 @@ internal fun ImageSection(
             }
             if (processing) {
                 Surface(color = Color.Black.copy(alpha = 0.4f), modifier = Modifier.fillMaxSize()) {
-                    Box(contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Color.White)
-                    }
+                    Box(contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.White) }
                 }
-            }
-        }
-    }
-
-    AnimatedVisibility(visible = failed || cameraUnavailable) {
-        Text(
-            text = stringResource(
-                if (cameraUnavailable) R.string.image_camera_unavailable else R.string.create_image_failed,
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
-        )
-    }
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Button(onClick = picker::open, enabled = !processing, modifier = Modifier.weight(1f)) {
-            Icon(Icons.Outlined.AddPhotoAlternate, contentDescription = null)
-            Text(
-                text = stringResource(
-                    if (imageUrl == null) R.string.create_image_pick else R.string.create_image_change,
-                ),
-                modifier = Modifier.padding(start = 8.dp),
-            )
-        }
-        if (canRemove) {
-            OutlinedButton(onClick = actions.onRemoveImage, enabled = !processing) {
-                Icon(Icons.Outlined.Delete, contentDescription = null)
-                Text(
-                    text = stringResource(R.string.create_image_remove),
-                    modifier = Modifier.padding(start = 8.dp),
-                )
             }
         }
     }

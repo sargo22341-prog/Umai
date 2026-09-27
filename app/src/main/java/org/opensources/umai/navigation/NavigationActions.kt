@@ -45,8 +45,14 @@ internal fun NavHostController.openImportedRecipe(entry: NavBackStackEntry, slug
 internal fun NavHostController.isCurrent(entry: NavBackStackEntry): Boolean =
     currentBackStackEntry?.id == entry.id
 
+/** Whether [entry] was on top and is now gone: what follows a close only happens then. */
 internal fun NavHostController.popIfCurrent(entry: NavBackStackEntry): Boolean =
     isCurrent(entry) && popBackStack()
+
+/** A back asked for by [entry], which only closes it when it is still on top. */
+internal fun NavHostController.closeIfCurrent(entry: NavBackStackEntry) {
+    if (isCurrent(entry)) popBackStack()
+}
 
 /**
  * Back on the recipe page the editor was opened from, once it closed: that

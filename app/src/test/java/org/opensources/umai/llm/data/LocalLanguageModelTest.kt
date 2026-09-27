@@ -12,6 +12,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.opensources.umai.llm.domain.ActiveBackend
 import org.opensources.umai.llm.domain.AiBackend
 import org.opensources.umai.llm.domain.AiBackendUnavailable
 import org.opensources.umai.llm.domain.AiEngine
@@ -117,7 +118,7 @@ class LocalLanguageModelTest {
         assertEquals(AiBackend.CPU to "/models/gemma-4-E2B-it.litertlm", loader.loads.last())
 
         // The failed TPU is not tried again for the next answer.
-        llm.generate(request())
+        val _ = llm.generate(request())
         assertEquals(listOf(AiBackend.TPU, AiBackend.CPU), loader.loads.map { it.first })
     }
 

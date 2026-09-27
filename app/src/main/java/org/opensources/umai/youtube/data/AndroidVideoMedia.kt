@@ -7,6 +7,8 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
@@ -16,6 +18,7 @@ import org.opensources.umai.youtube.domain.SpeechSound
 import org.opensources.umai.youtube.domain.VideoMedia
 import org.opensources.umai.youtube.domain.VideoPicture
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -44,6 +47,11 @@ class AndroidVideoMedia : VideoMedia {
             decoder.start()
             started = true
             Decoding(extractor, decoder, format, pieceSeconds, maxSeconds).run(this)
+        } catch (e: IllegalStateException) {
+            // A decoder that fails mid-way: MediaCodec.CodecException, among others.
+            throw IOException("The sound could not be decoded", e)
+        } catch (e: IllegalArgumentException) {
+            throw IOException("The sound track is not one the phone decodes", e)
         } finally {
             codec?.run {
                 if (started) stop()
@@ -71,6 +79,10 @@ class AndroidVideoMedia : VideoMedia {
                 frame.recycle()
                 emit(VideoPicture(second, jpeg))
             }
+        } catch (e: IllegalStateException) {
+            throw IOException("The pictures could not be decoded", e)
+        } catch (e: IllegalArgumentException) {
+            throw IOException("The video is not one the phone reads", e)
         } finally {
             retriever.release()
         }
@@ -94,22 +106,28 @@ class AndroidVideoMedia : VideoMedia {
         suspend fun run(out: FlowCollector<SoundPiece>) {
             val info = MediaCodec.BufferInfo()
             var inputDone = false
-            while (true) {
+            var ended = false
+            var idlePolls = 0
+            while (!ended) {
+                // Nothing below suspends while the decoder has no sound to give.
+                currentCoroutineContext().ensureActive()
                 if (!inputDone) inputDone = feed()
                 val index = codec.dequeueOutputBuffer(info, TIMEOUT_US)
-                when {
-                    index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> outputFormat(codec.outputFormat)
-                    index >= 0 -> {
-                        codec.getOutputBuffer(index)?.let { buffer ->
-                            buffer.position(info.offset)
-                            buffer.limit(info.offset + info.size)
-                            append(buffer.order(ByteOrder.nativeOrder()))
-                        }
-                        codec.releaseOutputBuffer(index, false)
-                        while (pendingSize >= rate * pieceSeconds) out.emit(piece(rate * pieceSeconds))
-                        if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
-                    }
+                if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) outputFormat(codec.outputFormat)
+                if (index < 0) {
+                    // A decoder silent for this long is stuck: it would never reach the end of the sound.
+                    if (++idlePolls > MAX_IDLE_POLLS) throw IOException("The decoder gave no sound for $MAX_IDLE_SECONDS s")
+                    continue
                 }
+                idlePolls = 0
+                codec.getOutputBuffer(index)?.let { buffer ->
+                    buffer.position(info.offset)
+                    buffer.limit(info.offset + info.size)
+                    append(buffer.order(ByteOrder.nativeOrder()))
+                }
+                codec.releaseOutputBuffer(index, false)
+                while (pendingSize >= rate * pieceSeconds) out.emit(piece(rate * pieceSeconds))
+                ended = info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
             }
             // The end of the sound, when it is long enough to say something.
             if (pendingSize >= rate * MIN_LAST_PIECE_SECONDS) out.emit(piece(pendingSize))
@@ -172,6 +190,8 @@ class AndroidVideoMedia : VideoMedia {
     private companion object {
         const val MICROS_PER_SECOND = 1_000_000L
         const val TIMEOUT_US = 10_000L
+        const val MAX_IDLE_SECONDS = 30
+        const val MAX_IDLE_POLLS = MAX_IDLE_SECONDS * MICROS_PER_SECOND / TIMEOUT_US
         const val MIN_LAST_PIECE_SECONDS = 2
         const val MAX_PICTURE_SIDE = 768
         const val JPEG_QUALITY = 85

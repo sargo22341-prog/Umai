@@ -4,11 +4,13 @@ import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.BenchmarkInfo
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.ExperimentalFlags
+import com.google.ai.edge.litertlm.LiteRtLmJniException
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.OpenApiTool
@@ -50,7 +52,14 @@ class LiteRtLmLoader(
 ) : AiEngineLoader {
 
     /** Whether the runtime's native library loads on this phone: it is only built for 64-bit ARM. */
-    val isAvailable: Boolean by lazy { runCatching { System.loadLibrary(NATIVE_LIBRARY) }.isSuccess }
+    val isAvailable: Boolean by lazy {
+        try {
+            System.loadLibrary(NATIVE_LIBRARY)
+            true
+        } catch (_: UnsatisfiedLinkError) {
+            false
+        }
+    }
 
     /** The big cores do the work; the two smallest would only slow the others down. */
     private val cpuThreads = (Runtime.getRuntime().availableProcessors() - 2).coerceIn(MIN_THREADS, MAX_THREADS)
@@ -79,7 +88,10 @@ class LiteRtLmLoader(
         )
         try {
             if (backend == AiBackend.TPU) tpuGuard.loading { engine.initialize() } else engine.initialize()
-        } catch (e: Exception) {
+        } catch (e: LiteRtLmJniException) {
+            engine.close()
+            throw AiBackendUnavailable("LiteRT-LM could not load the model on $backend: ${e.message}", e)
+        } catch (e: IllegalStateException) {
             engine.close()
             throw AiBackendUnavailable("LiteRT-LM could not load the model on $backend: ${e.message}", e)
         }
@@ -156,7 +168,7 @@ private class LiteRtLmEngine(
                 }
 
                 override fun onDone() {
-                    lastSpeed = runCatching { conversation.getBenchmarkInfo().toSpeed() }.getOrNull()
+                    lastSpeed = benchmarkOf(conversation)
                     finished.countDown()
                     channel.close()
                 }
@@ -179,6 +191,15 @@ private class LiteRtLmEngine(
     }.buffer(Channel.UNLIMITED)
 
     override fun close() = engine.close()
+
+    /** How fast the answer came, `null` when the runtime kept no timing of it. */
+    private fun benchmarkOf(conversation: Conversation): AiSpeed? = try {
+        conversation.getBenchmarkInfo().toSpeed()
+    } catch (_: LiteRtLmJniException) {
+        null
+    } catch (_: IllegalStateException) {
+        null
+    }
 
     private fun Message.text(): String = contents.contents.filterIsInstance<Content.Text>().joinToString("") { it.text }
 
@@ -218,15 +239,51 @@ internal object ToolArguments {
      * the model writes `0.0` for `0`: a whole number is written back as the
      * integer the schema asked for.
      */
-    fun toJson(value: Any?): JsonElement = when (value) {
-        null -> JsonNull
-        is Map<*, *> -> JsonObject(value.entries.associate { (key, item) -> key.toString() to toJson(item) })
-        is List<*> -> JsonArray(value.map(::toJson))
-        is Boolean -> JsonPrimitive(value)
-        is Number -> value.toDouble().let { number ->
-            if (number % 1.0 == 0.0 && abs(number) < MAX_EXACT_INTEGER) JsonPrimitive(number.toLong()) else JsonPrimitive(value)
+    fun toJson(value: Any?): JsonElement {
+        // Depth first without recursion: a map or a list is built once its items
+        // are, from the last results, which its items left in their order.
+        val tasks = ArrayDeque<Task>().apply { addLast(Task.Convert(value)) }
+        val results = ArrayDeque<JsonElement>()
+        while (tasks.isNotEmpty()) {
+            when (val task = tasks.removeLast()) {
+                is Task.Convert -> convert(task.value, tasks, results)
+                is Task.BuildObject -> {
+                    val items = List(task.keys.size) { results.removeLast() }.asReversed()
+                    results.addLast(JsonObject(task.keys.zip(items).toMap()))
+                }
+                is Task.BuildArray -> results.addLast(JsonArray(List(task.size) { results.removeLast() }.asReversed()))
+            }
         }
-        else -> JsonPrimitive(value.toString())
+        return results.single()
+    }
+
+    private sealed interface Task {
+        class Convert(val value: Any?) : Task
+        class BuildObject(val keys: List<String>) : Task
+        class BuildArray(val size: Int) : Task
+    }
+
+    /** A value converted at once, or a container whose items are queued before it is built. */
+    private fun convert(value: Any?, tasks: ArrayDeque<Task>, results: ArrayDeque<JsonElement>) {
+        when (value) {
+            null -> results.addLast(JsonNull)
+            is Map<*, *> -> {
+                tasks.addLast(Task.BuildObject(value.keys.map { it.toString() }))
+                value.values.reversed().forEach { tasks.addLast(Task.Convert(it)) }
+            }
+            is List<*> -> {
+                tasks.addLast(Task.BuildArray(value.size))
+                value.asReversed().forEach { tasks.addLast(Task.Convert(it)) }
+            }
+            is Boolean -> results.addLast(JsonPrimitive(value))
+            is Number -> results.addLast(number(value))
+            else -> results.addLast(JsonPrimitive(value.toString()))
+        }
+    }
+
+    private fun number(value: Number): JsonPrimitive {
+        val number = value.toDouble()
+        return if (number % 1.0 == 0.0 && abs(number) < MAX_EXACT_INTEGER) JsonPrimitive(number.toLong()) else JsonPrimitive(value)
     }
 
     /** Beyond 2^53 a double no longer holds every integer: such a number is kept as it came. */

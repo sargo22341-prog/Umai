@@ -41,5 +41,7 @@ val NetworkError.isRetryable: Boolean
     get() = when (this) {
         is NetworkError.Unreachable, is NetworkError.Timeout, is NetworkError.Server -> true
         is NetworkError.Http -> code == 429 || code == 408
-        else -> false
+        is NetworkError.Tls, NetworkError.Unauthorized, NetworkError.NotFound, NetworkError.InvalidResponse,
+        NetworkError.NotMealie, is NetworkError.Unknown,
+        -> false
     }

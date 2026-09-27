@@ -62,7 +62,7 @@ object JowProvider : RecipeProvider {
         val videos = when (val value = recipe["video"]) {
             is JsonArray -> value.filterIsInstance<JsonObject>()
             is JsonObject -> listOf(value)
-            else -> emptyList()
+            is JsonPrimitive, null -> emptyList()
         }
         return (
             videos.firstNotNullOfOrNull { SchemaOrgRecipe.url(it["contentUrl"], base) }
@@ -75,7 +75,7 @@ object JowProvider : RecipeProvider {
             val clip = when (val value = (step as? JsonObject)?.get("video")) {
                 is JsonArray -> value.filterIsInstance<JsonObject>().firstOrNull()
                 is JsonObject -> value
-                else -> null
+                is JsonPrimitive, null -> null
             } ?: return@mapIndexedNotNull null
             val start = SchemaOrgRecipe.number(clip, "startOffset")?.takeIf { it >= 0 }
                 ?: SchemaOrgRecipe.text(clip, "url")?.timeMark()
@@ -115,10 +115,18 @@ object JowProvider : RecipeProvider {
         }.toMap()
     }
 
-    private fun collectThumbnails(video: JsonElement, base: String): List<String> = when (video) {
-        is JsonArray -> video.flatMap { collectThumbnails(it, base) }
-        is JsonObject -> SchemaOrgRecipe.urls(video["thumbnailUrl"], base)
-        is JsonPrimitive -> emptyList()
+    private fun collectThumbnails(video: JsonElement, base: String): List<String> {
+        val found = mutableListOf<String>()
+        // Depth first, in the order of the page: the next node to read is on top.
+        val pending = ArrayDeque<JsonElement>().apply { addLast(video) }
+        while (pending.isNotEmpty()) {
+            when (val node = pending.removeLast()) {
+                is JsonArray -> node.asReversed().forEach(pending::addLast)
+                is JsonObject -> found += SchemaOrgRecipe.urls(node["thumbnailUrl"], base)
+                is JsonPrimitive -> Unit
+            }
+        }
+        return found
     }
 
     private fun String.timeMark(): Double? = timeMark.find(this)?.groupValues?.get(1)?.toDoubleOrNull()

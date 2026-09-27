@@ -4,10 +4,21 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import org.opensources.umai.MainActivity
+import org.opensources.umai.cooking.domain.CookingStepRequest
 import org.opensources.umai.cooking.domain.CookingTimer
 
-/** A cooking mode to open at a given step, asked for by a timer notification. */
-data class CookingStepRequest(val slug: String, val servings: Int, val step: Int)
+/** What a timer notification asks of its timer; [requestCode] keeps each one's pending intent apart. */
+enum class TimerAction(val intentAction: String, val requestCode: Int) {
+    PAUSE("org.opensources.umai.action.TIMER_PAUSE", 1),
+    RESUME("org.opensources.umai.action.TIMER_RESUME", 2),
+    DISMISS("org.opensources.umai.action.TIMER_DISMISS", 3),
+    ;
+
+    companion object {
+        /** The action [intentAction] names, `null` for any other intent. */
+        fun of(intentAction: String?): TimerAction? = entries.firstOrNull { it.intentAction == intentAction }
+    }
+}
 
 /**
  * The intents behind the timer notifications and the wake-up alarm. Every one
@@ -16,9 +27,6 @@ data class CookingStepRequest(val slug: String, val servings: Int, val step: Int
 object TimerIntents {
 
     const val ACTION_WAKE_UP = "org.opensources.umai.action.TIMER_WAKE_UP"
-    const val ACTION_PAUSE = "org.opensources.umai.action.TIMER_PAUSE"
-    const val ACTION_RESUME = "org.opensources.umai.action.TIMER_RESUME"
-    const val ACTION_DISMISS = "org.opensources.umai.action.TIMER_DISMISS"
     const val EXTRA_TIMER_ID = "timer_id"
 
     private const val ACTION_OPEN_COOKING = "org.opensources.umai.action.OPEN_COOKING"
@@ -35,11 +43,11 @@ object TimerIntents {
     )
 
     /** One notification action on one timer; each pair gets its own request code. */
-    fun action(context: Context, action: String, timerId: Int): PendingIntent = PendingIntent.getBroadcast(
+    fun action(context: Context, action: TimerAction, timerId: Int): PendingIntent = PendingIntent.getBroadcast(
         context,
-        requestCode(timerId, action),
+        requestCode(timerId, action.requestCode),
         Intent(context, TimerActionReceiver::class.java)
-            .setAction(action)
+            .setAction(action.intentAction)
             .putExtra(EXTRA_TIMER_ID, timerId),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
@@ -47,7 +55,7 @@ object TimerIntents {
     /** Brings the app back on the cooking mode of [timer], at the step it was started from. */
     fun openCooking(context: Context, timer: CookingTimer): PendingIntent = PendingIntent.getActivity(
         context,
-        requestCode(timer.id, ACTION_OPEN_COOKING),
+        requestCode(timer.id, OPEN_COOKING_CODE),
         Intent(context, MainActivity::class.java)
             .setAction(ACTION_OPEN_COOKING)
             .putExtra(EXTRA_SLUG, timer.recipe.slug)
@@ -69,12 +77,9 @@ object TimerIntents {
         )
     }
 
-    private fun requestCode(timerId: Int, action: String): Int = timerId * ACTIONS + when (action) {
-        ACTION_PAUSE -> 1
-        ACTION_RESUME -> 2
-        ACTION_DISMISS -> 3
-        else -> 4
-    }
+    private fun requestCode(timerId: Int, code: Int): Int = timerId * ACTIONS + code
 
+    /** After every [TimerAction.requestCode]. */
+    private const val OPEN_COOKING_CODE = 4
     private const val ACTIONS = 5
 }

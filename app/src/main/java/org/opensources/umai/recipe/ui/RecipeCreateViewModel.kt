@@ -206,7 +206,8 @@ class RecipeCreateViewModel(
                     // only invite a duplicate. Its picture goes with it.
                     draftStore.delete(draft.id)
                     val created = result.value
-                    calorieTags?.sync(created.slug)
+                    // A calorie tag left behind is caught up by the settings' tag sync.
+                    val _ = calorieTags?.sync(created.slug)
                     _state.update {
                         it.copy(
                             creating = false,

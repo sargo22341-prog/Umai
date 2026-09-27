@@ -11,6 +11,7 @@ import org.opensources.umai.llm.domain.LlmOutcome
 import org.opensources.umai.llm.domain.LlmRequest
 import org.opensources.umai.llm.domain.ModelAnswer
 import org.opensources.umai.speech.domain.SpeechTranscriber
+import java.io.IOException
 import kotlin.math.ceil
 import kotlin.math.max
 
@@ -23,10 +24,16 @@ class VideoPicture(val second: Double, val jpeg: ByteArray)
 /** Reads the sound and the pictures of a video, on the phone. */
 interface VideoMedia {
 
-    /** The sound at [url] in pieces of [pieceSeconds], up to [maxSeconds]. */
+    /**
+     * The sound at [url] in pieces of [pieceSeconds], up to [maxSeconds]; fails
+     * with an [IOException] once the file cannot be read or decoded.
+     */
     fun sound(url: String, pieceSeconds: Int, maxSeconds: Int): Flow<SoundPiece>
 
-    /** Pictures of the video at [url] at each of [seconds]; one that cannot be read is skipped. */
+    /**
+     * Pictures of the video at [url] at each of [seconds]; one that cannot be
+     * read is skipped, and a file that cannot be read fails with an [IOException].
+     */
     fun pictures(url: String, seconds: List<Double>): Flow<VideoPicture>
 }
 
@@ -92,7 +99,7 @@ class VideoWatcher(
         media.sound(url, PIECE_SECONDS, seconds)
             .takeWhile { !stopped }
             // A sound file that stops being readable leaves what was heard so far.
-            .catch { }
+            .catch { if (it !is IOException) throw it }
             .collect { piece ->
                 val said = transcriber.transcribe(piece.samples, video.spokenLanguage?.substringBefore('-'))
                 if (said == null) {
@@ -128,7 +135,8 @@ class VideoWatcher(
         onProgress(WatchProgress(seeing = true, done = 0, total = windows.size))
         media.pictures(url, windows.map { minOf(it + gap / 2, duration - 1) })
             .takeWhile { !stopped }
-            .catch { }
+            // Likewise for the pictures: those seen so far are kept.
+            .catch { if (it !is IOException) throw it }
             .collect { picture ->
                 when (val outcome = model.generate(request.copy(media = LlmMedia.Picture(picture.jpeg)))) {
                     is LlmOutcome.Success -> field(outcome.text, SHOWN)?.let { shown ->

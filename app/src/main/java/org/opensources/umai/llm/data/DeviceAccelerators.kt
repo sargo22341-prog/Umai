@@ -5,6 +5,8 @@ import org.opensources.umai.llm.domain.AiBackend
 import org.opensources.umai.llm.domain.DeviceProfile
 import org.opensources.umai.llm.domain.TensorChip
 import java.io.File
+import java.io.FileNotFoundException
+import java.io.IOException
 
 /**
  * What this phone offers the model, read without loading anything, and the
@@ -49,11 +51,14 @@ object DeviceAccelerators {
     }
 
     /** The file names of the shared libraries mapped in this process. */
-    private fun loadedLibraries(): Set<String> = runCatching {
+    private fun loadedLibraries(): Set<String> = try {
         File("/proc/self/maps").useLines { lines ->
             lines.map { it.substringAfterLast('/') }.filter { it.endsWith(".so") }.toSet()
         }
-    }.getOrDefault(emptySet())
+    } catch (_: IOException) {
+        // Nothing proves a driver is loaded: every accelerator is then reported missing.
+        emptySet()
+    }
 }
 
 /**
@@ -66,7 +71,14 @@ object DeviceAccelerators {
  */
 class TpuCrashGuard(private val marker: File, private val build: String) {
 
-    val crashedBefore: Boolean = runCatching { marker.readText() == build }.getOrDefault(false)
+    val crashedBefore: Boolean = try {
+        marker.readText() == build
+    } catch (_: FileNotFoundException) {
+        false
+    } catch (_: IOException) {
+        // A marker that cannot be read may tell of a crash: the TPU stays aside.
+        true
+    }
 
     fun <T> loading(block: () -> T): T {
         marker.parentFile?.mkdirs()

@@ -115,31 +115,7 @@ private fun ProductPhoto(state: FoodEntryUiState, actions: FoodEntryActions) {
     )
 
     val photo = state.photoPath
-    if (photo != null || state.processingPhoto) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(CropFrame.RECIPE.aspectRatio)
-                .clip(MaterialTheme.shapes.large),
-            contentAlignment = Alignment.Center,
-        ) {
-            RemoteImage(
-                url = photo?.let { Uri.fromFile(File(it)).toString() },
-                contentDescription = stringResource(R.string.food_photo_description, state.name),
-                modifier = Modifier.fillMaxSize(),
-                // A package photographed for Open Food Facts is often tall: it is shown whole.
-                contentScale = ContentScale.Fit,
-                placeholderIconSize = 48.dp,
-            )
-            if (state.processingPhoto) {
-                Surface(color = Color.Black.copy(alpha = 0.4f), modifier = Modifier.fillMaxSize()) {
-                    Box(contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Color.White)
-                    }
-                }
-            }
-        }
-    }
+    if (photo != null || state.processingPhoto) PhotoPreview(photo, state.processingPhoto, state.name)
 
     if (state.photoFailed || cameraUnavailable) {
         ErrorText(stringResource(if (cameraUnavailable) R.string.image_camera_unavailable else R.string.food_photo_failed))
@@ -163,6 +139,31 @@ private fun ProductPhoto(state: FoodEntryUiState, actions: FoodEntryActions) {
     }
 
     HelperText(stringResource(R.string.food_photo_local))
+}
+
+@Composable
+private fun PhotoPreview(photo: String?, processing: Boolean, name: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(CropFrame.RECIPE.aspectRatio)
+            .clip(MaterialTheme.shapes.large),
+        contentAlignment = Alignment.Center,
+    ) {
+        RemoteImage(
+            url = photo?.let { Uri.fromFile(File(it)).toString() },
+            contentDescription = stringResource(R.string.food_photo_description, name),
+            modifier = Modifier.fillMaxSize(),
+            // A package photographed for Open Food Facts is often tall: it is shown whole.
+            contentScale = ContentScale.Fit,
+            placeholderIconSize = 48.dp,
+        )
+        if (processing) {
+            Surface(color = Color.Black.copy(alpha = 0.4f), modifier = Modifier.fillMaxSize()) {
+                Box(contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.White) }
+            }
+        }
+    }
 }
 
 /**
@@ -248,11 +249,16 @@ private fun LabelCapture(state: FoodEntryUiState, actions: FoodEntryActions) {
     }
 
     if (cameraUnavailable) ErrorText(stringResource(R.string.image_camera_unavailable))
+    LabelOutcome(state, onDismissIssue = actions.onDismissLabelIssue)
+}
 
+/** Why the label could not be read, dismissed with a tap, or that it was. */
+@Composable
+private fun LabelOutcome(state: FoodEntryUiState, onDismissIssue: () -> Unit) {
     val issue = state.labelIssue
     when {
         issue != null -> Surface(
-            onClick = actions.onDismissLabelIssue,
+            onClick = onDismissIssue,
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium,
             color = MaterialTheme.colorScheme.errorContainer,

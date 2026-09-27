@@ -78,7 +78,7 @@ class OrganizerRepositoryTest {
         first.enqueueJson(tags("ete"))
         first.enqueueJson(tags("ete", "automne"))
 
-        repository.tags()
+        val _ = repository.tags()
         assertEquals(listOf("ete", "automne"), repository.tags(forceRefresh = true).names())
     }
 

@@ -163,10 +163,7 @@ fun ProfileScreen(
                 onRefresh = onRefresh,
                 modifier = Modifier.fillMaxSize().padding(padding),
             ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 24.dp),
-                ) {
+                LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
                     item {
                         IdentityHeader(
                             user = state.user,
@@ -175,75 +172,81 @@ fun ProfileScreen(
                             onPickAvatar = onPickAvatar,
                         )
                     }
-
                     state.statistics?.let { statistics ->
                         item { StatisticsRow(statistics) }
                     }
-
                     item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
                     item { SectionHeader(stringResource(R.string.profile_section_add)) }
-
-                    item {
-                        NavigationRow(
-                            title = stringResource(R.string.profile_import_recipe),
-                            summary = stringResource(R.string.profile_import_recipe_summary),
-                            icon = Icons.Outlined.Link,
-                            onClick = onImportRecipe,
-                        )
-                        NavigationRow(
-                            title = stringResource(R.string.profile_create_recipe),
-                            summary = stringResource(R.string.profile_create_recipe_summary),
-                            icon = Icons.Outlined.AddCircleOutline,
-                            onClick = onCreateRecipe,
-                        )
-                        NavigationRow(
-                            title = stringResource(R.string.profile_drafts),
-                            summary = if (state.draftCount == 0) {
-                                stringResource(R.string.profile_drafts_empty)
-                            } else {
-                                pluralStringResource(
-                                    R.plurals.plural_drafts,
-                                    state.draftCount,
-                                    state.draftCount,
-                                )
-                            },
-                            icon = Icons.Outlined.EditNote,
-                            onClick = onOpenDrafts,
-                        )
-                    }
-
+                    item { AddRecipeRows(state.draftCount, onImportRecipe, onCreateRecipe, onOpenDrafts) }
                     item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
                     item { SectionHeader(stringResource(R.string.profile_section_settings)) }
-
-                    item {
-                        NavigationRow(
-                            title = stringResource(R.string.settings_mealie_title),
-                            summary = stringResource(R.string.settings_mealie_summary),
-                            icon = Icons.Outlined.Dns,
-                            onClick = onOpenMealieSettings,
-                        )
-                        NavigationRow(
-                            title = stringResource(R.string.settings_app_title),
-                            summary = stringResource(R.string.settings_app_summary),
-                            icon = Icons.Outlined.Tune,
-                            onClick = onOpenAppSettings,
-                        )
-                        NavigationRow(
-                            title = stringResource(R.string.providers_title),
-                            summary = stringResource(R.string.providers_summary),
-                            icon = Icons.Outlined.Extension,
-                            onClick = onOpenProviders,
-                        )
-                        NavigationRow(
-                            title = stringResource(R.string.local_ai_title),
-                            summary = stringResource(R.string.local_ai_summary),
-                            icon = Icons.Outlined.AutoAwesome,
-                            onClick = onOpenLocalAi,
-                        )
-                    }
+                    item { SettingsRows(onOpenMealieSettings, onOpenAppSettings, onOpenProviders, onOpenLocalAi) }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AddRecipeRows(draftCount: Int, onImportRecipe: () -> Unit, onCreateRecipe: () -> Unit, onOpenDrafts: () -> Unit) {
+    Column {
+        NavigationRow(
+            title = stringResource(R.string.profile_import_recipe),
+            summary = stringResource(R.string.profile_import_recipe_summary),
+            icon = Icons.Outlined.Link,
+            onClick = onImportRecipe,
+        )
+        NavigationRow(
+            title = stringResource(R.string.profile_create_recipe),
+            summary = stringResource(R.string.profile_create_recipe_summary),
+            icon = Icons.Outlined.AddCircleOutline,
+            onClick = onCreateRecipe,
+        )
+        NavigationRow(
+            title = stringResource(R.string.profile_drafts),
+            summary = if (draftCount == 0) {
+                stringResource(R.string.profile_drafts_empty)
+            } else {
+                pluralStringResource(R.plurals.plural_drafts, draftCount, draftCount)
+            },
+            icon = Icons.Outlined.EditNote,
+            onClick = onOpenDrafts,
+        )
+    }
+}
+
+@Composable
+private fun SettingsRows(
+    onOpenMealieSettings: () -> Unit,
+    onOpenAppSettings: () -> Unit,
+    onOpenProviders: () -> Unit,
+    onOpenLocalAi: () -> Unit,
+) {
+    Column {
+        NavigationRow(
+            title = stringResource(R.string.settings_mealie_title),
+            summary = stringResource(R.string.settings_mealie_summary),
+            icon = Icons.Outlined.Dns,
+            onClick = onOpenMealieSettings,
+        )
+        NavigationRow(
+            title = stringResource(R.string.settings_app_title),
+            summary = stringResource(R.string.settings_app_summary),
+            icon = Icons.Outlined.Tune,
+            onClick = onOpenAppSettings,
+        )
+        NavigationRow(
+            title = stringResource(R.string.providers_title),
+            summary = stringResource(R.string.providers_summary),
+            icon = Icons.Outlined.Extension,
+            onClick = onOpenProviders,
+        )
+        NavigationRow(
+            title = stringResource(R.string.local_ai_title),
+            summary = stringResource(R.string.local_ai_summary),
+            icon = Icons.Outlined.AutoAwesome,
+            onClick = onOpenLocalAi,
+        )
     }
 }
 
@@ -270,30 +273,8 @@ private fun IdentityHeader(
                 size = 84.dp,
                 textStyle = 30.sp,
             )
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(28.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    if (uploading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Outlined.PhotoCamera,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
-                }
-            }
+            AvatarBadge(uploading)
         }
-
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 text = user?.displayName.orEmpty(),
@@ -312,15 +293,34 @@ private fun IdentityHeader(
             }
             user?.let {
                 Text(
-                    text = stringResource(
-                        R.string.profile_group_and_household,
-                        it.groupName,
-                        it.householdName,
-                    ),
+                    text = stringResource(R.string.profile_group_and_household, it.groupName, it.householdName),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+/** The camera on the corner of the picture, or the upload in progress. */
+@Composable
+private fun AvatarBadge(uploading: Boolean) {
+    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp)) {
+        Box(contentAlignment = Alignment.Center) {
+            if (uploading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Outlined.PhotoCamera,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(16.dp),
                 )
             }
         }

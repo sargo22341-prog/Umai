@@ -7,6 +7,7 @@ import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -49,14 +50,19 @@ class DeviceImageCropper(context: Context) : ImageCropper {
 
     override suspend fun crop(sourceUri: String, region: CropRegion, maxSide: Int): EncodedImage? =
         withContext(Dispatchers.IO) {
-            val uri = runCatching { sourceUri.toUri() }.getOrNull() ?: return@withContext null
-            val decoded = runCatching {
-                ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver, uri)) { decoder, info, _ ->
+            val decoded = try {
+                ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver, sourceUri.toUri())) { decoder, info, _ ->
                     decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
                     val (width, height) = scaledSize(info.size.width, info.size.height, region, maxSide)
                     decoder.setTargetSize(width, height)
                 }
-            }.getOrNull() ?: return@withContext null
+            } catch (_: IOException) {
+                // Gone, unreadable or not a picture.
+                return@withContext null
+            } catch (_: SecurityException) {
+                // The app that shared it no longer grants access to it.
+                return@withContext null
+            }
 
             val cropped = decoded.cropTo(region)
             val output = ByteArrayOutputStream()

@@ -51,7 +51,7 @@ class RecipeCaloriesRepositoryTest {
         fake.enqueueJson(recipe(null))
 
         assertEquals(mapOf("r2" to null), repository.calories(listOf(summary("r2"))))
-        repository.calories(listOf(summary("r2")))
+        val _ = repository.calories(listOf(summary("r2")))
 
         assertEquals(1, fake.server.requestCount)
     }

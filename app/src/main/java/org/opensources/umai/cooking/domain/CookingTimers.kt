@@ -102,3 +102,6 @@ interface TimerHost {
     /** Called after every change; an empty [timers] means there is nothing left to keep alive. */
     fun update(timers: CookingTimers, now: Long)
 }
+
+/** A cooking mode to open at a given step, asked for by a timer notification. */
+data class CookingStepRequest(val slug: String, val servings: Int, val step: Int)

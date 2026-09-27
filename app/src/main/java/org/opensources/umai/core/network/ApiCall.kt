@@ -3,8 +3,10 @@ package org.opensources.umai.core.network
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import org.opensources.umai.core.network.api.MealieApi
 import retrofit2.HttpException
 import java.io.EOFException
@@ -33,6 +35,9 @@ inline fun <T, R> ApiResult<T>.flatMap(transform: (T) -> ApiResult<R>): ApiResul
 }
 
 fun <T> ApiResult<T>.valueOrNull(): T? = (this as? ApiResult.Success)?.value
+
+/** The failure, or `null` on success: for a call whose value says nothing, such as an upload. */
+fun ApiResult<*>.failureOrNull(): ApiResult.Failure? = this as? ApiResult.Failure
 
 /**
  * The value, or what [onFailure] makes of the failure: `valueOr { return it }`
@@ -65,7 +70,9 @@ suspend inline fun <T> apiCall(crossinline block: suspend () -> T): ApiResult<T>
     ApiResult.Success(block())
 } catch (e: CancellationException) {
     throw e
-} catch (e: Throwable) {
+} catch (e: Exception) {
+    // Every exception a call can end with becomes a NetworkError; an Error
+    // (out of memory, a broken build) is not the network's and goes on.
     ApiResult.Failure(NetworkErrorMapper.map(e))
 }
 
@@ -95,14 +102,24 @@ object NetworkErrorMapper {
     }
 
     /** Mealie reports errors as `{"detail": "..."}` or `{"detail": {"message": "..."}}`. */
-    private fun detailOf(e: HttpException): String? = runCatching {
-        val body = e.response()?.errorBody()?.string().orEmpty()
-        if (body.isBlank()) return null
-        val root = lenientJson.parseToJsonElement(body) as? JsonObject ?: return null
-        when (val detail = root["detail"]) {
-            is JsonObject -> detail["message"]?.jsonPrimitive?.content
-            null -> null
-            else -> detail.jsonPrimitive.content
+    private fun detailOf(e: HttpException): String? {
+        val body = try {
+            e.response()?.errorBody()?.string().orEmpty()
+        } catch (_: IOException) {
+            // The status alone still tells what went wrong.
+            return null
         }
-    }.getOrNull()
+        if (body.isBlank()) return null
+        val root = try {
+            lenientJson.parseToJsonElement(body) as? JsonObject
+        } catch (_: SerializationException) {
+            null
+        } ?: return null
+        return when (val detail = root["detail"]) {
+            is JsonObject -> (detail["message"] as? JsonPrimitive)?.contentOrNull
+            is JsonPrimitive -> detail.contentOrNull
+            // A list of validation errors, which only a developer could read.
+            is JsonArray, null -> null
+        }
+    }
 }

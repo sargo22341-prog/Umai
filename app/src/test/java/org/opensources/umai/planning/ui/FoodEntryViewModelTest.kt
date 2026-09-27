@@ -90,6 +90,8 @@ class FoodEntryViewModelTest {
         decimalSeparator = ',',
     )
 
+    /** Waits for the state; a test that only needs the wait leaves the value. */
+    @IgnorableReturnValue
     private suspend fun FoodEntryViewModel.await(predicate: (FoodEntryUiState) -> Boolean) =
         withTimeout(TIMEOUT_MS) { state.first(predicate) }
 

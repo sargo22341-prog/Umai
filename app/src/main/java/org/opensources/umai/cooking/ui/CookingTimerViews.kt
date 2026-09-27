@@ -133,12 +133,7 @@ private fun TimerRow(
         ) {
             Icon(imageVector = if (finished) Icons.Outlined.Alarm else Icons.Outlined.Timer, contentDescription = null)
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Text(text = label, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (finished) {
                     Text(
                         text = stringResource(R.string.cooking_timer_done),
@@ -146,32 +141,28 @@ private fun TimerRow(
                         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     )
                 } else {
-                    Text(
-                        text = TimerFormat.countdown(timer.remainingMillis(now)),
-                        style = MaterialTheme.typography.titleLarge,
-                    )
+                    Text(text = TimerFormat.countdown(timer.remainingMillis(now)), style = MaterialTheme.typography.titleLarge)
                 }
             }
             if (finished) {
                 FilledTonalButton(onClick = onDismiss) { Text(stringResource(R.string.cooking_timer_stop)) }
             } else {
-                IconButton(onClick = if (timer.isRunning) onPause else onResume) {
-                    Icon(
-                        imageVector = if (timer.isRunning) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
-                        contentDescription = stringResource(
-                            if (timer.isRunning) R.string.cooking_timer_pause else R.string.cooking_timer_resume,
-                            label,
-                        ),
-                    )
-                }
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        imageVector = Icons.Outlined.Close,
-                        contentDescription = stringResource(R.string.cooking_timer_cancel, label),
-                    )
-                }
+                TimerButtons(running = timer.isRunning, label = label, onPause = onPause, onResume = onResume, onDismiss = onDismiss)
             }
         }
+    }
+}
+
+@Composable
+private fun TimerButtons(running: Boolean, label: String, onPause: () -> Unit, onResume: () -> Unit, onDismiss: () -> Unit) {
+    IconButton(onClick = if (running) onPause else onResume) {
+        Icon(
+            imageVector = if (running) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
+            contentDescription = stringResource(if (running) R.string.cooking_timer_pause else R.string.cooking_timer_resume, label),
+        )
+    }
+    IconButton(onClick = onDismiss) {
+        Icon(imageVector = Icons.Outlined.Close, contentDescription = stringResource(R.string.cooking_timer_cancel, label))
     }
 }
 

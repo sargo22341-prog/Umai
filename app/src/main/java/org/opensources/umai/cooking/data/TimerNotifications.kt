@@ -117,14 +117,14 @@ class TimerNotifications(context: Context) {
                 .setShowWhen(true)
                 .setUsesChronometer(true)
                 .setChronometerCountDown(true)
-                .addAction(action(R.string.cooking_timer_action_pause, TimerIntents.ACTION_PAUSE, timer))
+                .addAction(action(R.string.cooking_timer_action_pause, TimerAction.PAUSE, timer))
         } else {
             builder
                 .setShowWhen(false)
-                .addAction(action(R.string.cooking_timer_action_resume, TimerIntents.ACTION_RESUME, timer))
+                .addAction(action(R.string.cooking_timer_action_resume, TimerAction.RESUME, timer))
         }
         return builder
-            .addAction(action(R.string.action_cancel, TimerIntents.ACTION_DISMISS, timer))
+            .addAction(action(R.string.action_cancel, TimerAction.DISMISS, timer))
             .build()
     }
 
@@ -140,8 +140,8 @@ class TimerNotifications(context: Context) {
             .setShowWhen(false)
             .setContentIntent(TimerIntents.openCooking(context, timer))
             // Swiping the alarm away stops it, like its button.
-            .setDeleteIntent(TimerIntents.action(context, TimerIntents.ACTION_DISMISS, timer.id))
-            .addAction(action(R.string.cooking_timer_stop, TimerIntents.ACTION_DISMISS, timer))
+            .setDeleteIntent(TimerIntents.action(context, TimerAction.DISMISS, timer.id))
+            .addAction(action(R.string.cooking_timer_stop, TimerAction.DISMISS, timer))
             .build()
 
     /** "Step 2 · 15 min", or "Step 2 · 15 min · paused, 12:03 left". */
@@ -160,7 +160,7 @@ class TimerNotifications(context: Context) {
         return context.getString(R.string.cooking_timer_label, timer.stepIndex + 1, TimerFormat.duration(timer.duration, units))
     }
 
-    private fun action(titleRes: Int, action: String, timer: CookingTimer): Notification.Action =
+    private fun action(titleRes: Int, action: TimerAction, timer: CookingTimer): Notification.Action =
         Notification.Action.Builder(
             Icon.createWithResource(context, R.drawable.ic_notification_timer),
             context.getString(titleRes),

@@ -15,11 +15,16 @@ class TimerActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val timers = (context.applicationContext as UmaiApplication).container.cookingTimers
         val id = intent.getIntExtra(TimerIntents.EXTRA_TIMER_ID, NO_TIMER)
-        when (intent.action) {
-            TimerIntents.ACTION_WAKE_UP -> timers.refresh()
-            TimerIntents.ACTION_PAUSE -> timers.pause(id)
-            TimerIntents.ACTION_RESUME -> timers.resume(id)
-            TimerIntents.ACTION_DISMISS -> timers.dismiss(id)
+        if (intent.action == TimerIntents.ACTION_WAKE_UP) {
+            timers.refresh()
+            return
+        }
+        when (TimerAction.of(intent.action)) {
+            TimerAction.PAUSE -> timers.pause(id)
+            TimerAction.RESUME -> timers.resume(id)
+            TimerAction.DISMISS -> timers.dismiss(id)
+            // Only the app's own intents reach this receiver: none other is expected.
+            null -> Unit
         }
     }
 

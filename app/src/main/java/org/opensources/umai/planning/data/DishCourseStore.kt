@@ -9,6 +9,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -67,7 +68,12 @@ class DishCourseStore(context: Context) : DishCourses {
 
     private fun decode(text: String?): Map<String, DishCourse> {
         if (text == null) return emptyMap()
-        val raw = runCatching { Json.decodeFromString(serializer, text) }.getOrDefault(emptyMap())
+        val raw = try {
+            Json.decodeFromString(serializer, text)
+        } catch (_: SerializationException) {
+            // Written by an older build in another shape: the courses are chosen again.
+            emptyMap()
+        }
         return raw.mapNotNull { (id, name) -> DishCourse.entries.firstOrNull { it.name == name }?.let { id to it } }.toMap()
     }
 

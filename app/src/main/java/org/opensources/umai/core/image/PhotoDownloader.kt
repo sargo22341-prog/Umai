@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.IOException
 
 /** Downloads a picture published by another website: a recipe provider, a food database. */
 fun interface PhotoDownloader {
@@ -18,8 +19,14 @@ fun interface PhotoDownloader {
 class HttpPhotoDownloader(private val client: OkHttpClient) : PhotoDownloader {
 
     override suspend fun download(url: String): EncodedImage? = withContext(Dispatchers.IO) {
-        runCatching {
-            client.newCall(Request.Builder().url(url).build()).execute().use { response ->
+        val request = try {
+            Request.Builder().url(url).build()
+        } catch (_: IllegalArgumentException) {
+            // Not an http(s) address.
+            return@withContext null
+        }
+        try {
+            client.newCall(request).execute().use { response ->
                 val type = response.body.contentType()
                 if (!response.isSuccessful || type?.type != "image") return@use null
                 val length = response.body.contentLength()
@@ -35,7 +42,9 @@ class HttpPhotoDownloader(private val client: OkHttpClient) : PhotoDownloader {
                 }
                 EncodedImage(bytes, mediaType = "${type.type}/${type.subtype}", extension = extension)
             }
-        }.getOrNull()
+        } catch (_: IOException) {
+            null
+        }
     }
 
     private companion object {

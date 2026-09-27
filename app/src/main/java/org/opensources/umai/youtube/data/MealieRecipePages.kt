@@ -110,15 +110,24 @@ internal object RecipePageParsing {
         return null
     }
 
-    private fun JsonElement?.strings(): List<String> = when (this) {
-        is JsonPrimitive -> listOfNotNull(contentOrNull)
-        is JsonArray -> flatMap { item ->
-            when (item) {
-                is JsonObject -> (item["text"] ?: item["name"]).strings()
-                else -> item.strings()
+    /** The texts of a value: itself, or those of a list, whose objects give their `text` or `name`. */
+    private fun JsonElement?.strings(): List<String> {
+        val found = mutableListOf<String>()
+        // Depth first, in the order of the page: the next node to read is on top.
+        val pending = ArrayDeque<JsonElement>()
+        this?.let(pending::addLast)
+        while (pending.isNotEmpty()) {
+            when (val node = pending.removeLast()) {
+                is JsonPrimitive -> node.contentOrNull?.let(found::add)
+                is JsonArray -> node.asReversed().forEach { item ->
+                    val text = if (item is JsonObject) item["text"] ?: item["name"] else item
+                    text?.let(pending::addLast)
+                }
+                // An object only gives a text as the item of a list.
+                is JsonObject -> Unit
             }
         }
-        else -> emptyList()
+        return found
     }
 
     /** "4", "4 personnes", ["4", "4 servings"]: the first number of servings given. */

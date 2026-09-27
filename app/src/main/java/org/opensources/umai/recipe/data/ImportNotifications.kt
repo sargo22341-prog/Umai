@@ -12,16 +12,8 @@ import org.opensources.umai.R
 import org.opensources.umai.recipe.domain.ImportNotice
 import org.opensources.umai.recipe.domain.ImportOutcome
 import org.opensources.umai.recipe.domain.ImportPhase
+import org.opensources.umai.recipe.domain.ImportRequest
 import org.opensources.umai.recipe.domain.RecipeImportRun
-
-/** What a notification of an import asks the app to open. */
-sealed interface ImportRequest {
-    /** The import screen, where the import runs or tells how it ended. */
-    data object OpenImport : ImportRequest
-
-    /** The recipe the import created. */
-    data class OpenRecipe(val slug: String) : ImportRequest
-}
 
 /**
  * The import as the system shows it: a silent notification with its progress

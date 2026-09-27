@@ -1,21 +1,17 @@
 package org.opensources.umai.settings.ui
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -33,6 +29,7 @@ import org.opensources.umai.core.settings.RecipeDisplayOptions
 import org.opensources.umai.core.settings.RecipeLayout
 import org.opensources.umai.core.settings.RecipeSection
 import org.opensources.umai.core.settings.ThemeMode
+import org.opensources.umai.core.ui.component.BackTopAppBar
 
 @Composable
 fun AppSettingsRoute(onBack: () -> Unit, modifier: Modifier = Modifier) {
@@ -59,7 +56,6 @@ fun AppSettingsRoute(onBack: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 /** Stateless application settings, driven by [AppPreferences]. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppSettingsScreen(
     preferences: AppPreferences,
@@ -78,133 +74,16 @@ fun AppSettingsScreen(
 ) {
     Scaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.settings_app_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = stringResource(R.string.action_back),
-                        )
-                    }
-                },
-            )
-        },
+        topBar = { BackTopAppBar(title = stringResource(R.string.settings_app_title), onBack = onBack) },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(bottom = 24.dp),
         ) {
-            item { SettingsSectionHeader(stringResource(R.string.settings_section_app)) }
-
-            item {
-                SettingsChoiceRow(
-                    title = stringResource(R.string.settings_language),
-                    options = AppLanguage.entries,
-                    selected = preferences.language,
-                    labelOf = {
-                        stringResource(
-                            when (it) {
-                                AppLanguage.SYSTEM -> R.string.settings_language_system
-                                AppLanguage.FRENCH -> R.string.settings_language_french
-                                AppLanguage.ENGLISH -> R.string.settings_language_english
-                            },
-                        )
-                    },
-                    onSelect = onLanguageChange,
-                )
-            }
-
-            item {
-                SettingsChoiceRow(
-                    title = stringResource(R.string.settings_theme),
-                    options = ThemeMode.entries,
-                    selected = preferences.themeMode,
-                    labelOf = {
-                        stringResource(
-                            when (it) {
-                                ThemeMode.SYSTEM -> R.string.settings_theme_system
-                                ThemeMode.LIGHT -> R.string.settings_theme_light
-                                ThemeMode.DARK -> R.string.settings_theme_dark
-                            },
-                        )
-                    },
-                    onSelect = onThemeChange,
-                )
-            }
-
-            item {
-                SettingsChoiceRow(
-                    title = stringResource(R.string.settings_layout),
-                    options = RecipeLayout.entries,
-                    selected = preferences.recipeLayout,
-                    labelOf = {
-                        stringResource(
-                            when (it) {
-                                RecipeLayout.GRID -> R.string.settings_layout_grid
-                                RecipeLayout.LIST -> R.string.settings_layout_list
-                            },
-                        )
-                    },
-                    onSelect = onLayoutChange,
-                )
-            }
-
-            item {
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_dynamic_color),
-                    summary = stringResource(R.string.settings_dynamic_color_summary),
-                    checked = preferences.dynamicColor,
-                    onCheckedChange = onDynamicColorChange,
-                )
-            }
-
-            item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
-            item { SettingsSectionHeader(stringResource(R.string.settings_section_cooking)) }
-
-            item {
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_keep_screen_on),
-                    summary = stringResource(R.string.settings_keep_screen_on_summary),
-                    checked = preferences.keepScreenOnWhileCooking,
-                    onCheckedChange = onKeepScreenOnChange,
-                )
-            }
-
-            item {
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_detect_timers),
-                    summary = stringResource(R.string.settings_detect_timers_summary),
-                    checked = preferences.cookingTimers.detectTimers,
-                    onCheckedChange = onDetectTimersChange,
-                )
-            }
-
-            // How a timer calls the cook only matters when there are timers.
-            item {
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_timer_sound),
-                    summary = stringResource(R.string.settings_timer_sound_summary),
-                    checked = preferences.cookingTimers.sound,
-                    onCheckedChange = onTimerSoundChange,
-                    enabled = preferences.cookingTimers.detectTimers,
-                )
-            }
-
-            item {
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_timer_vibrate),
-                    summary = stringResource(R.string.settings_timer_vibrate_summary),
-                    checked = preferences.cookingTimers.vibrate,
-                    onCheckedChange = onTimerVibrateChange,
-                    enabled = preferences.cookingTimers.detectTimers,
-                )
-            }
-
+            appearanceItems(preferences, onLanguageChange, onThemeChange, onLayoutChange, onDynamicColorChange)
+            cookingItems(preferences, onKeepScreenOnChange, onDetectTimersChange, onTimerSoundChange, onTimerVibrateChange)
             item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
             item { SettingsSectionHeader(stringResource(R.string.settings_section_recipe_page)) }
-
             items(RecipeSection.entries, key = { it.name }) { section ->
                 SettingsSwitchRow(
                     title = stringResource(section.titleRes()),
@@ -213,30 +92,143 @@ fun AppSettingsScreen(
                     onCheckedChange = { onRecipeSectionChange(section, it) },
                 )
             }
-
             item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
             item { SettingsSectionHeader(stringResource(R.string.settings_section_about)) }
-
-            item {
-                ListItem(
-                    headlineContent = { Text(BuildConfig.VERSION_NAME) },
-                    overlineContent = { Text(stringResource(R.string.settings_app_version)) },
-                )
-                serverVersion?.let { version ->
-                    ListItem(
-                        headlineContent = { Text(version) },
-                        overlineContent = { Text(stringResource(R.string.settings_server_version)) },
-                    )
-                }
-                Text(
-                    text = stringResource(R.string.settings_about_description),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            }
+            item { AboutBlock(serverVersion) }
         }
     }
+}
+
+/** Language, theme, layout of the lists and colours. */
+private fun LazyListScope.appearanceItems(
+    preferences: AppPreferences,
+    onLanguageChange: (AppLanguage) -> Unit,
+    onThemeChange: (ThemeMode) -> Unit,
+    onLayoutChange: (RecipeLayout) -> Unit,
+    onDynamicColorChange: (Boolean) -> Unit,
+) {
+    item { SettingsSectionHeader(stringResource(R.string.settings_section_app)) }
+    item {
+        SettingsChoiceRow(
+            title = stringResource(R.string.settings_language),
+            options = AppLanguage.entries,
+            selected = preferences.language,
+            labelOf = { stringResource(it.labelRes()) },
+            onSelect = onLanguageChange,
+        )
+    }
+    item {
+        SettingsChoiceRow(
+            title = stringResource(R.string.settings_theme),
+            options = ThemeMode.entries,
+            selected = preferences.themeMode,
+            labelOf = { stringResource(it.labelRes()) },
+            onSelect = onThemeChange,
+        )
+    }
+    item {
+        SettingsChoiceRow(
+            title = stringResource(R.string.settings_layout),
+            options = RecipeLayout.entries,
+            selected = preferences.recipeLayout,
+            labelOf = { stringResource(it.labelRes()) },
+            onSelect = onLayoutChange,
+        )
+    }
+    item {
+        SettingsSwitchRow(
+            title = stringResource(R.string.settings_dynamic_color),
+            summary = stringResource(R.string.settings_dynamic_color_summary),
+            checked = preferences.dynamicColor,
+            onCheckedChange = onDynamicColorChange,
+        )
+    }
+}
+
+/** The screen kept on, and the timers found in the steps. */
+private fun LazyListScope.cookingItems(
+    preferences: AppPreferences,
+    onKeepScreenOnChange: (Boolean) -> Unit,
+    onDetectTimersChange: (Boolean) -> Unit,
+    onTimerSoundChange: (Boolean) -> Unit,
+    onTimerVibrateChange: (Boolean) -> Unit,
+) {
+    item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
+    item { SettingsSectionHeader(stringResource(R.string.settings_section_cooking)) }
+    item {
+        SettingsSwitchRow(
+            title = stringResource(R.string.settings_keep_screen_on),
+            summary = stringResource(R.string.settings_keep_screen_on_summary),
+            checked = preferences.keepScreenOnWhileCooking,
+            onCheckedChange = onKeepScreenOnChange,
+        )
+    }
+    item {
+        SettingsSwitchRow(
+            title = stringResource(R.string.settings_detect_timers),
+            summary = stringResource(R.string.settings_detect_timers_summary),
+            checked = preferences.cookingTimers.detectTimers,
+            onCheckedChange = onDetectTimersChange,
+        )
+    }
+    // How a timer calls the cook only matters when there are timers.
+    item {
+        SettingsSwitchRow(
+            title = stringResource(R.string.settings_timer_sound),
+            summary = stringResource(R.string.settings_timer_sound_summary),
+            checked = preferences.cookingTimers.sound,
+            onCheckedChange = onTimerSoundChange,
+            enabled = preferences.cookingTimers.detectTimers,
+        )
+    }
+    item {
+        SettingsSwitchRow(
+            title = stringResource(R.string.settings_timer_vibrate),
+            summary = stringResource(R.string.settings_timer_vibrate_summary),
+            checked = preferences.cookingTimers.vibrate,
+            onCheckedChange = onTimerVibrateChange,
+            enabled = preferences.cookingTimers.detectTimers,
+        )
+    }
+}
+
+@Composable
+private fun AboutBlock(serverVersion: String?) {
+    Column {
+        ListItem(
+            headlineContent = { Text(BuildConfig.VERSION_NAME) },
+            overlineContent = { Text(stringResource(R.string.settings_app_version)) },
+        )
+        serverVersion?.let { version ->
+            ListItem(
+                headlineContent = { Text(version) },
+                overlineContent = { Text(stringResource(R.string.settings_server_version)) },
+            )
+        }
+        Text(
+            text = stringResource(R.string.settings_about_description),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+    }
+}
+
+private fun AppLanguage.labelRes(): Int = when (this) {
+    AppLanguage.SYSTEM -> R.string.settings_language_system
+    AppLanguage.FRENCH -> R.string.settings_language_french
+    AppLanguage.ENGLISH -> R.string.settings_language_english
+}
+
+private fun ThemeMode.labelRes(): Int = when (this) {
+    ThemeMode.SYSTEM -> R.string.settings_theme_system
+    ThemeMode.LIGHT -> R.string.settings_theme_light
+    ThemeMode.DARK -> R.string.settings_theme_dark
+}
+
+private fun RecipeLayout.labelRes(): Int = when (this) {
+    RecipeLayout.GRID -> R.string.settings_layout_grid
+    RecipeLayout.LIST -> R.string.settings_layout_list
 }
 
 private fun RecipeDisplayOptions.isVisible(section: RecipeSection): Boolean = when (section) {

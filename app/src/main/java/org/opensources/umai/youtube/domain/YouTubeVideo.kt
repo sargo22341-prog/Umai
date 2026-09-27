@@ -99,7 +99,7 @@ object YouTubeLinks {
     fun videoId(url: String): String? {
         val address = url.trim()
         val withScheme = if (address.contains("://")) address else "https://$address"
-        val uri = runCatching { java.net.URI(withScheme) }.getOrNull() ?: return null
+        val uri = parse(withScheme) ?: return null
         val host = uri.host?.lowercase()?.removePrefix("www.") ?: return null
         val segments = uri.path.orEmpty().split('/').filter { it.isNotEmpty() }
         val candidate = when {
@@ -116,11 +116,17 @@ object YouTubeLinks {
     /** Any address on YouTube: a video, a channel, a playlist. */
     fun isYouTube(url: String): Boolean {
         val withScheme = if (url.contains("://")) url else "https://$url"
-        val host = runCatching { java.net.URI(withScheme).host }.getOrNull()?.lowercase()?.removePrefix("www.") ?: return false
+        val host = parse(withScheme)?.host?.lowercase()?.removePrefix("www.") ?: return false
         return host == "youtu.be" || host in hosts || host.endsWith(".youtube.com")
     }
 
     fun watchUrl(id: String): String = "https://www.youtube.com/watch?v=$id"
+
+    private fun parse(address: String): java.net.URI? = try {
+        java.net.URI(address)
+    } catch (_: java.net.URISyntaxException) {
+        null
+    }
 
     private fun query(raw: String?, name: String): String? = raw?.split('&')
         ?.map { it.split('=', limit = 2) }

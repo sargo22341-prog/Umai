@@ -121,7 +121,8 @@ private fun SpeechProgressCard(install: DownloadState<SpeechModel>, actions: Spe
                 Text(stringResource(R.string.local_ai_verifying, install.model.name), style = MaterialTheme.typography.titleSmall)
                 LinearProgressIndicator(progress = { install.fraction }, modifier = Modifier.fillMaxWidth())
             }
-            else -> Unit
+            // Not in progress: the other cards of the section tell these.
+            DownloadState.Idle, is DownloadState.Failed -> Unit
         }
     }
 }

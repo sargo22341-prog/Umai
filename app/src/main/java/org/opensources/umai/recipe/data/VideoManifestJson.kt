@@ -1,5 +1,6 @@
 package org.opensources.umai.recipe.data
 
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -25,8 +26,11 @@ import org.opensources.umai.recipe.domain.VideoManifest
 internal object VideoManifestJson {
 
     fun parse(text: String): VideoManifest? {
-        val root = runCatching { MealieClientFactory.json.parseToJsonElement(text) }.getOrNull() as? JsonObject
-            ?: return null
+        val root = try {
+            MealieClientFactory.json.parseToJsonElement(text) as? JsonObject
+        } catch (_: SerializationException) {
+            null
+        } ?: return null
         val source = root["source"] as? JsonObject
         val chapters = (root["chapters"] as? JsonArray).orEmpty()
             .mapNotNull { (it as? JsonObject)?.toChapter() }

@@ -53,6 +53,8 @@ class RecipeEditViewModelTest {
         streamFor = { url -> streamsAsked += url; VideoStream("https://stream/$SLUG.m3u8", isHls = true) },
     )
 
+    /** Waits for the state; a test that only needs the wait leaves the value. */
+    @IgnorableReturnValue
     private suspend fun RecipeEditViewModel.await(predicate: (RecipeEditUiState) -> Boolean): RecipeEditUiState =
         withTimeout(TIMEOUT_MS) { state.first(predicate) }
 
