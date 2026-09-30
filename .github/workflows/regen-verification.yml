@@ -18,7 +18,8 @@ jobs:
       - name: Regenerate
         run: |
           chmod +x gradlew
-          ./gradlew --no-configuration-cache --write-verification-metadata sha256 :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest :app:lintRelease :app:compileDebugAndroidTestKotlin --console=plain || echo "BUILD EXIT $?"
+          ./gradlew --no-configuration-cache --continue --write-verification-metadata sha256 :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest :app:lintRelease :app:compileDebugAndroidTestKotlin --console=plain || echo "BUILD EXIT $?"
           echo "=====DIFF-BEGIN====="
           git diff --no-color -U0 gradle/verification-metadata.xml
           echo "=====DIFF-END====="
+          grep -l -E "<failure|<error" app/build/test-results/testDebugUnitTest/*.xml | while read -r f; do echo "=====XML $f"; grep -A40 -E "<failure|<error" "$f" | head -150; done

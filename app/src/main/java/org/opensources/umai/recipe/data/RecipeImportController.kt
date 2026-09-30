@@ -5,7 +5,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.provider.domain.ProviderRegistry
@@ -75,8 +74,8 @@ class RecipeImportController(
         if (_run.value?.running == true) return
         val address = url.trim()
         val run = RecipeImportRun(url = address, isVideo = YouTubeLinks.isVideo(address))
-        _run.value = run
         host.running(run)
+        _run.value = run
         job = scope.launch {
             val duplicate = if (evenIfPresent) null else duplicateOf(address)
             end(duplicate ?: if (run.isVideo) importVideo(address) else importPage(address, includeTags, includeCategories))
@@ -164,14 +163,17 @@ class RecipeImportController(
         }
     }
 
+    // The host hears of a change before it is published: whoever sees the new run,
+    // and may act on it at once (cancel, open the recipe), finds the host up to date.
     private fun progress(change: (RecipeImportRun) -> RecipeImportRun) {
-        _run.update { run -> run?.takeIf { it.running }?.let(change) }
-        _run.value?.let(host::running)
+        val next = _run.value?.takeIf { it.running }?.let(change) ?: return
+        host.running(next)
+        _run.value = next
     }
 
     private fun end(outcome: ImportOutcome) {
         val ended = _run.value?.copy(modelProgress = null, watchProgress = null, outcome = outcome) ?: return
-        _run.value = ended
         host.ended(ended, announce = watchers == 0)
+        _run.value = ended
     }
 }
