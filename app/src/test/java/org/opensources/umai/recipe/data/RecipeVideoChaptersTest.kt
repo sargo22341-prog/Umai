@@ -1,6 +1,8 @@
 package org.opensources.umai.recipe.data
 
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -86,8 +88,11 @@ class RecipeVideoChaptersTest {
         assertTrue(body.contains(""""start":150.0"""))
         assertEquals("GET", fake.takeRequest().method)
         val tidy = fake.takeRequest()
-        assertEquals("PUT", tidy.method)
-        assertEquals(1, Regex("pains-chapters.json").findAll(tidy.body?.utf8().orEmpty()).count())
+        // Only the assets are written, so a change made meanwhile to the recipe is kept.
+        assertEquals("PATCH", tidy.method)
+        val tidied = Json.parseToJsonElement(tidy.body?.utf8().orEmpty()).jsonObject
+        assertEquals(setOf("assets"), tidied.keys)
+        assertEquals(1, Regex("pains-chapters.json").findAll(tidied.toString()).count())
         assertEquals(listOf(10.0, 150.0), saved.video?.chapters?.map { it.start })
         assertEquals("pains-chapters.json", saved.videoFile)
     }

@@ -7,7 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import androidx.core.net.toUri
-import org.opensources.umai.MainActivity
+import org.opensources.umai.NotificationEntry
 import org.opensources.umai.R
 import org.opensources.umai.recipe.domain.ImportNotice
 import org.opensources.umai.recipe.domain.ImportOutcome
@@ -116,11 +116,11 @@ class ImportNotifications(context: Context) {
     }
 
     /**
-     * Brings the app back on what [request] asks for. Explicit and immutable:
-     * nothing outside the app can reach or alter it.
+     * Brings the app back on what [request] asks for. Explicit and immutable,
+     * through the app's own entry: nothing outside the app can reach or alter it.
      */
     private fun open(request: ImportRequest): PendingIntent {
-        val intent = Intent(context, MainActivity::class.java)
+        val intent = NotificationEntry.intent(context)
             // The running activity receives it in onNewIntent rather than a second copy opening.
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         when (request) {
@@ -145,10 +145,13 @@ class ImportNotifications(context: Context) {
         private const val EXTRA_SLUG = "slug"
 
         /** What [intent] asks for, `null` when it is not an import notification's. */
-        fun request(intent: Intent): ImportRequest? = when (intent.action) {
-            ACTION_OPEN_IMPORT -> ImportRequest.OpenImport
-            ACTION_OPEN_RECIPE -> intent.getStringExtra(EXTRA_SLUG)?.let { ImportRequest.OpenRecipe(it) }
-            else -> null
+        fun request(intent: Intent): ImportRequest? {
+            if (!NotificationEntry.isFrom(intent)) return null
+            return when (intent.action) {
+                ACTION_OPEN_IMPORT -> ImportRequest.OpenImport
+                ACTION_OPEN_RECIPE -> intent.getStringExtra(EXTRA_SLUG)?.let { ImportRequest.OpenRecipe(it) }
+                else -> null
+            }
         }
     }
 }

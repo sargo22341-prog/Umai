@@ -2,11 +2,11 @@ package org.opensources.umai.core.session
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.MealieClientFactory
 import org.opensources.umai.core.network.MealieUrl
 import org.opensources.umai.core.network.NetworkError
-import org.opensources.umai.core.network.TokenProvider
 import org.opensources.umai.core.network.apiCall
 import org.opensources.umai.core.network.api.MealieApi
 
@@ -79,11 +79,12 @@ class AuthRepository(
     /** Persists the session and makes it the active one. */
     suspend fun adopt(newSession: ServerSession) = session.activate(newSession)
 
-    suspend fun signOut() {
-        // Best effort: the server invalidates password sessions, API tokens stay valid.
-        session.api()?.let { api -> apiCall { api.logout() } }
-        session.signOut()
-    }
+    /**
+     * Forgets the session on the device. Mealie has nothing to call: its
+     * logout only clears a browser cookie, and a token stays valid until it
+     * expires (an API token until it is deleted from the user's profile).
+     */
+    suspend fun signOut() = session.signOut()
 
     /**
      * Exchanges the token of a password session for a fresh one, at most once
@@ -141,7 +142,9 @@ class AuthRepository(
         private const val REFRESH_INTERVAL_MS = 12 * 60 * 60 * 1000L
         private const val NANOS_PER_MILLI = 1_000_000L
 
-        private fun defaultApi(baseUrl: String, token: String?): MealieApi =
-            MealieClientFactory.api(baseUrl, MealieClientFactory.okHttpClient(TokenProvider { token }))
+        private fun defaultApi(baseUrl: String, token: String?): MealieApi {
+            val client = MealieClientFactory.okHttpClient(instance = baseUrl.toHttpUrlOrNull(), tokenProvider = { token })
+            return MealieClientFactory.api(baseUrl, client)
+        }
     }
 }

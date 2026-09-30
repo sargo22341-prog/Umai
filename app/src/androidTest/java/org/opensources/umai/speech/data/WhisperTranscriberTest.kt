@@ -8,8 +8,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -67,6 +71,43 @@ class WhisperTranscriberTest {
     }
 
     @Test
+    fun theAbortFlagStopsWhisperAndIsNotCarriedOver() {
+        val models = present()
+        assumeTrue("No Whisper model on the phone", models.isNotEmpty())
+        val handle = WhisperNative.load(models.first().second.path)
+        assertTrue(handle != 0L)
+        try {
+            val second = FloatArray(RATE)
+            WhisperNative.setAborted(handle, true)
+            assertEquals(-1, WhisperNative.transcribe(handle, second, "fr", THREADS))
+
+            WhisperNative.setAborted(handle, false)
+            assertTrue(WhisperNative.transcribe(handle, second, "fr", THREADS) >= 0)
+        } finally {
+            WhisperNative.free(handle)
+        }
+    }
+
+    @Test
+    fun aCancelledTranscriptionEndsAndTheNextOneRuns() = runBlocking {
+        val models = present()
+        assumeTrue("No Whisper model on the phone", models.isNotEmpty())
+        val (name, file) = models.first()
+        val whisper = WhisperTranscriber(modelPath = { file.path }, work = noWork, scope = scope)
+        val tone = ShortArray(RATE * SECONDS) { (sin(2 * PI * 440 * it / RATE) * 8_000).toInt().toShort() }
+
+        val started = SystemClock.elapsedRealtime()
+        // What the cancelled transcription would have heard does not matter.
+        val job = launch(Dispatchers.Default) { val _ = whisper.transcribe(tone, "fr") }
+        delay(CANCEL_AFTER_MS)
+        job.cancelAndJoin()
+        Log.i(TAG, "$name: cancelled after $CANCEL_AFTER_MS ms, ended after ${SystemClock.elapsedRealtime() - started} ms")
+
+        // The abort of the cancelled piece is not carried over to the next one.
+        assertNotNull(whisper.transcribe(ShortArray(RATE), "fr"))
+    }
+
+    @Test
     fun aFileThatIsNotAModelIsNotRun() = runBlocking {
         val file = File(context.cacheDir, "not-a-model.bin").apply { writeText("nothing") }
         val whisper = WhisperTranscriber(modelPath = { file.path }, work = noWork, scope = scope)
@@ -78,6 +119,9 @@ class WhisperTranscriberTest {
         const val TAG = "UmaiAiTest"
         const val RATE = 16_000
         const val SECONDS = 30
+
+        const val CANCEL_AFTER_MS = 500L
+        const val THREADS = 2
 
         /** A word or two that a small model may still read into a tone. */
         const val MAX_NOISE_CHARS = 40

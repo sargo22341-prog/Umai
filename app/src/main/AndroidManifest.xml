@@ -95,6 +95,12 @@
             </intent-filter>
         </activity>
 
+        <!-- The way the notifications open the app (NotificationEntry): no other app can use it. -->
+        <activity-alias
+            android:name=".NotificationEntry"
+            android:exported="false"
+            android:targetActivity=".MainActivity" />
+
         <!-- Keeps the cooking timers alive while the app is in the background. -->
         <service
             android:name=".cooking.data.CookingTimerService"

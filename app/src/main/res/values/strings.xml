@@ -28,6 +28,8 @@
     <string name="error_tls_message">The certificate of your instance could not be verified. If it is signed by your own certificate authority, install that authority on the device, then try again.</string>
     <string name="error_unauthorized_title">Sign-in required</string>
     <string name="error_unauthorized_message">Your session has expired or your credentials were refused.</string>
+    <string name="error_forbidden_title">Not allowed</string>
+    <string name="error_forbidden_message">Your Mealie account is not allowed to do this. Ask an administrator of the instance for the permission.</string>
     <string name="error_not_found_title">Not found</string>
     <string name="error_not_found_message">This item no longer exists on your Mealie instance.</string>
     <string name="error_server_title">Server error</string>
@@ -38,6 +40,8 @@
     <string name="error_invalid_response_message">The answer did not match what the Mealie API documents. The instance may run an incompatible version.</string>
     <string name="error_not_mealie_title">Not a Mealie instance</string>
     <string name="error_not_mealie_message">This address answered, but it does not expose the Mealie API.</string>
+    <string name="error_session_unreadable_title">Saved connection unreadable</string>
+    <string name="error_session_unreadable_message">The connection to your Mealie instance saved on this device could not be read. It has not been deleted: try reading it again.</string>
     <string name="error_unknown_title">Something went wrong</string>
     <string name="error_unknown_message">Please try again.</string>
 
@@ -516,6 +520,7 @@
     <string name="settings_calorie_tags_action">Update the calorie tags</string>
     <string name="settings_calorie_tags_running">Updating…</string>
     <string name="settings_calorie_tags_done">Recipes checked: %1$d. Updated: %2$d. Failed: %3$d.</string>
+    <string name="settings_calorie_tags_incomplete">The instance holds more recipes: only the first %1$d, by name, are checked.</string>
 
     <!-- Planning: week to shopping list -->
     <string name="week_shopping_title">Add the week to a shopping list</string>

@@ -7,17 +7,17 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import org.opensources.umai.core.settings.appPreferencesDataStore
 import org.opensources.umai.core.download.DownloadRecord
 import org.opensources.umai.core.download.PendingDownload
 import org.opensources.umai.core.settings.safeData
 import org.opensources.umai.llm.domain.LocalModel
 import org.opensources.umai.llm.domain.LocalModelCatalog
 
-private val Context.localAiDataStore: DataStore<Preferences> by preferencesDataStore(name = "umai_local_ai")
+private val Context.localAiDataStore: DataStore<Preferences> by appPreferencesDataStore("umai_local_ai")
 
 data class LocalAiSettings(
     /** The local AI can be turned off without deleting the model. */

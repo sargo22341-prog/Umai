@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,6 +32,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.delay
+import org.opensources.umai.R
 import org.opensources.umai.cooking.domain.CookingStepRequest
 import org.opensources.umai.cooking.ui.ActiveTimerPills
 import org.opensources.umai.cooking.ui.ActiveTimersViewModel
@@ -40,6 +43,7 @@ import org.opensources.umai.core.session.SessionState
 import org.opensources.umai.core.ui.component.ImageFlightOverlay
 import org.opensources.umai.core.ui.component.ImageFlightState
 import org.opensources.umai.core.ui.component.LoadingView
+import org.opensources.umai.core.ui.component.MessageView
 import org.opensources.umai.recipe.domain.ImportRequest
 import org.opensources.umai.setup.ui.SetupRoute
 
@@ -69,6 +73,15 @@ fun UmaiApp(
     when (val state = sessionState) {
         SessionState.Loading -> Box(modifier = modifier.fillMaxSize()) { LoadingView() }
         SessionState.NotConfigured, is SessionState.Expired -> SetupRoute(modifier = modifier)
+        SessionState.Unreadable -> Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            MessageView(
+                icon = Icons.Outlined.ErrorOutline,
+                title = stringResource(R.string.error_session_unreadable_title),
+                message = stringResource(R.string.error_session_unreadable_message),
+                actionLabel = stringResource(R.string.action_retry),
+                onAction = container.sessionManager::retryRead,
+            )
+        }
         is SessionState.Active -> MainNavigation(
             session = state.session,
             sharedUrl = sharedUrl,

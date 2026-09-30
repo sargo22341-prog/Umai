@@ -66,7 +66,8 @@ class RecipeMediaRepository(private val apiProvider: () -> MealieApi?) {
      * Rewrites the list of assets of the recipe: one entry per file, and the
      * step photos limited to [keptStepPhotos] when it is given — the photo of
      * the ingredients, `step-0`, is never touched. Mealie appends an entry on
-     * every upload, even when the file itself is replaced.
+     * every upload, even when the file itself is replaced. Only the assets are
+     * written: a change made meanwhile to the rest of the recipe is kept.
      */
     suspend fun tidyAssets(slug: String, keptStepPhotos: Set<String>? = null): ApiResult<Unit> {
         val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
@@ -80,7 +81,7 @@ class RecipeMediaRepository(private val apiProvider: () -> MealieApi?) {
                 keptStepPhotos == null || number == null || number == 0 || fileName in keptStepPhotos
             }
         if (tidy.size == assets.size) return ApiResult.Success(Unit)
-        return apiCall { api.replaceRecipe(slug, JsonObject(document + ("assets" to JsonArray(tidy)))) }.map { }
+        return apiCall { api.patchRecipe(slug, JsonObject(mapOf("assets" to JsonArray(tidy)))) }
     }
 
     private suspend fun upload(

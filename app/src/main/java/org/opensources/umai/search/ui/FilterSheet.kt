@@ -38,6 +38,8 @@ import androidx.compose.ui.unit.dp
 import org.opensources.umai.R
 import org.opensources.umai.core.model.Food
 import org.opensources.umai.core.ui.component.NetworkErrorView
+import org.opensources.umai.core.ui.component.message
+import org.opensources.umai.core.ui.component.title
 import org.opensources.umai.search.domain.RecipeFilters
 import org.opensources.umai.search.domain.suggestionsFor
 
@@ -254,6 +256,7 @@ private fun LazyListScope.foodFilter(
             onRequireAllChange = { onChange(draft.copy(requireAllFoods = it)) },
             onFocusChange = { searches.focus(KEY_FOODS, it) },
             hint = stringResource(R.string.filter_food_hint),
+            searchError = options.foodError?.let { "${it.title()} ${it.message()}" },
         )
     }
 }

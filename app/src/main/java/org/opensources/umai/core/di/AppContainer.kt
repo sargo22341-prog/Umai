@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import org.opensources.umai.BuildConfig
 import org.opensources.umai.cooking.data.CookingTimerController
+import org.opensources.umai.cooking.data.DeviceTimerStore
 import org.opensources.umai.cooking.data.SystemTimerAlarm
 import org.opensources.umai.cooking.data.SystemTimerHost
 import org.opensources.umai.cooking.data.TimerNotifications
@@ -19,6 +20,7 @@ import org.opensources.umai.core.image.DeviceImageCropper
 import org.opensources.umai.core.image.HttpPhotoDownloader
 import org.opensources.umai.core.network.ImageUrlResolver
 import org.opensources.umai.core.network.LocalNetworkAccess
+import org.opensources.umai.core.network.PublicAddressGuard
 import org.opensources.umai.core.network.api.MealieApi
 import org.opensources.umai.core.session.AuthRepository
 import org.opensources.umai.core.session.SessionManager
@@ -126,12 +128,14 @@ class AppContainer(context: Context) {
 
     /**
      * For requests to other websites (a recipe provider, a video host): no
-     * Mealie credentials, and the platform's own trust settings.
+     * Mealie credentials, the platform's own trust settings, and never the
+     * local network, which only the Mealie instance may be on.
      */
     private val externalHttpClient: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .callTimeout(60, TimeUnit.SECONDS)
+        .addNetworkInterceptor(PublicAddressGuard())
         .build()
 
     /** Removing a provider is removing its line here, and its package. */
@@ -167,6 +171,7 @@ class AppContainer(context: Context) {
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
         alarm = SystemTimerAlarm(appContext),
         host = timerHost,
+        store = DeviceTimerStore(appContext),
         options = preferencesRepository.preferences.map { it.cookingTimers },
         clock = timerClock,
     )
@@ -277,8 +282,8 @@ class AppContainer(context: Context) {
         )
     }
 
-    /** Re-read on every call: the user can revoke the grant from Settings. */
-    val localNetworkPermission: () -> Boolean = { LocalNetworkAccess.isGranted(appContext) }
+    /** Whether reaching an instance needs the local network permission first (see [LocalNetworkAccess]). */
+    val needsLocalNetworkPermission: suspend (baseUrl: String) -> Boolean = { LocalNetworkAccess.isNeededFor(appContext, it) }
 
     init {
         // What the device keeps of an instance — history, courses — is only

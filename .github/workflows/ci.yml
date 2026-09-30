@@ -1,4 +1,6 @@
-# Compilation, Lint et tests JVM sur chaque pull request et chaque push.
+# Compilation (debug et release), Lint et tests JVM sur chaque pull request et chaque push.
+# Les actions sont épinglées par SHA de commit (le tag lisible en commentaire) : le job de
+# release écrit dans le dépôt et manipule la clé de signature.
 # Pas de job émulateur : l'émulateur Android 17 plante sur les runners Linux ; les tests instrumentés
 # se lancent sur un appareil (AGENTS.md §12).
 # Sur main : montée de version, APK release signé, commit + tag vX.Y.Z et GitHub Release
@@ -10,6 +12,12 @@ on:
   pull_request:
   push:
     branches: [main]
+    # Un changement de documentation ou de tests seuls ne publie pas de nouvel APK.
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'app/src/test/**'
+      - 'app/src/androidTest/**'
   workflow_dispatch:
     inputs:
       bump:
@@ -28,19 +36,21 @@ jobs:
     if: github.server_url == 'https://github.com'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-java@v6
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: 21
 
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
       - name: Compiler, analyser et lancer les tests JVM
         run: |
           chmod +x gradlew
-          ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:compileDebugAndroidTestKotlin --console=plain
+          # La release (R8, règles ProGuard) est construite dès la pull request, non signée :
+          # ses erreurs apparaissent avant la fusion, pas dans le job de release.
+          ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :app:compileDebugAndroidTestKotlin --console=plain
 
       - name: Vérifier l'absence de Google Play Services, Firebase et Maps
         run: |
@@ -54,7 +64,7 @@ jobs:
 
       - name: Conserver les rapports de tests et de Lint
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: rapports-de-tests
           path: |
@@ -89,14 +99,14 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-java@v6
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: 21
 
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
       - name: Monter la version
         id: version

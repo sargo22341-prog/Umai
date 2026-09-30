@@ -8,11 +8,15 @@ support externe, et dans les secrets GitHub pour la release automatique.
 Le workflow `.github/workflows/ci.yml` :
 
 - sur **chaque pull request et chaque push** :
-  - `testDebugUnitTest`, `lintDebug`, `assembleDebug` et `compileDebugAndroidTestKotlin` (les
-    rapports de tests et de Lint sont joints au run en cas d'échec) ;
+  - `testDebugUnitTest`, `lintDebug`, `assembleDebug`, `assembleRelease` (non signé : les erreurs
+    R8 apparaissent avant la fusion) et `compileDebugAndroidTestKotlin` (les rapports de tests et
+    de Lint sont joints au run en cas d'échec) ;
+  - les dépendances sont vérifiées contre leurs sommes de contrôle
+    (`gradle/verification-metadata.xml`) et les actions GitHub sont épinglées par SHA de commit ;
   - pas de tests instrumentés : l'émulateur Android 17 plante sur les runners Linux ; ils se
     lancent à la main sur un appareil (`AGENTS.md` §12) ;
-- sur **chaque push sur `main`**, si ce job passe :
+- sur **chaque push sur `main`** qui touche autre chose que la documentation (`*.md`, `docs/`) ou
+  les tests (`app/src/test`, `app/src/androidTest`), si ce job passe :
   1. `scripts/bump-version.sh` incrémente le patch de `versionName` et `versionCode` dans
      `app/version.properties` ;
   2. `scripts/release-notes.sh` relève les notes de `RELEASE_NOTES.md` puis vide la liste ;

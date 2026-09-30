@@ -280,6 +280,13 @@ private fun CalorieSyncBlock(sync: CalorieSync, onSync: () -> Unit) {
                 style = MaterialTheme.typography.bodySmall,
             )
         }
+        if (sync.total > 0 && !sync.complete) {
+            Text(
+                text = stringResource(R.string.settings_calorie_tags_incomplete, sync.total),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

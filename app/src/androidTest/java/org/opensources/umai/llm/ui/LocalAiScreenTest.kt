@@ -21,7 +21,6 @@ import org.opensources.umai.R
 import org.opensources.umai.core.download.DownloadState
 import org.opensources.umai.core.download.InstallFailure
 import org.opensources.umai.core.ui.theme.UmaiTheme
-import org.opensources.umai.llm.domain.ActiveBackend
 import org.opensources.umai.llm.domain.LlmBenchmark
 import org.opensources.umai.llm.data.LocalAiSettings
 import org.opensources.umai.llm.domain.AiBackend
@@ -145,7 +144,7 @@ class LocalAiScreenTest {
             LocalAiUiState(
                 device = DeviceProfile("Tensor G5", TensorChip.G5, tpuReachable = true),
                 settings = LocalAiSettings(installed = recommended),
-                active = ActiveBackend(AiBackend.TPU, recommended.name, "Tensor G5"),
+                active = AiBackend.TPU,
                 deviceMemoryBytes = 16_000_000_000L,
             ),
         )
@@ -160,7 +159,7 @@ class LocalAiScreenTest {
             LocalAiUiState(
                 device = DeviceProfile("Tensor G2", tensorChip = null, tpuReachable = false),
                 settings = LocalAiSettings(installed = recommended),
-                active = ActiveBackend(AiBackend.GPU, recommended.name, "Tensor G2"),
+                active = AiBackend.GPU,
                 deviceMemoryBytes = 16_000_000_000L,
             ),
         )

@@ -15,7 +15,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import org.opensources.umai.llm.domain.ActiveBackend
 import org.opensources.umai.llm.domain.AiBackend
 import org.opensources.umai.llm.domain.AiBackendUnavailable
 import org.opensources.umai.llm.domain.AiEngine
@@ -74,15 +73,19 @@ class LocalLanguageModel(
     private var engine: AiEngine? = null
     private var loadedPath: String? = null
     private var unloadJob: Job? = null
-    private val unavailable = mutableSetOf<AiBackend>()
+    /**
+     * The routes — a backend and a model file — that failed to load: not tried
+     * again for that file, but tried for another model once it is installed.
+     */
+    private val unavailable = mutableSetOf<Route>()
 
-    /** The parts of the model that did not load on a backend, which may still answer text. */
-    private val senseless = mutableSetOf<Pair<AiBackend, AiSense>>()
+    /** The parts of a model file that did not load on a backend, which may still answer text. */
+    private val senseless = mutableSetOf<Pair<Route, AiSense>>()
 
-    private val _active = MutableStateFlow<ActiveBackend?>(null)
+    private val _active = MutableStateFlow<AiBackend?>(null)
 
-    /** The backend the model is loaded on, or null while it is not loaded. */
-    val active: StateFlow<ActiveBackend?> = _active.asStateFlow()
+    /** The backend the model is loaded on, as proven when it loaded; null while it is not loaded. */
+    val active: StateFlow<AiBackend?> = _active.asStateFlow()
 
     override val contextSize: Int = LocalModel.CONTEXT_SIZE
 
@@ -203,18 +206,19 @@ class LocalLanguageModel(
 
     /** The backends to try for [model], fastest first, each with the file it runs. */
     private fun routes(model: InstalledModel): List<Route> = PREFERENCE
-        .filter { it !in unavailable && (it != AiBackend.TPU || device.tpuReachable) }
+        .filter { it != AiBackend.TPU || device.tpuReachable }
         .mapNotNull { backend ->
             model.paths.entries.firstOrNull { (file, _) -> backend in file.backends }
                 ?.let { (file, path) -> Route(backend, path, file.contextSizeOn(backend)) }
         }
+        .filter { it !in unavailable }
 
     /**
      * The backends that may [sense], with the file that holds that part: the
      * CPU first, then the GPU. A TPU build has no such part.
      */
     private fun senseRoutes(model: InstalledModel, sense: AiSense): List<Route> =
-        routes(model).filter { it.backend != AiBackend.TPU && (it.backend to sense) !in senseless }
+        routes(model).filter { it.backend != AiBackend.TPU && (it to sense) !in senseless }
 
     /**
      * The engine for [route], loaded if needed, with the part that gives it
@@ -227,14 +231,14 @@ class LocalLanguageModel(
             loader.load(route.path, route.backend, route.contextSize, sense).also {
                 engine = it
                 loadedPath = route.path
-                _active.value = ActiveBackend(it.backend, model.model.name, device.socName)
+                _active.value = it.backend
                 if (Log.isLoggable(TAG, Log.INFO)) {
                     Log.i(TAG, "Backend: ${it.backend} | Model: ${model.model.name} | SoC: ${device.socName}")
                 }
             }
         } catch (e: AiBackendUnavailable) {
             // Without that part, the backend may still answer text.
-            if (sense != null) senseless += route.backend to sense else unavailable += route.backend
+            if (sense != null) senseless += route to sense else unavailable += route
             val what = if (sense != null) "without $sense" else "unavailable"
             Log.w(TAG, "Backend: ${route.backend} $what | Model: ${model.model.name} | SoC: ${device.socName} | ${e.message}")
             null

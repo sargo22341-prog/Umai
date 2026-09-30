@@ -14,7 +14,14 @@ internal object WhisperNative {
     /** 0 when the file is not a model whisper.cpp reads. */
     external fun load(path: String): Long
 
-    /** The number of segments written down, or -1 when the model failed. */
+    /**
+     * Raised while [transcribe] runs, it stops it between two steps — after the
+     * encoding of the window, or at a token — and it answers -1; it must be
+     * lowered before the next transcription.
+     */
+    external fun setAborted(context: Long, aborted: Boolean)
+
+    /** The number of segments written down, or -1 when the model failed or was stopped. */
     external fun transcribe(context: Long, samples: FloatArray, language: String, threads: Int): Int
 
     /** The text of a segment, in UTF-8. */

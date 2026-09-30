@@ -13,9 +13,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.opensources.umai.core.di.AppContainer
 import org.opensources.umai.core.download.DownloadState
-import org.opensources.umai.llm.domain.ActiveBackend
 import org.opensources.umai.llm.domain.LlmBenchmark
 import org.opensources.umai.llm.data.LocalAiSettings
+import org.opensources.umai.llm.domain.AiBackend
 import org.opensources.umai.llm.domain.DeviceProfile
 import org.opensources.umai.llm.domain.LocalModel
 import org.opensources.umai.llm.domain.LocalModelCatalog
@@ -28,7 +28,7 @@ data class LocalAiUiState(
     val supported: Boolean = true,
     val device: DeviceProfile = DeviceProfile(socName = "", tensorChip = null, tpuReachable = false),
     /** Where the model is loaded now, as proven when it was loaded. */
-    val active: ActiveBackend? = null,
+    val active: AiBackend? = null,
     val settings: LocalAiSettings = LocalAiSettings(),
     val install: DownloadState<LocalModel> = DownloadState.Idle,
     val models: List<LocalModel> = LocalModelCatalog.models,
@@ -97,7 +97,7 @@ class LocalAiViewModel(
     deviceMemoryBytes: Long,
     settings: Flow<LocalAiSettings>,
     install: Flow<DownloadState<LocalModel>>,
-    active: Flow<ActiveBackend?>,
+    active: Flow<AiBackend?>,
     speech: Flow<SpeechSettings>,
     speechInstall: Flow<DownloadState<SpeechModel>>,
     private val actions: LocalAiActions,

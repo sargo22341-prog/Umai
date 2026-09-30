@@ -90,12 +90,14 @@ object NetworkErrorMapper {
         is ConnectException -> NetworkError.Unreachable
         is EOFException -> NetworkError.InvalidResponse
         is SerializationException -> NetworkError.InvalidResponse
+        is ResponseTooLargeException -> NetworkError.InvalidResponse
         is IOException -> NetworkError.Unreachable
         else -> NetworkError.Unknown(throwable.message)
     }
 
     private fun fromHttp(e: HttpException): NetworkError = when (val code = e.code()) {
-        401, 403 -> NetworkError.Unauthorized
+        401 -> NetworkError.Unauthorized
+        403 -> NetworkError.Forbidden
         404 -> NetworkError.NotFound
         in 500..599 -> NetworkError.Server(code)
         else -> NetworkError.Http(code, detailOf(e))

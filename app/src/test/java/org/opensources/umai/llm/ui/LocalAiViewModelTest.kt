@@ -14,7 +14,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.opensources.umai.core.download.DownloadState
-import org.opensources.umai.llm.domain.ActiveBackend
 import org.opensources.umai.llm.domain.LlmBenchmark
 import org.opensources.umai.llm.data.LocalAiSettings
 import org.opensources.umai.llm.domain.AiBackend
@@ -31,7 +30,7 @@ class LocalAiViewModelTest {
 
     private val settings = MutableStateFlow(LocalAiSettings())
     private val install = MutableStateFlow<DownloadState<LocalModel>>(DownloadState.Idle)
-    private val active = MutableStateFlow<ActiveBackend?>(null)
+    private val active = MutableStateFlow<AiBackend?>(null)
     private val installed = mutableListOf<LocalModel>()
     private val benchmark = CompletableDeferred<LlmBenchmark?>()
     private val speech = MutableStateFlow(SpeechSettings())
@@ -134,9 +133,9 @@ class LocalAiViewModelTest {
         val vm = viewModel()
         assertNull(vm.state.value.active)
 
-        active.value = ActiveBackend(AiBackend.GPU, "Gemma 4 E2B", "Tensor G5")
+        active.value = AiBackend.GPU
 
-        assertEquals(AiBackend.GPU, vm.state.value.active?.backend)
+        assertEquals(AiBackend.GPU, vm.state.value.active)
     }
 
     @Test

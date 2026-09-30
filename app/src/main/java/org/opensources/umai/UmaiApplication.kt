@@ -41,7 +41,7 @@ class UmaiApplication : Application(), SingletonImageLoader.Factory {
      * dependency.
      */
     override fun newImageLoader(context: PlatformContext): ImageLoader {
-        val anonymous by lazy { MealieClientFactory.okHttpClient(TokenProvider { null }) }
+        val anonymous by lazy { MealieClientFactory.okHttpClient(instance = null, tokenProvider = TokenProvider { null }) }
         val calls = Call.Factory { request ->
             (container.sessionManager.imageClient() ?: anonymous).newCall(request)
         }

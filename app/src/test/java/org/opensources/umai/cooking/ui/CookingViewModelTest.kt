@@ -31,9 +31,11 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.CoroutineScope
 import org.opensources.umai.cooking.data.CookingTimerController
 import org.opensources.umai.cooking.domain.CookingTimers
+import org.opensources.umai.cooking.domain.SavedTimers
 import org.opensources.umai.cooking.domain.TimerAlarm
 import org.opensources.umai.cooking.domain.TimerHost
 import org.opensources.umai.cooking.domain.TimerRecipe
+import org.opensources.umai.cooking.domain.TimerStore
 import org.opensources.umai.core.settings.CookingTimerOptions
 import java.time.Duration
 
@@ -185,6 +187,11 @@ class CookingViewModelTest {
         },
         host = object : TimerHost {
             override fun update(timers: CookingTimers, now: Long) = Unit
+        },
+        store = object : TimerStore {
+            override suspend fun load() = SavedTimers()
+
+            override suspend fun save(saved: SavedTimers) = Unit
         },
         options = flowOf(CookingTimerOptions()),
         clock = { now },

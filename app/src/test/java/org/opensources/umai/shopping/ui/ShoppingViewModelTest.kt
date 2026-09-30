@@ -91,15 +91,13 @@ class ShoppingViewModelTest {
         val loaded = vm.awaitList()
 
         val item = loaded.list!!.items.first { !it.checked }
-        fake.enqueueJson("""{"createdItems":[],"updatedItems":[],"deletedItems":[]}""")
-        fake.enqueueJson(LIST_DETAIL)
 
         vm.setChecked(item, checked = true)
 
-        val updated = withTimeout(TIMEOUT_MS) {
-            vm.state.first { state -> state.list?.items?.any { it.id == item.id && it.checked } == true }
-        }
-        assertTrue(updated.list!!.items.first { it.id == item.id }.checked)
+        // Nothing is queued for the tick yet, so Mealie cannot have answered: the screen already shows it.
+        assertTrue(vm.state.value.list!!.items.first { it.id == item.id }.checked)
+        fake.enqueueJson("""{"createdItems":[],"updatedItems":[],"deletedItems":[]}""")
+        fake.enqueueJson(LIST_DETAIL)
     }
 
     @Test

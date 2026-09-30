@@ -173,6 +173,12 @@ data class Paged<T>(
 }
 
 /**
+ * Every item of a paginated collection, read up to a bound: [complete] is
+ * false when the collection went on past it, and [items] holds only its start.
+ */
+data class AllPages<T>(val items: List<T>, val complete: Boolean)
+
+/**
  * Accumulated pages of a paginated collection, as shown by an infinite list.
  * Screens append to it instead of each re-implementing page bookkeeping.
  */

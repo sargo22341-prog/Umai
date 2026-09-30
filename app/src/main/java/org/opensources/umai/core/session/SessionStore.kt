@@ -6,40 +6,60 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import org.opensources.umai.core.settings.appPreferencesDataStore
 import org.opensources.umai.core.settings.safeData
 
-private val Context.sessionDataStore: DataStore<Preferences> by preferencesDataStore(name = "umai_session")
+private val Context.sessionDataStore: DataStore<Preferences> by appPreferencesDataStore("umai_session")
 
 /**
  * Persists the configured instance. The access token is stored sealed by
  * [SecretVault]; the password is never persisted in any form.
  */
-class SessionStore(context: Context, private val vault: SecretVault = SecretVault()) {
+class SessionStore(private val dataStore: DataStore<Preferences>, private val vault: SecretVault = SecretVault()) {
 
-    private val dataStore = context.applicationContext.sessionDataStore
+    /** The store of the app's session. */
+    constructor(context: Context) : this(context.applicationContext.sessionDataStore)
 
-    val stored: Flow<StoredSession?> = dataStore.safeData
-        .map { prefs ->
-            val baseUrl = prefs[KeyBaseUrl] ?: return@map null
-            StoredSession(
-                baseUrl = baseUrl,
-                token = vault.unseal(prefs[KeySealedToken]),
-                authMode = prefs[KeyAuthMode]?.let { name -> AuthMode.entries.firstOrNull { it.name == name } }
-                    ?: AuthMode.PASSWORD,
-                username = prefs[KeyUsername],
-                userId = prefs[KeyUserId],
-                userDisplayName = prefs[KeyUserDisplayName],
-                serverVersion = prefs[KeyServerVersion],
-                isAdmin = prefs[KeyIsAdmin] == true,
-                avatarCacheKey = prefs[KeyAvatarCacheKey],
-                tokenRejected = prefs[KeyTokenRejected] == true,
-            )
-        }
+    /**
+     * The stored session, `null` when none is set up. A file that cannot be
+     * read fails the flow with an [java.io.IOException], which is not "nothing
+     * set up": the session manager reports it as such. The token is unsealed
+     * only when its sealed form changes, not on every write to the store.
+     */
+    val stored: Flow<StoredSession?> = dataStore.data
+        .map { prefs -> prefs[KeyBaseUrl]?.let { baseUrl -> prefs.toSealedSession(baseUrl) } }
+        .distinctUntilChanged()
+        .map { sealed -> sealed?.unsealed() }
 
-    /** Where the stored session signs in, and as whom (see [instanceKeyOf]); the token is left sealed. */
+    private data class SealedSession(val session: StoredSession, val sealedToken: String?)
+
+    private fun Preferences.toSealedSession(baseUrl: String) = SealedSession(
+        session = StoredSession(
+            baseUrl = baseUrl,
+            token = null,
+            authMode = this[KeyAuthMode]?.let { name -> AuthMode.entries.firstOrNull { it.name == name } }
+                ?: AuthMode.PASSWORD,
+            username = this[KeyUsername],
+            userId = this[KeyUserId],
+            userDisplayName = this[KeyUserDisplayName],
+            serverVersion = this[KeyServerVersion],
+            isAdmin = this[KeyIsAdmin] == true,
+            avatarCacheKey = this[KeyAvatarCacheKey],
+            tokenRejected = this[KeyTokenRejected] == true,
+        ),
+        sealedToken = this[KeySealedToken],
+    )
+
+    private fun SealedSession.unsealed(): StoredSession = session.copy(token = vault.unseal(sealedToken))
+
+    /**
+     * Where the stored session signs in, and as whom (see [instanceKeyOf]); the
+     * token is left sealed. A file that cannot be read gives no key: [stored]
+     * already reports it.
+     */
     val instanceKeys: Flow<String?> = dataStore.safeData
         .map { prefs -> prefs[KeyBaseUrl]?.let { instanceKeyOf(it, prefs[KeyUserId]) } }
 

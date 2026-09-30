@@ -15,8 +15,11 @@ sealed interface NetworkError {
     /** TLS handshake or certificate validation failure. */
     data class Tls(val detail: String?) : NetworkError
 
-    /** 401/403 - token expired, revoked, or insufficient permissions. */
+    /** 401, or no instance set up - token expired or revoked: the user must sign in again. */
     data object Unauthorized : NetworkError
+
+    /** 403 - signed in, but the account is not allowed to do this. */
+    data object Forbidden : NetworkError
 
     /** 404 on a resource that should exist. */
     data object NotFound : NetworkError
@@ -41,7 +44,7 @@ val NetworkError.isRetryable: Boolean
     get() = when (this) {
         is NetworkError.Unreachable, is NetworkError.Timeout, is NetworkError.Server -> true
         is NetworkError.Http -> code == 429 || code == 408
-        is NetworkError.Tls, NetworkError.Unauthorized, NetworkError.NotFound, NetworkError.InvalidResponse,
-        NetworkError.NotMealie, is NetworkError.Unknown,
+        is NetworkError.Tls, NetworkError.Unauthorized, NetworkError.Forbidden, NetworkError.NotFound,
+        NetworkError.InvalidResponse, NetworkError.NotMealie, is NetworkError.Unknown,
         -> false
     }

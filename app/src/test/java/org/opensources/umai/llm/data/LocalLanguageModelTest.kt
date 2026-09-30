@@ -12,7 +12,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.opensources.umai.llm.domain.ActiveBackend
 import org.opensources.umai.llm.domain.AiBackend
 import org.opensources.umai.llm.domain.AiBackendUnavailable
 import org.opensources.umai.llm.domain.AiEngine
@@ -73,9 +72,9 @@ class LocalLanguageModelTest {
     private fun languageModel(
         loader: AiEngineLoader,
         device: DeviceProfile = tensorG5,
-        installed: InstalledModel? = installed(),
+        onDisk: () -> InstalledModel? = { installed() },
     ) = LocalLanguageModel(
-        installed = { installed },
+        installed = onDisk,
         device = device,
         loader = loader,
         isSupported = true,
@@ -105,7 +104,7 @@ class LocalLanguageModelTest {
 
         assertEquals(LlmOutcome.Success("{\"on\":\"TPU\"}"), outcome)
         assertEquals(AiBackend.TPU to "/models/gemma-4-E2B-it_Google_Tensor_G5.litertlm", loader.loads.single())
-        assertEquals(ActiveBackend(AiBackend.TPU, model.name, "Tensor G5"), llm.active.value)
+        assertEquals(AiBackend.TPU, llm.active.value)
     }
 
     @Test
@@ -114,12 +113,26 @@ class LocalLanguageModelTest {
         val llm = languageModel(loader)
 
         assertEquals(LlmOutcome.Success("{\"on\":\"CPU\"}"), llm.generate(request()))
-        assertEquals(AiBackend.CPU, llm.active.value?.backend)
+        assertEquals(AiBackend.CPU, llm.active.value)
         assertEquals(AiBackend.CPU to "/models/gemma-4-E2B-it.litertlm", loader.loads.last())
 
         // The failed TPU is not tried again for the next answer.
         val _ = llm.generate(request())
         assertEquals(listOf(AiBackend.TPU, AiBackend.CPU), loader.loads.map { it.first })
+    }
+
+    @Test
+    fun `a backend that failed for one model is tried again for another`() = runBlocking {
+        val loader = FakeLoader(failingLoads = setOf(AiBackend.TPU))
+        var current = installed()
+        val llm = languageModel(loader, onDisk = { current })
+        val _ = llm.generate(request())
+
+        // Another model is installed: its own TPU file gets a chance.
+        current = InstalledModel(model, current.paths.mapValues { (_, path) -> path.replace("/models/", "/models/v2/") })
+        val _ = llm.generate(request())
+
+        assertEquals(2, loader.loads.count { it.first == AiBackend.TPU })
     }
 
     @Test
@@ -129,7 +142,7 @@ class LocalLanguageModelTest {
 
         assertEquals(LlmOutcome.Success("{\"on\":\"GPU\"}"), llm.generate(request()))
         assertEquals(listOf(AiBackend.TPU, AiBackend.CPU, AiBackend.GPU), loader.loads.map { it.first })
-        assertEquals(AiBackend.GPU, llm.active.value?.backend)
+        assertEquals(AiBackend.GPU, llm.active.value)
     }
 
     @Test
@@ -138,7 +151,7 @@ class LocalLanguageModelTest {
         val llm = languageModel(loader)
 
         assertEquals(LlmOutcome.Success("{\"on\":\"CPU\"}"), llm.generate(request()))
-        assertEquals(AiBackend.CPU, llm.active.value?.backend)
+        assertEquals(AiBackend.CPU, llm.active.value)
     }
 
     @Test
@@ -207,7 +220,7 @@ class LocalLanguageModelTest {
     fun `a phone without a Tensor chip runs the file every phone runs`() = runBlocking {
         val loader = FakeLoader()
         val other = DeviceProfile("Snapdragon", tensorChip = null, tpuReachable = false)
-        val llm = languageModel(loader, device = other, installed = installed(chip = null))
+        val llm = languageModel(loader, device = other, onDisk = { installed(chip = null) })
 
         assertEquals(LlmOutcome.Success("{\"on\":\"CPU\"}"), llm.generate(request()))
         assertEquals(AiBackend.CPU to "/models/gemma-4-E2B-it.litertlm", loader.loads.single())
@@ -225,7 +238,7 @@ class LocalLanguageModelTest {
     @Test
     fun `without an installed model nothing runs`() = runBlocking {
         val loader = FakeLoader()
-        val llm = languageModel(loader, installed = null)
+        val llm = languageModel(loader, onDisk = { null })
 
         assertEquals(false, llm.isReady())
         assertEquals(LlmOutcome.Failure(LlmFailure.NOT_READY), llm.generate(request()))
@@ -248,7 +261,7 @@ class LocalLanguageModelTest {
         val llm = languageModel(loader)
 
         llm.prepare()
-        assertEquals(AiBackend.CPU, llm.active.value?.backend)
+        assertEquals(AiBackend.CPU, llm.active.value)
 
         assertEquals(LlmOutcome.Success("{\"on\":\"CPU\"}"), llm.generate(request()))
         assertEquals(listOf(AiBackend.TPU, AiBackend.CPU), loader.loads.map { it.first })
@@ -258,7 +271,7 @@ class LocalLanguageModelTest {
     fun `preparing without an installed model loads nothing`() = runBlocking {
         val loader = FakeLoader()
 
-        languageModel(loader, installed = null).prepare()
+        languageModel(loader, onDisk = { null }).prepare()
 
         assertTrue(loader.loads.isEmpty())
     }
@@ -276,7 +289,7 @@ class LocalLanguageModelTest {
     @Test
     fun `a backend without the vision part still answers text`() = runBlocking {
         val loader = FakeLoader(failingSenses = setOf(AiBackend.CPU to AiSense.SIGHT))
-        val llm = languageModel(loader, device = DeviceProfile("Tensor G2", null, tpuReachable = false), installed = installed(chip = null))
+        val llm = languageModel(loader, device = DeviceProfile("Tensor G2", null, tpuReachable = false), onDisk = { installed(chip = null) })
 
         assertEquals(LlmOutcome.Success("{\"on\":\"GPU\"}"), llm.generate(looking()))
         assertEquals(listOf(AiBackend.CPU, AiBackend.GPU), loader.loads.map { it.first })

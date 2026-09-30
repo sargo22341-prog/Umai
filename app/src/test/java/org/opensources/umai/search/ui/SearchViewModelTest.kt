@@ -12,6 +12,7 @@ import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -200,6 +201,24 @@ class SearchViewModelTest {
         val state = vm.awaitResults()
 
         assertEquals(NetworkError.Server(503), state.error)
+    }
+
+    @Test
+    fun `an ingredient search that fails is an error, not an empty list`() = runBlocking {
+        fake.enqueueJson(PAGE)
+        val vm = viewModel()
+        vm.awaitResults()
+
+        fake.enqueueError(503)
+        vm.searchFoods("tomate")
+        val failed = withTimeout(TIMEOUT_MS) { vm.filterOptions.first { it.foodError != null } }
+        assertEquals(NetworkError.Server(503), failed.foodError)
+        assertTrue(failed.foodResults.isEmpty())
+
+        fake.enqueueJson("""{"page":1,"per_page":40,"total":1,"total_pages":1,"items":[{"id":"f1","name":"tomate"}]}""")
+        vm.searchFoods("tomates")
+        val found = withTimeout(TIMEOUT_MS) { vm.filterOptions.first { it.foodResults.isNotEmpty() } }
+        assertNull(found.foodError)
     }
 
     @Test

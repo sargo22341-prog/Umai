@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.opensources.umai.R
 import org.opensources.umai.core.di.AppContainer
-import org.opensources.umai.core.network.LocalNetworkAccess
 import org.opensources.umai.core.network.MealieUrl
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.session.AuthRepository
@@ -41,6 +40,11 @@ data class SetupUiState(
     val requestLocalNetworkPermission: Boolean = false,
 ) {
     val canSubmit: Boolean get() = !connecting && url.isNotBlank()
+
+    /** Never include [password] nor [apiToken] in logs or crash reports. */
+    override fun toString(): String =
+        "SetupUiState(url=$url, authMethod=$authMethod, username=$username, password=***, apiToken=***, " +
+            "connecting=$connecting, formError=$formError, networkError=$networkError)"
 }
 
 /**
@@ -50,7 +54,8 @@ data class SetupUiState(
 class SetupViewModel(
     private val authRepository: AuthRepository,
     sessionState: StateFlow<SessionState>,
-    private val isLocalNetworkPermissionGranted: () -> Boolean,
+    /** Whether the instance at a base URL is on the local network, not reachable without the permission yet. */
+    private val needsLocalNetworkPermission: suspend (baseUrl: String) -> Boolean,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SetupUiState())
@@ -126,7 +131,7 @@ class SetupViewModel(
         connectJob = viewModelScope.launch {
             // Reaching a LAN instance needs an explicit grant on Android 17;
             // asking first avoids a 15-second connect timeout with no clue.
-            if (!isLocalNetworkPermissionGranted() && LocalNetworkAccess.isLocalInstance(baseUrl)) {
+            if (needsLocalNetworkPermission(baseUrl)) {
                 _state.update { it.copy(connecting = false, requestLocalNetworkPermission = true) }
                 return@launch
             }
@@ -200,7 +205,7 @@ class SetupViewModel(
                 SetupViewModel(
                     authRepository = container.authRepository,
                     sessionState = container.sessionManager.state,
-                    isLocalNetworkPermissionGranted = container.localNetworkPermission,
+                    needsLocalNetworkPermission = container.needsLocalNetworkPermission,
                 )
             }
         }

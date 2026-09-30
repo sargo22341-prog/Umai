@@ -5,13 +5,13 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import org.opensources.umai.core.settings.appPreferencesDataStore
 import org.opensources.umai.core.settings.safeData
 
-private val Context.providerDataStore: DataStore<Preferences> by preferencesDataStore(name = "umai_providers")
+private val Context.providerDataStore: DataStore<Preferences> by appPreferencesDataStore("umai_providers")
 
 /** Where the choices made on the page of a provider are kept. */
 interface ProviderSettings {

@@ -1,6 +1,7 @@
 package org.opensources.umai.core.network
 
 import kotlinx.serialization.json.Json
+import okhttp3.HttpUrl
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -43,25 +44,37 @@ object MealieClientFactory {
     private val jsonMediaType = "application/json".toMediaType()
 
     /**
-     * [instanceHost], when set, is the only host that receives the token and
-     * whose 401 answers invalidate the session. The same client also loads
-     * pictures and media from other sites (a recipe source, a CDN), which must
-     * never see the Mealie credentials nor sign the user out.
+     * What every client of the app shares: the timeouts, and one connection
+     * pool and dispatcher, so a client built for a sign-in attempt or for
+     * another instance leaves no connections or threads of its own behind.
+     */
+    private val sharedClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(60, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .build()
+    }
+
+    /**
+     * Only requests to [instance] — same scheme, host and port — receive the
+     * token, and only their 401 answers invalidate the session; without an
+     * instance, no request does. The same client also loads pictures and media
+     * from other sites (a recipe source, a CDN), which must never see the
+     * Mealie credentials nor sign the user out, and a link to the instance in
+     * plain HTTP must not carry the token of an HTTPS instance in clear.
      */
     fun okHttpClient(
+        instance: HttpUrl?,
         tokenProvider: TokenProvider,
         unauthorizedListener: UnauthorizedListener? = null,
         acceptLanguage: () -> String = { defaultAcceptLanguage() },
-        instanceHost: String? = null,
-    ): OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .callTimeout(60, TimeUnit.SECONDS)
-        .retryOnConnectionFailure(true)
-        .addInterceptor(HeaderInterceptor(tokenProvider, acceptLanguage, instanceHost))
+    ): OkHttpClient = sharedClient.newBuilder()
+        .addInterceptor(HeaderInterceptor(tokenProvider, acceptLanguage, instance))
         .apply {
-            unauthorizedListener?.let { addInterceptor(UnauthorizedInterceptor(it, instanceHost)) }
+            unauthorizedListener?.let { addInterceptor(UnauthorizedInterceptor(it, instance)) }
             // Request logging exists only in debug builds, and the Authorization
             // header is redacted so a token can never reach logcat.
             if (BuildConfig.DEBUG) {
@@ -92,14 +105,14 @@ object MealieClientFactory {
 private class HeaderInterceptor(
     private val tokenProvider: TokenProvider,
     private val acceptLanguage: () -> String,
-    private val instanceHost: String?,
+    private val instance: HttpUrl?,
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         val builder: Request.Builder = request.newBuilder()
             .header("Accept", "application/json")
             .header("Accept-Language", acceptLanguage())
-        if (request.isForInstance(instanceHost)) {
+        if (request.isForInstance(instance)) {
             tokenProvider.token()?.takeIf { it.isNotBlank() }?.let {
                 builder.header("Authorization", "Bearer $it")
             }
@@ -110,14 +123,14 @@ private class HeaderInterceptor(
 
 private class UnauthorizedInterceptor(
     private val listener: UnauthorizedListener,
-    private val instanceHost: String?,
+    private val instance: HttpUrl?,
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val response = chain.proceed(chain.request())
-        if (response.code == 401 && chain.request().isForInstance(instanceHost)) listener.onUnauthorized()
+        if (response.code == 401 && chain.request().isForInstance(instance)) listener.onUnauthorized()
         return response
     }
 }
 
-private fun Request.isForInstance(instanceHost: String?): Boolean =
-    instanceHost == null || url.host.equals(instanceHost, ignoreCase = true)
+private fun Request.isForInstance(instance: HttpUrl?): Boolean =
+    instance != null && url.scheme == instance.scheme && url.host == instance.host && url.port == instance.port

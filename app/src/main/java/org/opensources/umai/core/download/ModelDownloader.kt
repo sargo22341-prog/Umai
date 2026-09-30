@@ -1,8 +1,6 @@
 package org.opensources.umai.core.download
 
-import android.content.Context
 import android.os.StatFs
-import androidx.annotation.StringRes
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -48,6 +46,16 @@ interface DownloadableFile {
 /** A model being downloaded by the system's download manager, one download per file. */
 data class PendingDownload<out M>(val downloadIds: List<Long>, val model: M)
 
+/** The downloads the files of a model are handed to: the system's download manager ([WifiDownloads]). */
+interface FileDownloads {
+    fun enqueue(url: String, destination: File, title: String, description: String): Long
+
+    /** `null` when [id] is no longer known. */
+    fun progress(id: Long): DownloadProgress?
+
+    fun remove(id: Long)
+}
+
 /** Where a downloader keeps, across app restarts, the model installed and the one on its way. */
 interface DownloadRecord<M> {
     suspend fun installed(): M?
@@ -68,31 +76,32 @@ interface DownloadRecord<M> {
  * one are deleted, since each takes hundreds of megabytes or more.
  */
 class ModelDownloader<M>(
-    context: Context,
+    private val downloads: FileDownloads,
+    /** The folder of the models, `null` while the storage is not available. */
+    private val modelsFolder: () -> File?,
     private val record: DownloadRecord<M>,
     private val scope: CoroutineScope,
     /** The files of a model, as this phone downloads them. */
     private val filesOf: (M) -> List<DownloadableFile>,
     /** The title of the download notification. */
     private val titleOf: (M) -> String,
-    /** The text of the download notification. */
-    @param:StringRes private val description: Int,
+    /** The text of the download notification, in the language of the app when it starts. */
+    private val description: () -> String,
     /** Free space left beyond the files, so a download never fills the phone. */
     private val spaceMargin: Long,
     /** A check of a downloaded file beyond its hash: the failure, or `null` when it passes. */
     private val validate: (File) -> InstallFailure? = { null },
+    /** The space left in a folder. */
+    private val availableBytes: (File) -> Long = { StatFs(it.path).availableBytes },
 ) {
 
-    private val context = context.applicationContext
-    private val downloads = WifiDownloads(this.context)
     private val mutex = Mutex()
     private var watchJob: Job? = null
 
     private val _state = MutableStateFlow<DownloadState<M>>(DownloadState.Idle)
     val state: StateFlow<DownloadState<M>> = _state.asStateFlow()
 
-    /** The models live in the app's own external files: removed with the app, no permission needed. */
-    val modelsDir: File? get() = context.getExternalFilesDir(MODELS_DIR)
+    val modelsDir: File? get() = modelsFolder()
 
     /** The file of [file], when it is on the phone. */
     fun installedFile(file: DownloadableFile): File? = modelsDir?.resolve(file.fileName)?.takeIf { it.isFile }
@@ -114,13 +123,13 @@ class ModelDownloader<M>(
         dir.mkdirs()
         val files = filesOf(model)
         val size = files.sumOf { it.sizeBytes }
-        if (size > 0 && StatFs(dir.path).availableBytes < size + spaceMargin) {
+        if (size > 0 && availableBytes(dir) < size + spaceMargin) {
             _state.value = DownloadState.Failed(model, InstallFailure.NOT_ENOUGH_SPACE)
             return@withLock
         }
         val ids = files.map { file ->
             val part = partFile(dir, file).apply { delete() }
-            downloads.enqueue(file.url, part, titleOf(model), context.getString(description))
+            downloads.enqueue(file.url, part, titleOf(model), description())
         }
         record.setPending(PendingDownload(ids, model))
         _state.value = DownloadState.Downloading(model, 0L, size, waiting = false)
@@ -219,9 +228,13 @@ class ModelDownloader<M>(
 
     private fun partFile(dir: File, file: DownloadableFile) = dir.resolve("${file.fileName}.part")
 
-    private companion object {
-        /** Shared by every kind of model: the language models and the speech models sit side by side. */
+    companion object {
+        /**
+         * The folder of the models in the app's own external files: removed with
+         * the app, no permission needed. Shared by every kind of model: the
+         * language models and the speech models sit side by side.
+         */
         const val MODELS_DIR = "models"
-        const val POLL_MS = 1_000L
+        private const val POLL_MS = 1_000L
     }
 }

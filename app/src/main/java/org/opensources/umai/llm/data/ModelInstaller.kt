@@ -7,6 +7,7 @@ import kotlinx.coroutines.launch
 import org.opensources.umai.R
 import org.opensources.umai.core.download.InstallFailure
 import org.opensources.umai.core.download.ModelDownloader
+import org.opensources.umai.core.download.WifiDownloads
 import org.opensources.umai.llm.domain.LocalModel
 import org.opensources.umai.llm.domain.TensorChip
 import java.io.File
@@ -25,12 +26,13 @@ class ModelInstaller(
 ) {
 
     private val downloader = ModelDownloader(
-        context = context,
+        downloads = WifiDownloads(context),
+        modelsFolder = { context.getExternalFilesDir(ModelDownloader.MODELS_DIR) },
         record = store,
         scope = scope,
         filesOf = { model: LocalModel -> model.filesFor(chip) },
         titleOf = LocalModel::name,
-        description = R.string.local_ai_download_description,
+        description = { context.getString(R.string.local_ai_download_description) },
         spaceMargin = SPACE_MARGIN,
         validate = ::liteRtLmCheck,
     )

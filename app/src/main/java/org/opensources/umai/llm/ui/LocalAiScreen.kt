@@ -172,7 +172,7 @@ private fun InstalledModelCard(state: LocalAiUiState, model: LocalModel, actions
         }
         state.active?.let { active ->
             Text(
-                text = stringResource(R.string.local_ai_running_on, backendName(active.backend)),
+                text = stringResource(R.string.local_ai_running_on, backendName(active)),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
             )

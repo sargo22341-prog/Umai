@@ -13,6 +13,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.opensources.umai.core.network.FakeMealieServer
+import org.opensources.umai.core.network.PublicAddressGuard
 import org.opensources.umai.youtube.domain.RecipePage
 
 class MealieRecipePagesTest {
@@ -93,6 +94,34 @@ class MealieRecipePagesTest {
     fun `a link leading back to YouTube is not read`() = runBlocking {
         assertNull(pages().read("https://www.youtube.com/watch?v=abcdefghijk"))
         assertEquals(0, mealie.server.requestCount)
+    }
+
+    @Test
+    fun `a link to the local network is neither opened nor handed to Mealie`() = runBlocking {
+        // The test site runs on localhost: to the client for other websites, it is the local network.
+        val guarded = OkHttpClient.Builder().addNetworkInterceptor(PublicAddressGuard()).build()
+        site.enqueue(MockResponse.Builder().code(200).setHeader("Content-Type", "text/html").body(CAESAR_PAGE).build())
+
+        assertNull(MealieRecipePages(apiProvider = { mealie.api() }, http = guarded).read(site.url("/admin").toString()))
+        assertEquals(0, site.requestCount)
+        assertEquals(0, mealie.server.requestCount)
+    }
+
+    @Test
+    fun `a page that cannot be reached is not handed to Mealie`() = runBlocking {
+        // Nothing listens on port 1: the connection is refused.
+        assertNull(pages().read("http://127.0.0.1:1/recette"))
+        assertEquals(0, mealie.server.requestCount)
+    }
+
+    @Test
+    fun `a page full of unclosed tags is read in linear time`() {
+        // Every opening tag left unclosed used to send the regular expressions over the rest of the page.
+        val trap = "<h2>Ingrédients</h2>" + "<li>x".repeat(100_000) + "<h1".repeat(100_000) + "<script>".repeat(100_000)
+
+        val started = System.nanoTime()
+        assertNull(RecipePageParsing.fromHtml(trap, "https://x"))
+        assertTrue(System.nanoTime() - started < 5_000_000_000L)
     }
 
     @Test

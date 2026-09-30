@@ -41,6 +41,8 @@ class MemoryDishCourses(user: Map<String, DishCourse> = emptyMap()) : DishCourse
  */
 class PlanningMealie(private val fake: FakeMealieServer) {
     var rules = """{"items":[]}"""
+    var rulesCode = 200
+    var ruleFilterCode = 200
     var history = """{"page":1,"total_pages":1,"items":[
         {"id":1,"date":"2026-09-10","entryType":"dinner","recipeId":"blanquette"}]}"""
     val created = mutableListOf<String>()
@@ -49,6 +51,12 @@ class PlanningMealie(private val fake: FakeMealieServer) {
         fake.server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val path = request.url.encodedPath
+                val code = when {
+                    path == "/api/households/mealplans/rules" -> rulesCode
+                    path == "/api/recipes" && request.url.queryParameter("queryFilter") != null -> ruleFilterCode
+                    else -> 200
+                }
+                if (code != 200) return MockResponse.Builder().code(code).build()
                 val body = when {
                     path == "/api/recipes" && request.url.queryParameter("queryFilter") != null ->
                         page(RECIPES.filter { it.id == "gratin" })
@@ -167,6 +175,35 @@ class DishPoolRepositoryTest {
         val rule = pool.rules.single()
         assertEquals(java.time.DayOfWeek.FRIDAY, rule.day)
         assertEquals(setOf("gratin"), rule.recipeIds)
+    }
+
+    @Test
+    fun `without the permission to read the rules, the plan has none`() = runTest {
+        mealie.rulesCode = 403
+
+        val pool = (repository().dishPool(today, Random(3)) { } as ApiResult.Success).value
+
+        assertTrue(pool.rules.isEmpty())
+        assertTrue(pool.candidates.isNotEmpty())
+    }
+
+    @Test
+    fun `rules that cannot be read fail the plan rather than being dropped`() = runTest {
+        mealie.rulesCode = 500
+
+        val result = repository().dishPool(today, Random(3)) { }
+
+        assertEquals(NetworkError.Server(500), (result as ApiResult.Failure).error)
+    }
+
+    @Test
+    fun `a rule whose filter Mealie rejects is left out`() = runTest {
+        mealie.rules = """{"items":[{"id":"r","day":"friday","entryType":"dinner","queryFilterString":"nonsense"}]}"""
+        mealie.ruleFilterCode = 400
+
+        val pool = (repository().dishPool(today, Random(3)) { } as ApiResult.Success).value
+
+        assertTrue(pool.rules.isEmpty())
     }
 
     @Test

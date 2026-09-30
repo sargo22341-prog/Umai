@@ -25,11 +25,11 @@ data class DownloadProgress(
  * download manager: it resumes across network changes and the app being
  * closed, shows a notification, and never uses mobile data.
  */
-class WifiDownloads(context: Context) {
+class WifiDownloads(context: Context) : FileDownloads {
 
     private val manager = context.applicationContext.getSystemService(DownloadManager::class.java)
 
-    fun enqueue(url: String, destination: File, title: String, description: String): Long =
+    override fun enqueue(url: String, destination: File, title: String, description: String): Long =
         manager.enqueue(
             DownloadManager.Request(url.toUri())
                 .setTitle(title)
@@ -40,8 +40,7 @@ class WifiDownloads(context: Context) {
                 .setAllowedOverRoaming(false),
         )
 
-    /** `null` when the download manager no longer knows [id]. */
-    fun progress(id: Long): DownloadProgress? =
+    override fun progress(id: Long): DownloadProgress? =
         manager.query(DownloadManager.Query().setFilterById(id))?.use { cursor ->
             if (!cursor.moveToFirst()) return@use null
             val state = when (cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))) {
@@ -57,7 +56,7 @@ class WifiDownloads(context: Context) {
             )
         }
 
-    fun remove(id: Long) {
+    override fun remove(id: Long) {
         manager.remove(id)
     }
 

@@ -2,6 +2,7 @@ package org.opensources.umai.cooking.data
 
 import android.annotation.SuppressLint
 import android.app.AlarmManager
+import android.app.ForegroundServiceStartNotAllowedException
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -40,13 +41,22 @@ class SystemTimerHost(
             notifications.clear()
             return
         }
-        // The first timer is always started from the cooking mode, on screen:
-        // the app is in the foreground and may start the service.
-        if (!serviceStarted) {
-            context.startForegroundService(serviceIntent)
-            serviceStarted = true
-        }
+        if (!serviceStarted) serviceStarted = startService()
         notifications.show(timers, now)
+    }
+
+    /**
+     * Starts the service, and answers whether it could. A timer is started from
+     * the cooking mode, on screen, and the wake-up alarm and the notification
+     * actions may start the service too. Timers read back when the app is
+     * started in the background for another reason may not: the notifications
+     * and the wake-up alarm still stand, and the next update tries again.
+     */
+    private fun startService(): Boolean = try {
+        context.startForegroundService(serviceIntent)
+        true
+    } catch (_: ForegroundServiceStartNotAllowedException) {
+        false
     }
 
     /*

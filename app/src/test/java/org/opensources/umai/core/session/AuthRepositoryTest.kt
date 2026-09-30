@@ -1,6 +1,7 @@
 package org.opensources.umai.core.session
 
 import kotlinx.coroutines.test.runTest
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -26,7 +27,7 @@ class AuthRepositoryTest {
 
     private fun repositoryFor(holder: SessionHolder) = AuthRepository(
         session = holder,
-        apiFor = { baseUrl, token -> MealieClientFactory.api(baseUrl, MealieClientFactory.okHttpClient({ token })) },
+        apiFor = { baseUrl, token -> MealieClientFactory.api(baseUrl, MealieClientFactory.okHttpClient(baseUrl.toHttpUrl(), { token })) },
         clock = { now },
     )
 
@@ -165,9 +166,12 @@ class AuthRepositoryTest {
     }
 
     @Test
-    fun `signing out forgets the session even when the server call fails`() = runTest {
+    fun `signing out forgets the session without calling the server`() = runTest {
         repository.signOut()
+
         assertTrue(holder.signedOut)
+        // Mealie's logout only clears a browser cookie: there is nothing to call.
+        assertEquals(0, fake.server.requestCount)
     }
 
     @Test

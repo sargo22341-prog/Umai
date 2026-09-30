@@ -3,7 +3,7 @@ package org.opensources.umai.cooking.data
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import org.opensources.umai.MainActivity
+import org.opensources.umai.NotificationEntry
 import org.opensources.umai.cooking.domain.CookingStepRequest
 import org.opensources.umai.cooking.domain.CookingTimer
 
@@ -22,7 +22,8 @@ enum class TimerAction(val intentAction: String, val requestCode: Int) {
 
 /**
  * The intents behind the timer notifications and the wake-up alarm. Every one
- * is explicit and immutable: nothing outside the app can reach or alter them.
+ * is explicit and immutable, and reaches the app through a component that is
+ * not exported: nothing outside the app can reach or alter them.
  */
 object TimerIntents {
 
@@ -56,7 +57,7 @@ object TimerIntents {
     fun openCooking(context: Context, timer: CookingTimer): PendingIntent = PendingIntent.getActivity(
         context,
         requestCode(timer.id, OPEN_COOKING_CODE),
-        Intent(context, MainActivity::class.java)
+        NotificationEntry.intent(context)
             .setAction(ACTION_OPEN_COOKING)
             .putExtra(EXTRA_SLUG, timer.recipe.slug)
             .putExtra(EXTRA_SERVINGS, timer.recipe.servings)
@@ -68,7 +69,7 @@ object TimerIntents {
 
     /** The cooking mode [intent] asks for, `null` when it is not a timer's. */
     fun cookingStep(intent: Intent): CookingStepRequest? {
-        if (intent.action != ACTION_OPEN_COOKING) return null
+        if (!NotificationEntry.isFrom(intent) || intent.action != ACTION_OPEN_COOKING) return null
         val slug = intent.getStringExtra(EXTRA_SLUG) ?: return null
         return CookingStepRequest(
             slug = slug,

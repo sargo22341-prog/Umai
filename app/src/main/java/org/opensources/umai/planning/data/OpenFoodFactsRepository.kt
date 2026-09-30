@@ -15,6 +15,7 @@ import okhttp3.Request
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.network.apiCall
+import org.opensources.umai.core.network.stringUpTo
 import org.opensources.umai.planning.domain.FoodLookup
 import org.opensources.umai.planning.domain.FoodProduct
 import org.opensources.umai.planning.domain.FoodUnit
@@ -48,7 +49,7 @@ class OpenFoodFactsRepository(
         val request = Request.Builder().url(url).header("User-Agent", userAgent).build()
         val answer = apiCall {
             withContext(Dispatchers.IO) {
-                client.newCall(request).execute().use { response -> response.code to response.body.string() }
+                client.newCall(request).execute().use { response -> response.code to response.body.stringUpTo(MAX_BODY_BYTES) }
             }
         }
         val (code, body) = when (answer) {
@@ -74,6 +75,9 @@ class OpenFoodFactsRepository(
 
         const val DEFAULT_BASE_URL = "https://world.openfoodfacts.org/"
         private const val HTTP_NOT_FOUND = 404
+
+        /** Only a few fields are asked for, tens of kilobytes at most: more is not a product. */
+        private const val MAX_BODY_BYTES = 1024L * 1024
 
         /** One kilocalorie is 4.184 kilojoules. */
         private const val KJ_PER_KCAL = 4.184

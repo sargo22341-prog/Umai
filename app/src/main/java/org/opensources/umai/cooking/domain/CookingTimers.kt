@@ -40,7 +40,8 @@ data class CookingTimer(
  */
 data class CookingTimers(
     val timers: List<CookingTimer> = emptyList(),
-    private val nextId: Int = 1,
+    /** The id the next timer gets: ids are never reused while the app runs. */
+    val nextId: Int = 1,
 ) {
     val isEmpty: Boolean get() = timers.isEmpty()
 
@@ -101,6 +102,24 @@ interface TimerAlarm {
 interface TimerHost {
     /** Called after every change; an empty [timers] means there is nothing left to keep alive. */
     fun update(timers: CookingTimers, now: Long)
+}
+
+/** The timers as they are kept when the app is not running. */
+data class SavedTimers(
+    val timers: CookingTimers = CookingTimers(),
+    /** The finished timers whose alarm already rang: they do not ring again. */
+    val announced: Set<Int> = emptySet(),
+)
+
+/**
+ * Keeps the timers when the process of the app dies — a crash elsewhere, the
+ * system short of memory — so the wake-up alarm finds them again and rings.
+ */
+interface TimerStore {
+    /** What was saved last, nothing when it no longer holds (the device restarted since). */
+    suspend fun load(): SavedTimers
+
+    suspend fun save(saved: SavedTimers)
 }
 
 /** A cooking mode to open at a given step, asked for by a timer notification. */

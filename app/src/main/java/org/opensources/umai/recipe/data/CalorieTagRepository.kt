@@ -6,6 +6,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import org.opensources.umai.core.model.AllPages
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.MealieClientFactory
 import org.opensources.umai.core.network.NetworkError
@@ -40,23 +41,35 @@ class CalorieTagRepository(
         apiProvider.call {
             fetchAllPages(MAX_PAGES) { page ->
                 tags(page = page, perPage = PAGE_SIZE, search = CalorieTags.PREFIX).toPaged { it.toCalorieTag() }
-            }
+            }.items
+        }
+    }
+
+    /**
+     * The slugs of every recipe of the instance, for [sync] to go through; not
+     * complete past [MAX_RECIPE_PAGES] pages of them.
+     */
+    suspend fun recipeSlugs(): ApiResult<AllPages<String>> = apiProvider.call {
+        fetchAllPages(MAX_RECIPE_PAGES) { page ->
+            recipes(page = page, perPage = RECIPE_PAGE_SIZE, orderBy = "name", orderDirection = "asc")
+                .toPaged { it.slug.takeIf(String::isNotBlank) }
         }
     }
 
     /**
      * Gives the recipe the tag of its calories, or removes its calorie tags when
-     * it has none. Nothing is written when the tag is already right. Answers
-     * whether the recipe changed.
+     * it has none. Nothing is written when the tag is already right, and only
+     * the tags are: a change made meanwhile to the rest of the recipe is kept.
+     * Answers whether the recipe changed.
      */
     suspend fun sync(slug: String): ApiResult<Boolean> {
         val api = apiProvider() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        val document = apiCall { api.recipeDocument(slug) }.valueOr { return it }
-        val detail = MealieClientFactory.json.decodeFromJsonElement(RecipeDetailDto.serializer(), document)
-        val calories = CalorieTags.parse(detail.nutrition?.calories)
-        val current = detail.tags.orEmpty()
-        val wanted = calories?.let(CalorieTags::tagName)
-        val calorieTags = current.filter { CalorieTags.isCalorieTag(it.slug) }
+        val (document, detail) = apiCall {
+            val document = api.recipeDocument(slug)
+            document to MealieClientFactory.json.decodeFromJsonElement(RecipeDetailDto.serializer(), document)
+        }.valueOr { return it }
+        val wanted = CalorieTags.parse(detail.nutrition?.calories)?.let(CalorieTags::tagName)
+        val calorieTags = detail.tags.orEmpty().filter { CalorieTags.isCalorieTag(it.slug) }
         if (calorieTags.map { it.slug } == listOfNotNull(wanted)) return ApiResult.Success(false)
 
         val tag = wanted?.let { findOrCreate(api, it).valueOr { failure -> return failure } }
@@ -75,7 +88,7 @@ class CalorieTagRepository(
                 },
             ),
         )
-        return apiCall { api.replaceRecipe(slug, JsonObject(document + ("tags" to tags))) }.map { true }
+        return apiCall { api.patchRecipe(slug, buildJsonObject { put("tags", tags) }) }.map { true }
     }
 
     private suspend fun findOrCreate(api: MealieApi, name: String): ApiResult<RecipeTagDto> {
@@ -97,5 +110,9 @@ class CalorieTagRepository(
     private companion object {
         const val PAGE_SIZE = 200
         const val MAX_PAGES = 20
+        const val RECIPE_PAGE_SIZE = 100
+
+        /** 10 000 recipes: the sync of a larger instance says it stopped there. */
+        const val MAX_RECIPE_PAGES = 100
     }
 }

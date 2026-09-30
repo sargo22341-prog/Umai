@@ -187,6 +187,8 @@ internal fun SearchablePicker(
     onRequireAllChange: (Boolean) -> Unit,
     onFocusChange: (Boolean) -> Unit,
     hint: String? = null,
+    /** Why the query could not be searched, shown in place of the suggestions. */
+    searchError: String? = null,
 ) {
     Column {
         SectionHeader(title)
@@ -216,7 +218,7 @@ internal fun SearchablePicker(
             enter = fadeIn() + expandVertically(),
             exit = fadeOut() + shrinkVertically(),
         ) {
-            Suggestions(suggestions, onAdd)
+            Suggestions(suggestions, onAdd, searchError)
         }
         if (selected.size > 1) {
             ToggleRow(
@@ -252,8 +254,15 @@ private fun PickedChips(selected: List<PickerEntry>, onRemove: (PickerEntry) -> 
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Suggestions(suggestions: List<PickerEntry>, onAdd: (PickerEntry) -> Unit) {
-    if (suggestions.isEmpty()) {
+private fun Suggestions(suggestions: List<PickerEntry>, onAdd: (PickerEntry) -> Unit, error: String?) {
+    if (error != null) {
+        Text(
+            text = error,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(vertical = 4.dp),
+        )
+    } else if (suggestions.isEmpty()) {
         Text(
             text = stringResource(R.string.filter_no_match),
             style = MaterialTheme.typography.bodySmall,

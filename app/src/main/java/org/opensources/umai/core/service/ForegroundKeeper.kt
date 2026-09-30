@@ -12,11 +12,21 @@ import android.util.Log
  * the foreground, stops before it got there: a stop asked for before the
  * service started is left to the service, which reaches the foreground first,
  * then stops itself ([onForeground]).
+ *
+ * [start] asks the system to start the service, and throws
+ * [ForegroundServiceStartNotAllowedException] when it may not; [name] names
+ * it in the log.
  */
-class ForegroundKeeper(context: Context, service: Class<out Service>) {
+class ForegroundKeeper(private val start: () -> Unit, private val name: String) {
 
-    private val context = context.applicationContext
-    private val intent = Intent(this.context, service)
+    /** Keeps the app alive with [service]. */
+    constructor(context: Context, service: Class<out Service>) : this(
+        start = {
+            // The component it answers is the service itself: nothing more to learn from it.
+            val _ = context.applicationContext.startForegroundService(Intent(context.applicationContext, service))
+        },
+        name = service.simpleName,
+    )
 
     /** Whether the work still needs the app kept alive. */
     @Volatile
@@ -26,8 +36,8 @@ class ForegroundKeeper(context: Context, service: Class<out Service>) {
     /** Asked to start, and not stopped since. */
     private var requested = false
 
-    /** The service once in the foreground, until it is stopped. */
-    private var running: Service? = null
+    /** Stops the service once it is in the foreground, until it is stopped. */
+    private var running: (() -> Unit)? = null
 
     /**
      * Keeps the app alive from now on. The system only lets an app start such
@@ -39,30 +49,33 @@ class ForegroundKeeper(context: Context, service: Class<out Service>) {
         isKeeping = true
         if (requested) return
         try {
-            context.startForegroundService(intent)
+            start()
             requested = true
         } catch (e: ForegroundServiceStartNotAllowedException) {
-            Log.w(TAG, "${intent.component?.shortClassName} not started from the background: ${e.message}")
+            Log.w(TAG, "$name not started from the background: ${e.message}")
         }
     }
 
     @Synchronized
     fun release() {
         isKeeping = false
-        running?.let {
-            it.stopSelf()
+        running?.let { stop ->
+            stop()
             running = null
             requested = false
         }
     }
 
     /** Called by the service once it runs in the foreground: it stays only while it is needed. */
+    fun onForeground(service: Service) = onForeground { service.stopSelf() }
+
+    /** [onForeground], with what stops the service. */
     @Synchronized
-    fun onForeground(service: Service) {
+    internal fun onForeground(stop: () -> Unit) {
         if (isKeeping) {
-            running = service
+            running = stop
         } else {
-            service.stopSelf()
+            stop()
             requested = false
         }
     }

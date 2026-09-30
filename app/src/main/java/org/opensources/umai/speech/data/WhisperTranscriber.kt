@@ -2,9 +2,12 @@ package org.opensources.umai.speech.data
 
 import android.os.SystemClock
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -38,15 +41,35 @@ class WhisperTranscriber(
         unloadJob?.cancel()
         work.begin()
         try {
-            withContext(Dispatchers.Default) { run(path, samples, language) }
+            val handle = withContext(Dispatchers.Default) { load(path) } ?: return@withLock null
+            transcribeCancellably(handle, samples, language)
         } finally {
             work.end()
             scheduleUnload()
         }
     }
 
-    private fun run(path: String, samples: ShortArray, language: String?): List<SpokenText>? {
-        val handle = load(path) ?: return null
+    /**
+     * whisper.cpp blocks the thread it runs on until the piece is written
+     * down: it runs on a worker while this coroutine waits. Cancelling the
+     * wait raises the abort flag of [handle]. whisper.cpp reads it between two
+     * steps — once the 30-second window is encoded, then at every token — so
+     * the encoding under way ends first, and the decoding is skipped. The
+     * model is used again only once it has returned.
+     */
+    private suspend fun transcribeCancellably(handle: Long, samples: ShortArray, language: String?): List<SpokenText>? =
+        coroutineScope {
+            WhisperNative.setAborted(handle, false)
+            val transcription = async(Dispatchers.Default) { run(handle, samples, language) }
+            try {
+                transcription.await()
+            } catch (cause: CancellationException) {
+                WhisperNative.setAborted(handle, true)
+                throw cause
+            }
+        }
+
+    private fun run(handle: Long, samples: ShortArray, language: String?): List<SpokenText>? {
         val started = SystemClock.elapsedRealtime()
         val sound = FloatArray(samples.size) { samples[it] / SAMPLE_SCALE }
         val count = WhisperNative.transcribe(handle, sound, language ?: AUTO_LANGUAGE, THREADS)

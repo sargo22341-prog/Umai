@@ -47,9 +47,9 @@ class NetworkErrorMapperTest {
     }
 
     @Test
-    fun `401 and 403 both mean the credentials were refused`() {
+    fun `401 means the credentials were refused, 403 that the account may not do this`() {
         assertEquals(NetworkError.Unauthorized, NetworkErrorMapper.map(httpException(401)))
-        assertEquals(NetworkError.Unauthorized, NetworkErrorMapper.map(httpException(403)))
+        assertEquals(NetworkError.Forbidden, NetworkErrorMapper.map(httpException(403)))
     }
 
     @Test
@@ -93,6 +93,7 @@ class NetworkErrorMapperTest {
         assertTrue(NetworkError.Server(500).isRetryable)
         assertTrue(NetworkError.Http(429, null).isRetryable)
         assertFalse(NetworkError.Unauthorized.isRetryable)
+        assertFalse(NetworkError.Forbidden.isRetryable)
         assertFalse(NetworkError.NotFound.isRetryable)
         assertFalse(NetworkError.Tls(null).isRetryable)
     }

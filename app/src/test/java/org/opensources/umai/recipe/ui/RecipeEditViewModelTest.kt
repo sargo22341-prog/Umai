@@ -88,7 +88,7 @@ class RecipeEditViewModelTest {
         vm.delete()
         val failed = vm.await { it.deleteError != null }
 
-        assertEquals(NetworkError.Unauthorized, failed.deleteError)
+        assertEquals(NetworkError.Forbidden, failed.deleteError)
         assertFalse(failed.deleted)
         assertFalse(failed.deleting)
         assertNotNull(failed.recipe)

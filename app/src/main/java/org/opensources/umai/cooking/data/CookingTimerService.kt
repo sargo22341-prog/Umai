@@ -23,7 +23,8 @@ class CookingTimerService : Service() {
             container.timerNotifications.summary(timers, now),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
         )
-        // In-memory timers do not survive the process: nothing to restart.
+        // Not restarted by the system: if the app dies, the wake-up alarm brings it
+        // back when the next timer ends, and the timers are read back from their store.
         return START_NOT_STICKY
     }
 }

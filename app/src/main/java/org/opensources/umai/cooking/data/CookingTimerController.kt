@@ -8,13 +8,17 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import org.opensources.umai.cooking.domain.CookingTimers
+import org.opensources.umai.cooking.domain.SavedTimers
 import org.opensources.umai.cooking.domain.TimerAlarm
 import org.opensources.umai.cooking.domain.TimerHost
 import org.opensources.umai.cooking.domain.TimerRecipe
+import org.opensources.umai.cooking.domain.TimerStore
 import org.opensources.umai.core.settings.CookingTimerOptions
 import java.time.Duration
 
@@ -28,11 +32,16 @@ import java.time.Duration
  * [clock] is monotonic, in milliseconds, and keeps counting while the device
  * sleeps: a timer must neither jump when the wall clock is changed nor stall
  * while the screen is off.
+ *
+ * The timers are saved in [store] on every change and read back when the app
+ * starts: when its process died meanwhile, the wake-up alarm restarts it and
+ * the timer still rings. What is asked before they are read back waits for them.
  */
 class CookingTimerController(
     private val scope: CoroutineScope,
     private val alarm: TimerAlarm,
     private val host: TimerHost,
+    private val store: TimerStore,
     options: Flow<CookingTimerOptions>,
     private val clock: () -> Long,
 ) {
@@ -50,8 +59,20 @@ class CookingTimerController(
     /** Wakes the controller up when the next timer ends or the alarm has rung long enough. */
     private var nextCheck: Job? = null
 
+    /** What was asked before the saved timers were read back; `null` once they are. */
+    private var waiting: MutableList<() -> Unit>? = mutableListOf()
+
+    /** The state to keep in [store]: written one after the other, the latest only, once restored. */
+    private val unsaved = MutableStateFlow<SavedTimers?>(null)
+
     init {
         scope.launch { options.collect { this@CookingTimerController.options = it } }
+        scope.launch {
+            val loaded = store.load()
+            // A timer that ended meanwhile rings as the reader chose, not as the defaults would.
+            this@CookingTimerController.options = options.first()
+            restore(loaded)
+        }
     }
 
     fun start(recipe: TimerRecipe, stepIndex: Int, duration: Duration) =
@@ -68,7 +89,13 @@ class CookingTimerController(
      * Looks at the timers again: the system woke the app up because one should
      * have reached zero, or the notifications were just allowed and can show them.
      */
-    fun refresh() = check()
+    fun refresh() = whenRestored(::check)
+
+    /** Runs [action] once the saved timers are read back: at once when they already are. */
+    fun whenRestored(action: () -> Unit) {
+        val queue = waiting
+        if (queue == null) action() else queue += action
+    }
 
     /** The clock the timers are read against: every second while one counts down. */
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -83,9 +110,32 @@ class CookingTimerController(
         }
     }
 
-    private fun change(block: (CookingTimers, Long) -> CookingTimers) {
+    private fun change(block: (CookingTimers, Long) -> CookingTimers) = whenRestored {
         _timers.value = block(_timers.value, clock())
         check()
+    }
+
+    private fun restore(restored: SavedTimers) {
+        _timers.value = restored.timers
+        announced = restored.announced
+        scope.launch {
+            var written = restored
+            unsaved.filterNotNull().collect { state ->
+                if (state != written) {
+                    store.save(state)
+                    written = state
+                }
+            }
+        }
+        val queued = waiting.orEmpty()
+        waiting = null
+        // A timer that ended while the app was not running rings now.
+        check()
+        queued.forEach { it() }
+    }
+
+    private fun save() {
+        unsaved.value = SavedTimers(_timers.value, announced)
     }
 
     private fun check() {
@@ -108,6 +158,7 @@ class CookingTimerController(
         }
         host.update(timers, now)
         scheduleNextCheck(timers, now)
+        save()
     }
 
     /**

@@ -207,7 +207,12 @@ abstract class FetchTensorDispatch : DefaultTask() {
 
     @TaskAction
     fun fetch() {
-        val archive = URI(url.get()).toURL().openStream().use { it.readBytes() }
+        // Bounded waits: a stalled download fails the build rather than hanging it.
+        val connection = URI(url.get()).toURL().openConnection().apply {
+            connectTimeout = CONNECT_TIMEOUT_MS
+            readTimeout = READ_TIMEOUT_MS
+        }
+        val archive = connection.getInputStream().use { it.readBytes() }
         val digest = MessageDigest.getInstance("SHA-256").digest(archive)
             .joinToString("") { "%02x".format(it) }
         check(digest.equals(sha256.get(), ignoreCase = true)) { "Unexpected hash for ${url.get()}: $digest" }
@@ -221,6 +226,8 @@ abstract class FetchTensorDispatch : DefaultTask() {
     private companion object {
         const val ENTRY_DIR = "google_tensor_runtime/src/main/jni/arm64-v8a"
         const val LIBRARY = "libLiteRtDispatch_GoogleTensor.so"
+        const val CONNECT_TIMEOUT_MS = 30_000
+        const val READ_TIMEOUT_MS = 60_000
     }
 }
 
@@ -262,7 +269,12 @@ abstract class FetchWhisperSource : DefaultTask() {
     @TaskAction
     fun fetch() {
         val archive = temporaryDir.resolve("whisper.tar.gz")
-        URI(url.get()).toURL().openStream().use { input -> archive.outputStream().use { input.copyTo(it) } }
+        // Bounded waits: a stalled download fails the build rather than hanging it.
+        val connection = URI(url.get()).toURL().openConnection().apply {
+            connectTimeout = CONNECT_TIMEOUT_MS
+            readTimeout = READ_TIMEOUT_MS
+        }
+        connection.getInputStream().use { input -> archive.outputStream().use { input.copyTo(it) } }
         val digest = MessageDigest.getInstance("SHA-256").digest(archive.readBytes())
             .joinToString("") { "%02x".format(it) }
         check(digest.equals(sha256.get(), ignoreCase = true)) { "Unexpected hash for ${url.get()}: $digest" }
@@ -275,6 +287,11 @@ abstract class FetchWhisperSource : DefaultTask() {
             include("*/CMakeLists.txt", "*/LICENSE", "*/cmake/**", "*/ggml/**", "*/include/**", "*/src/**")
             includeEmptyDirs = false
         }
+    }
+
+    private companion object {
+        const val CONNECT_TIMEOUT_MS = 30_000
+        const val READ_TIMEOUT_MS = 60_000
     }
 }
 

@@ -1,11 +1,14 @@
 // The calls WhisperNative.kt makes into whisper.cpp: load a model, transcribe
-// a piece of sound, read the timed segments, free the model.
+// a piece of sound, stop a transcription under way, read the timed segments,
+// free the model.
 //
 // Every JNI call that can fail is checked. A handle or a segment index the
 // Kotlin side should never pass throws IllegalArgumentException: it is a
 // programming error, reported where it happens rather than read as memory.
 
+#include <atomic>
 #include <cstring>
+#include <new>
 
 #include <jni.h>
 #include <android/log.h>
@@ -26,8 +29,23 @@ void log_to_logcat(enum ggml_log_level level, const char * text, void *) {
     static_cast<void>(__android_log_write(priority, kTag, text));
 }
 
+// What a handle points to: the model, and whether its transcription under way must stop.
+struct Transcriber {
+    whisper_context * whisper;
+    std::atomic<bool> aborted;
+};
+
+Transcriber * transcriber_of(jlong handle) {
+    return reinterpret_cast<Transcriber *>(handle);
+}
+
 whisper_context * context_of(jlong handle) {
-    return reinterpret_cast<whisper_context *>(handle);
+    return transcriber_of(handle)->whisper;
+}
+
+// Asked by whisper.cpp between two steps: after the encoding of a window, and at every token decoded.
+bool is_aborted(void * data) {
+    return static_cast<const std::atomic<bool> *>(data)->load(std::memory_order_relaxed);
 }
 
 // False, with IllegalArgumentException pending, when the handle or the index is not one of a transcription.
@@ -63,7 +81,24 @@ Java_org_opensources_umai_speech_data_WhisperNative_load(JNIEnv * env, jobject, 
     params.flash_attn = false;
     whisper_context * context = whisper_init_from_file_with_params(model, params);
     env->ReleaseStringUTFChars(path, model);
-    return reinterpret_cast<jlong>(context);
+    if (context == nullptr) {
+        return 0;
+    }
+    // Made once per model, with it: nothing is allocated while transcribing.
+    Transcriber * transcriber = new (std::nothrow) Transcriber{context, {false}};
+    if (transcriber == nullptr) {
+        whisper_free(context);
+        return 0;
+    }
+    return reinterpret_cast<jlong>(transcriber);
+}
+
+// Raised during a transcription, it stops it between two steps; lowered before the next one.
+JNIEXPORT void JNICALL
+Java_org_opensources_umai_speech_data_WhisperNative_setAborted(JNIEnv *, jobject, jlong handle, jboolean aborted) {
+    if (handle != 0) {
+        transcriber_of(handle)->aborted.store(aborted == JNI_TRUE, std::memory_order_relaxed);
+    }
 }
 
 JNIEXPORT jint JNICALL
@@ -89,6 +124,8 @@ Java_org_opensources_umai_speech_data_WhisperNative_transcribe(
     // the video itself.
     params.greedy.best_of = 1;
     params.n_threads = threads;
+    params.abort_callback = is_aborted;
+    params.abort_callback_user_data = &transcriber_of(handle)->aborted;
 
     const char * spoken = env->GetStringUTFChars(language, nullptr);
     if (spoken == nullptr) {
@@ -142,6 +179,7 @@ JNIEXPORT void JNICALL
 Java_org_opensources_umai_speech_data_WhisperNative_free(JNIEnv *, jobject, jlong handle) {
     if (handle != 0) {
         whisper_free(context_of(handle));
+        delete transcriber_of(handle);
     }
 }
 

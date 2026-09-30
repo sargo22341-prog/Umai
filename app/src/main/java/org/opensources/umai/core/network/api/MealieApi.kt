@@ -77,9 +77,6 @@ interface MealieApi {
     @POST("api/auth/refresh")
     suspend fun refreshToken(): TokenResponseDto
 
-    @POST("api/auth/logout")
-    suspend fun logout()
-
     @GET("api/users/self")
     suspend fun currentUser(): UserDto
 
@@ -156,6 +153,16 @@ interface MealieApi {
         @Path("slug") slug: String,
         @Body body: JsonObject,
     ): RecipeDetailDto
+
+    /**
+     * Changes only the fields [body] holds: Mealie merges them into the recipe
+     * as it stands, so a change made meanwhile to another field is kept.
+     */
+    @PATCH("api/recipes/{slug}")
+    suspend fun patchRecipe(
+        @Path("slug") slug: String,
+        @Body body: JsonObject,
+    )
 
     /** Parts named `image` and `extension`, as required by the OpenAPI body schema. */
     @Multipart

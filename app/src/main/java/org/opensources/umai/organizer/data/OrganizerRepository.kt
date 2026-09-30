@@ -26,17 +26,17 @@ class OrganizerRepository(
 
     suspend fun categories(forceRefresh: Boolean = false): ApiResult<List<Organizer>> =
         categoryCache.get(forceRefresh) {
-            apiProvider.call { fetchAllPages(MAX_PAGES) { page -> categories(page = page).toPaged { it.toDomain() } } }
+            apiProvider.call { fetchAllPages(MAX_PAGES) { page -> categories(page = page).toPaged { it.toDomain() } }.items }
         }
 
     suspend fun tags(forceRefresh: Boolean = false): ApiResult<List<Organizer>> =
         tagCache.get(forceRefresh) {
-            apiProvider.call { fetchAllPages(MAX_PAGES) { page -> tags(page = page).toPaged { it.toDomain() } } }
+            apiProvider.call { fetchAllPages(MAX_PAGES) { page -> tags(page = page).toPaged { it.toDomain() } }.items }
         }
 
     suspend fun tools(forceRefresh: Boolean = false): ApiResult<List<Organizer>> =
         toolCache.get(forceRefresh) {
-            apiProvider.call { fetchAllPages(MAX_PAGES) { page -> tools(page = page).toPaged { it.toDomain() } } }
+            apiProvider.call { fetchAllPages(MAX_PAGES) { page -> tools(page = page).toPaged { it.toDomain() } }.items }
         }
 
     /** Foods are searched on demand: an instance can hold thousands of them. */
@@ -45,7 +45,10 @@ class OrganizerRepository(
     }
 
     private companion object {
-        /** Hard stop so a very large instance cannot stall the filter sheet. */
+        /**
+         * Hard stop so a very large instance cannot stall the filter sheet: past
+         * 2 000 organizers of a kind, the others are not offered as filters.
+         */
         const val MAX_PAGES = 20
     }
 }

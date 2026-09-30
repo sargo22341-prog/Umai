@@ -54,6 +54,8 @@ data class FilterOptionsState(
     val tags: List<Organizer> = emptyList(),
     val tools: List<Organizer> = emptyList(),
     val foodResults: List<Food> = emptyList(),
+    /** Why the ingredients typed could not be searched: not the same as none matching. */
+    val foodError: NetworkError? = null,
     val selectedFoods: List<Food> = emptyList(),
     val loading: Boolean = false,
     val error: NetworkError? = null,
@@ -184,13 +186,13 @@ class SearchViewModel(
     fun searchFoods(query: String) {
         foodJob?.cancel()
         if (query.trim().length < MIN_FOOD_QUERY) {
-            _filterOptions.update { it.copy(foodResults = emptyList()) }
+            _filterOptions.update { it.copy(foodResults = emptyList(), foodError = null) }
             return
         }
         foodJob = viewModelScope.launch {
             when (val result = organizerRepository.searchFoods(query)) {
-                is ApiResult.Failure -> _filterOptions.update { it.copy(foodResults = emptyList()) }
-                is ApiResult.Success -> _filterOptions.update { it.copy(foodResults = result.value) }
+                is ApiResult.Failure -> _filterOptions.update { it.copy(foodResults = emptyList(), foodError = result.error) }
+                is ApiResult.Success -> _filterOptions.update { it.copy(foodResults = result.value, foodError = null) }
             }
         }
     }

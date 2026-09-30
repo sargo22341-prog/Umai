@@ -16,6 +16,7 @@ import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.network.api.MealieApi
 import org.opensources.umai.core.network.apiCall
 import org.opensources.umai.core.network.fetchAllPages
+import org.opensources.umai.core.network.isRetryable
 import org.opensources.umai.core.network.toPaged
 import org.opensources.umai.core.network.valueOr
 import org.opensources.umai.core.network.valueOrNull
@@ -68,7 +69,7 @@ class DishPoolRepository(
         onPhase(DishPoolPhase.READING_RECIPES)
         val recipes = allRecipes(api, queryFilter = null).valueOr { return it }
         val history = history(api, today).valueOr { return it }
-        val rules = rules(api)
+        val rules = rules(api).valueOr { return it }
         val placed = place(recipes, history)
         val eligible = recipes.filter { placed[it.id] == null || placed[it.id] == DishCourse.MAIN }
         val quality = eligible.associate { it.id to MealPlanner.quality(it, today, history.lastPlanned[it.id]) }
@@ -146,16 +147,24 @@ class DishPoolRepository(
         else -> DishCourse.MAIN
     }
 
+    /**
+     * The recipes [queryFilter] matches, all of them when it is `null`. Past
+     * [MAX_PAGES], the plan is made from the first recipes by name: a plan from
+     * thousands of dishes is still a plan.
+     */
     private suspend fun allRecipes(api: MealieApi, queryFilter: String?): ApiResult<List<RecipeSummary>> = apiCall {
         fetchAllPages(MAX_PAGES) { page ->
             api.recipes(page = page, perPage = PAGE_SIZE, orderBy = "name", orderDirection = "asc", queryFilter = queryFilter)
                 .toPaged { it.toDomain() }
-        }
+        }.items
     }
 
     private class History(val counts: Map<String, Map<MealType, Int>>, val lastPlanned: Map<String, LocalDate>)
 
-    /** How each recipe was planned over the last weeks, and when it last was as a meal. */
+    /**
+     * How each recipe was planned over the last weeks, and when it last was as
+     * a meal. [HISTORY_WEEKS] of meals are far from [MAX_PAGES] pages of them.
+     */
     private suspend fun history(api: MealieApi, today: LocalDate): ApiResult<History> = apiCall {
         val entries = fetchAllPages(MAX_PAGES) { page ->
             api.mealPlans(
@@ -167,7 +176,7 @@ class DishPoolRepository(
                 val date = ApiDates.parseDate(entry.date) ?: return@toPaged null
                 Triple(id, MealType.fromApi(entry.entryType), date)
             }
-        }
+        }.items
         val counts = entries.groupBy { it.first }.mapValues { (_, meals) -> meals.groupingBy { it.second }.eachCount() }
         val lastPlanned = entries.filter { CourseClassifier.courseOf(it.second) == DishCourse.MAIN }
             .groupBy { it.first }
@@ -177,22 +186,35 @@ class DishPoolRepository(
 
     /**
      * The rules of the household for lunch and dinner, each with the recipes
-     * its filter matches. A rule Mealie cannot evaluate is left out, as Mealie
-     * would reject it too; without the permission to read rules, there are none.
+     * its filter matches, read a few at a time. Without the permission to read
+     * rules there are none; a rule whose filter Mealie rejects is left out, as
+     * Mealie leaves it out too. Any other failure is the plan's.
      */
-    private suspend fun rules(api: MealieApi): List<PlanRule> {
-        val dtos = apiCall { api.mealPlanRules() }.valueOrNull()?.items.orEmpty()
-        return dtos.mapNotNull { dto ->
+    private suspend fun rules(api: MealieApi): ApiResult<List<PlanRule>> {
+        val dtos = when (val read = apiCall { api.mealPlanRules() }) {
+            is ApiResult.Success -> read.value.items
+            is ApiResult.Failure -> return if (read.error == NetworkError.Forbidden) ApiResult.Success(emptyList()) else read
+        }
+        val wanted = dtos.mapNotNull { dto ->
             val type = dto.entryType.takeIf { it != UNSET }?.let(MealType::fromApi)
             if (type != null && type != MealType.LUNCH && type != MealType.DINNER) return@mapNotNull null
             val filter = dto.queryFilterString.trim().takeIf { it.isNotEmpty() } ?: return@mapNotNull null
-            val matching = allRecipes(api, filter).valueOrNull() ?: return@mapNotNull null
-            PlanRule(
-                day = dto.day.takeIf { it != UNSET }?.let { day -> DayOfWeek.entries.firstOrNull { it.name.equals(day, true) } },
-                type = type,
-                recipeIds = matching.map { it.id }.toSet(),
-            )
+            val day = dto.day.takeIf { it != UNSET }?.let { day -> DayOfWeek.entries.firstOrNull { it.name.equals(day, true) } }
+            PlanRule(day = day, type = type, recipeIds = emptySet()) to filter
         }
+        val matched = coroutineScope {
+            val gate = Semaphore(PARALLEL_READS)
+            wanted.map { (rule, filter) -> async { gate.withPermit { rule to allRecipes(api, filter) } } }.awaitAll()
+        }
+        return ApiResult.Success(
+            matched.mapNotNull { (rule, matching) ->
+                when (matching) {
+                    is ApiResult.Success -> rule.copy(recipeIds = matching.value.map { it.id }.toSet())
+                    // Refused as such, not for now (408, 429): the filter itself is at fault.
+                    is ApiResult.Failure -> if (matching.error is NetworkError.Http && !matching.error.isRetryable) null else return matching
+                }
+            },
+        )
     }
 
     /** The full recipes, read a few at a time; one that cannot be read is skipped. */

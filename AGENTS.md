@@ -116,6 +116,14 @@ Règles de dépendances :
   GMS, elle est écartée — pas de contournement.
 * Ajouter une dépendance seulement si elle remplace un vrai volume de code. Toute
   nouvelle dépendance passe par `gradle/libs.versions.toml`, jamais en dur.
+* Les sommes de contrôle de tout ce que le build télécharge sont vérifiées
+  (`gradle/verification-metadata.xml`). Après un ajout ou une montée de version, régénérer :
+  ```powershell
+  .\gradlew.bat --write-verification-metadata sha256 :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest :app:lintRelease
+  ```
+  Gradle n'enregistre `aapt2` que pour le système qui l'exécute : ajouter à la main les jars
+  `-linux` (CI) et `-osx` de la nouvelle version, hachés depuis `dl.google.com` et contrôlés
+  contre le `.sha1` publié.
 * Vérifier l'APK après ajout : `com/google/android/gms`, `com/google/firebase` et
   `com/google/android/maps` doivent rester absents (§13).
 
@@ -249,7 +257,8 @@ elle est relue. Les données locales d'une instance (historique, plats) sont vid
 quand l'app se connecte ailleurs (`SessionManager.watchInstanceChanges`).
 
 **Erreurs.** Toute panne devient un `NetworkError` (`Unreachable`, `Timeout`, `Tls`,
-`Unauthorized`, `NotFound`, `Server`, `Http`, `InvalidResponse`, `NotMealie`, `Unknown`).
+`Unauthorized` (401 : se reconnecter), `Forbidden` (403 : compte sans le droit), `NotFound`,
+`Server`, `Http`, `InvalidResponse`, `NotMealie`, `Unknown`).
 L'UI traduit ce type en message localisé ; elle ne voit jamais un code HTTP brut.
 
 **Pagination.** `PagedItems<T>` (`core/model`) accumule les pages. Pas de logique de
@@ -306,6 +315,17 @@ Constatées sur une instance réelle. Les respecter, ne pas retenter de contourn
 * `lastMade IS NONE` renvoie 0 résultat sur instance réelle : filtre non exposé.
 * `queryFilter` est une mini-langue (`rating >= 4`, `id IN ["…"]`, `createdAt > "…"`).
   Attention au séparateur : `joinToString` sans `separator = ","` casse `IN [...]`.
+* **Pas de filtre « favoris » côté serveur** : le filtre passe par `id IN [...]` dans l'URL.
+  Au-delà de quelques centaines de favoris, l'URL peut dépasser la limite d'un proxy inverse
+  (8 Ko par défaut sur nginx) : l'erreur HTTP s'affiche. Ne pas tronquer la liste, ce qui
+  donnerait des résultats faux sans le dire.
+* **La déconnexion ne révoque rien** : `POST /api/auth/logout` n'efface qu'un cookie de
+  navigateur ; un jeton reste valide jusqu'à son expiration (un jeton d'API jusqu'à sa
+  suppression dans le profil). L'app oublie le jeton, elle n'appelle pas cet endpoint.
+* `PUT /api/recipes/{slug}` remplace la recette entière ; `PATCH` fusionne les champs envoyés
+  dans la recette telle que le serveur la tient. Pour un seul champ (étiquettes, assets),
+  utiliser `PATCH`. L'édition complète reste en `PUT` : le serveur y dérive le slug du nom et
+  nettoie les références d'ingrédients, ce que `PATCH` ne fait pas.
 
 ---
 
@@ -487,8 +507,8 @@ ni au marqueur. La CI publie ces lignes comme description de la GitHub Release p
 vider à la main. Un changement purement interne (tests, doc, CI) n'a pas besoin de note.
 
 **Version et release.** La version vit dans `app/version.properties` et n'est montée que
-par la CI (`.github/workflows/ci.yml`, à chaque push sur `main`) : ne pas la modifier à la
-main. Fonctionnement, secrets de signature et limites : `docs/release.md`. La clé de
+par la CI (`.github/workflows/ci.yml`, à chaque push sur `main` qui ne touche pas que la
+documentation ou les tests) : ne pas la modifier à la main. Fonctionnement, secrets de signature et limites : `docs/release.md`. La clé de
 signature et son mot de passe ne sont jamais dans le dépôt ni demandés par l'agent.
 
 **Serveur Mealie de test.** Ne **rien** supprimer ni modifier sur l'instance fournie.

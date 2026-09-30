@@ -6,17 +6,17 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import org.opensources.umai.core.settings.appPreferencesDataStore
 import org.opensources.umai.core.download.DownloadRecord
 import org.opensources.umai.core.download.PendingDownload
 import org.opensources.umai.core.settings.safeData
 import org.opensources.umai.speech.domain.SpeechModel
 import org.opensources.umai.speech.domain.SpeechModelCatalog
 
-private val Context.speechDataStore: DataStore<Preferences> by preferencesDataStore(name = "umai_speech")
+private val Context.speechDataStore: DataStore<Preferences> by appPreferencesDataStore("umai_speech")
 
 data class SpeechSettings(
     /** The model downloaded and checked, ready to be run. */

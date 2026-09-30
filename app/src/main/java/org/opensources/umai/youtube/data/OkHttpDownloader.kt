@@ -2,6 +2,7 @@ package org.opensources.umai.youtube.data
 
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.opensources.umai.core.network.stringUpTo
 import org.schabi.newpipe.extractor.downloader.Downloader
 import org.schabi.newpipe.extractor.downloader.Request
 import org.schabi.newpipe.extractor.downloader.Response
@@ -32,7 +33,8 @@ internal class OkHttpDownloader(private val client: OkHttpClient) : Downloader()
                 response.code,
                 response.message,
                 response.headers.toMultimap(),
-                response.body.string(),
+                // Past the limit, the IOException fails the extraction as a network error would.
+                response.body.stringUpTo(MAX_BODY_BYTES),
                 response.request.url.toString(),
             )
         }
@@ -41,6 +43,9 @@ internal class OkHttpDownloader(private val client: OkHttpClient) : Downloader()
     private companion object {
         const val USER_AGENT = "User-Agent"
         const val TOO_MANY_REQUESTS = 429
+
+        /** Far above what the pages and answers of YouTube weigh: a larger one is not theirs. */
+        const val MAX_BODY_BYTES = 16L * 1024 * 1024
 
         /** The one NewPipe itself sends: the extractor is tested against the pages YouTube serves it. */
         const val BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0"

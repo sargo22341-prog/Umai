@@ -5,7 +5,6 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -13,10 +12,11 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+import org.opensources.umai.core.settings.appPreferencesDataStore
 import org.opensources.umai.core.settings.safeData
 import org.opensources.umai.planning.domain.DishCourse
 
-private val Context.dishCourseDataStore: DataStore<Preferences> by preferencesDataStore(name = "umai_dish_courses")
+private val Context.dishCourseDataStore: DataStore<Preferences> by appPreferencesDataStore("umai_dish_courses")
 
 /** What the automatic planning knows about courses beyond what Mealie holds. */
 interface DishCourses {

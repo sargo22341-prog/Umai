@@ -85,9 +85,6 @@ interface LanguageModel {
     suspend fun generate(request: LlmRequest, onProgress: (LlmProgress) -> Unit = {}): LlmOutcome
 }
 
-/** Where the model runs now, as proven when it was loaded. */
-data class ActiveBackend(val backend: AiBackend, val model: String, val soc: String)
-
 /** What a test run of the model measured. */
 data class LlmBenchmark(
     val loadMillis: Long,

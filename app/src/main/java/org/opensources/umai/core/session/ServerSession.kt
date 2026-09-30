@@ -44,4 +44,10 @@ sealed interface SessionState {
 
     /** A server is configured but the token was rejected; the user must sign in again. */
     data class Expired(val baseUrl: String, val username: String?) : SessionState
+
+    /**
+     * The stored session could not be read from the device. Nothing says it is
+     * gone: the app offers to read it again rather than to set up an instance.
+     */
+    data object Unreadable : SessionState
 }

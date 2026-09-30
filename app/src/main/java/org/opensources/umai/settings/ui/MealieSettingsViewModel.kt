@@ -15,11 +15,9 @@ import org.opensources.umai.core.model.HouseholdPreferences
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.session.AuthRepository
-import org.opensources.umai.core.session.SessionManager
 import org.opensources.umai.core.session.SessionState
 import org.opensources.umai.profile.data.ProfileRepository
 import org.opensources.umai.recipe.data.CalorieTagRepository
-import org.opensources.umai.recipe.data.RecipeRepository
 
 /** Progress of giving every recipe the tag of its calories. */
 data class CalorieSync(
@@ -28,6 +26,8 @@ data class CalorieSync(
     val total: Int = 0,
     val changed: Int = 0,
     val failed: Int = 0,
+    /** False when the instance holds more recipes than one sync goes through. */
+    val complete: Boolean = true,
     val error: NetworkError? = null,
     val finished: Boolean = false,
 )
@@ -60,14 +60,11 @@ data class MealieSettingsUiState(
 class MealieSettingsViewModel(
     private val profileRepository: ProfileRepository,
     private val authRepository: AuthRepository,
-    private val sessionManager: SessionManager,
-    private val recipeRepository: RecipeRepository? = null,
-    private val calorieTags: CalorieTagRepository? = null,
+    val sessionState: StateFlow<SessionState>,
+    private val calorieTags: CalorieTagRepository,
 ) : ViewModel() {
 
     private var calorieJob: Job? = null
-
-    val sessionState: StateFlow<SessionState> = sessionManager.state
 
     private val _state = MutableStateFlow(MealieSettingsUiState())
     val state: StateFlow<MealieSettingsUiState> = _state.asStateFlow()
@@ -121,27 +118,21 @@ class MealieSettingsViewModel(
      * if the screen is left, and can be run again at no risk.
      */
     fun syncCalorieTags() {
-        val recipes = recipeRepository ?: return
-        val tags = calorieTags ?: return
         if (calorieJob?.isActive == true) return
         _state.update { it.copy(calorieSync = CalorieSync(running = true)) }
         calorieJob = viewModelScope.launch {
-            val slugs = mutableListOf<String>()
-            var page = 1
-            do {
-                val result = recipes.latest(page = page, perPage = SYNC_PAGE_SIZE)
-                if (result is ApiResult.Failure) {
+            val slugs = when (val result = calorieTags.recipeSlugs()) {
+                is ApiResult.Failure -> {
                     _state.update { it.copy(calorieSync = CalorieSync(error = result.error, finished = true)) }
                     return@launch
                 }
-                val paged = (result as ApiResult.Success).value
-                slugs += paged.items.map { it.slug }
-                page++
-            } while (paged.hasNext)
-
-            _state.update { it.copy(calorieSync = it.calorieSync.copy(total = slugs.size)) }
-            slugs.forEach { slug ->
-                val result = tags.sync(slug)
+                is ApiResult.Success -> result.value
+            }
+            _state.update {
+                it.copy(calorieSync = it.calorieSync.copy(total = slugs.items.size, complete = slugs.complete))
+            }
+            slugs.items.forEach { slug ->
+                val result = calorieTags.sync(slug)
                 _state.update {
                     val sync = it.calorieSync
                     it.copy(
@@ -208,15 +199,12 @@ class MealieSettingsViewModel(
     }
 
     companion object {
-        private const val SYNC_PAGE_SIZE = 100
-
         fun factory(container: AppContainer) = viewModelFactory {
             initializer {
                 MealieSettingsViewModel(
                     profileRepository = container.profileRepository,
                     authRepository = container.authRepository,
-                    sessionManager = container.sessionManager,
-                    recipeRepository = container.recipeRepository,
+                    sessionState = container.sessionManager.state,
                     calorieTags = container.calorieTagRepository,
                 )
             }

@@ -1,14 +1,18 @@
 package org.opensources.umai.recipe.data
 
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.opensources.umai.core.model.AllPages
 import org.opensources.umai.core.network.ApiResult
 import org.opensources.umai.core.network.FakeMealieServer
+import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.network.query
 import org.opensources.umai.recipe.domain.CalorieTag
 
@@ -41,11 +45,14 @@ class CalorieTagRepositoryTest {
         val create = fake.takeRequest()
         assertEquals("/api/organizers/tags", create.url.encodedPath)
         assertTrue(create.body?.utf8().orEmpty().contains(""""name":"calorie-695""""))
-        val put = fake.takeRequest().body?.utf8().orEmpty()
-        assertTrue(put.contains(""""slug":"rapide""""))
-        assertTrue(put.contains(""""slug":"calorie-695""""))
-        // Everything else of the recipe goes back as it came.
-        assertTrue(put.contains(""""extras":{"k":"v"}"""))
+        val patch = fake.takeRequest()
+        assertEquals("PATCH", patch.method)
+        assertEquals("/api/recipes/carbonara", patch.url.encodedPath)
+        val body = Json.parseToJsonElement(patch.body?.utf8().orEmpty()).jsonObject
+        // Only the tags are written: a change made meanwhile to the rest of the recipe is kept.
+        assertEquals(setOf("tags"), body.keys)
+        assertTrue(body.toString().contains(""""slug":"rapide""""))
+        assertTrue(body.toString().contains(""""slug":"calorie-695""""))
     }
 
     @Test
@@ -57,9 +64,9 @@ class CalorieTagRepositoryTest {
         assertTrue((repository.sync("carbonara") as ApiResult.Success).value)
 
         repeat(2) { fake.takeRequest() }
-        val put = fake.takeRequest().body?.utf8().orEmpty()
-        assertTrue(put.contains(""""slug":"calorie-500""""))
-        assertFalse(put.contains("calorie-480"))
+        val patch = fake.takeRequest().body?.utf8().orEmpty()
+        assertTrue(patch.contains(""""slug":"calorie-500""""))
+        assertFalse(patch.contains("calorie-480"))
         assertEquals(3, fake.server.requestCount)
     }
 
@@ -80,6 +87,27 @@ class CalorieTagRepositoryTest {
 
         fake.takeRequest()
         assertFalse(fake.takeRequest().body?.utf8().orEmpty().contains("calorie-695"))
+    }
+
+    @Test
+    fun `a recipe document off the contract is a failure, not a crash`() = runTest {
+        fake.enqueueJson("""{"id":"r1","slug":"carbonara","name":"Carbonara","tags":"not a list"}""")
+
+        val result = repository.sync("carbonara")
+
+        assertEquals(NetworkError.InvalidResponse, (result as ApiResult.Failure).error)
+    }
+
+    @Test
+    fun `the slugs of every recipe are read for the sync`() = runTest {
+        fake.enqueueJson("""{"page":1,"per_page":100,"total":3,"total_pages":2,"items":[{"id":"a","slug":"a"},{"id":"b","slug":"b"}]}""")
+        fake.enqueueJson("""{"page":2,"per_page":100,"total":3,"total_pages":2,"items":[{"id":"c","slug":"c"}]}""")
+
+        val slugs = (repository.recipeSlugs() as ApiResult.Success).value
+
+        assertEquals(AllPages(listOf("a", "b", "c"), complete = true), slugs)
+        fake.takeRequest()
+        assertEquals("2", fake.takeRequest().query("page"))
     }
 
     @Test

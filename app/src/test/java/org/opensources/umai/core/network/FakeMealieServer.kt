@@ -18,6 +18,7 @@ class FakeMealieServer {
 
     fun api(token: String? = "test-token"): MealieApi {
         val client = MealieClientFactory.okHttpClient(
+            instance = baseUrl,
             tokenProvider = { token },
             acceptLanguage = { "fr-FR" },
         )

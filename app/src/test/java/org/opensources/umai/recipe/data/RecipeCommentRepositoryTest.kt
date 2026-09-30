@@ -103,7 +103,7 @@ class RecipeCommentRepositoryTest {
 
         val result = repository.delete("c1")
 
-        assertEquals(NetworkError.Unauthorized, (result as ApiResult.Failure).error)
+        assertEquals(NetworkError.Forbidden, (result as ApiResult.Failure).error)
     }
 
     private companion object {

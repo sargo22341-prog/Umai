@@ -5,12 +5,12 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import org.opensources.umai.core.settings.appPreferencesDataStore
 import org.opensources.umai.core.settings.safeData
 
-private val Context.recentDataStore: DataStore<Preferences> by preferencesDataStore(name = "umai_recent")
+private val Context.recentDataStore: DataStore<Preferences> by appPreferencesDataStore("umai_recent")
 
 /** The history of opened recipes, as the screens that rename or delete a recipe keep it right. */
 interface RecentRecipes {

@@ -53,7 +53,7 @@ class ImportNotificationsTest {
 
     @Test
     fun onlyTheAppsOwnImportIntentsAreRead() {
-        val component = Intent().setClassName(context, "org.opensources.umai.MainActivity")
+        val component = Intent().setClassName(context, "org.opensources.umai.NotificationEntry")
 
         assertEquals(ImportRequest.OpenImport, ImportNotifications.request(Intent(component).setAction("org.opensources.umai.action.OPEN_IMPORT")))
         assertEquals(
@@ -65,5 +65,8 @@ class ImportNotificationsTest {
         // A recipe to open needs its address; any other intent is not an import's.
         assertNull(ImportNotifications.request(Intent(component).setAction("org.opensources.umai.action.OPEN_IMPORTED_RECIPE")))
         assertNull(ImportNotifications.request(Intent(Intent.ACTION_MAIN)))
+        // The same request sent by another app, to the exported activity, is not read.
+        val outside = Intent().setClassName(context, "org.opensources.umai.MainActivity")
+        assertNull(ImportNotifications.request(Intent(outside).setAction("org.opensources.umai.action.OPEN_IMPORT")))
     }
 }

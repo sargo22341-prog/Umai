@@ -5,16 +5,16 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import org.opensources.umai.core.settings.appPreferencesDataStore
 import org.opensources.umai.core.settings.safeData
 import org.opensources.umai.recipe.domain.RecipeDraft
 
-private val Context.draftDataStore: DataStore<Preferences> by preferencesDataStore(name = "umai_drafts")
+private val Context.draftDataStore: DataStore<Preferences> by appPreferencesDataStore("umai_drafts")
 
 /**
  * Unfinished recipes, kept on the device only.

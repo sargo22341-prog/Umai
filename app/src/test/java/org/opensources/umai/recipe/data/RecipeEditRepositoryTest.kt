@@ -164,7 +164,7 @@ class RecipeEditRepositoryTest {
 
         val result = repository.create(RecipeDraft(id = "d1", name = "Test"))
 
-        assertEquals(NetworkError.Unauthorized, (result as ApiResult.Failure).error)
+        assertEquals(NetworkError.Forbidden, (result as ApiResult.Failure).error)
         assertEquals(1, fake.server.requestCount)
     }
 
@@ -309,7 +309,7 @@ class RecipeEditRepositoryTest {
 
         val result = repository.delete("gratin-de-courgettes")
 
-        assertEquals(NetworkError.Unauthorized, (result as ApiResult.Failure).error)
+        assertEquals(NetworkError.Forbidden, (result as ApiResult.Failure).error)
         assertNull(announced.await())
     }
 

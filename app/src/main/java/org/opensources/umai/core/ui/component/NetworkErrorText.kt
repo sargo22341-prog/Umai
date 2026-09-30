@@ -15,6 +15,7 @@ fun NetworkError.title(): String = when (this) {
     NetworkError.Timeout -> stringResource(R.string.error_timeout_title)
     is NetworkError.Tls -> stringResource(R.string.error_tls_title)
     NetworkError.Unauthorized -> stringResource(R.string.error_unauthorized_title)
+    NetworkError.Forbidden -> stringResource(R.string.error_forbidden_title)
     NetworkError.NotFound -> stringResource(R.string.error_not_found_title)
     is NetworkError.Server -> stringResource(R.string.error_server_title)
     is NetworkError.Http -> stringResource(R.string.error_http_title)
@@ -29,6 +30,7 @@ fun NetworkError.message(): String = when (this) {
     NetworkError.Timeout -> stringResource(R.string.error_timeout_message)
     is NetworkError.Tls -> stringResource(R.string.error_tls_message)
     NetworkError.Unauthorized -> stringResource(R.string.error_unauthorized_message)
+    NetworkError.Forbidden -> stringResource(R.string.error_forbidden_message)
     NetworkError.NotFound -> stringResource(R.string.error_not_found_message)
     is NetworkError.Server -> stringResource(R.string.error_server_message, code)
     // The server's own `detail` is shown when it exists: it is usually the most

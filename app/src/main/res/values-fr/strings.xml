@@ -25,6 +25,8 @@
     <string name="error_tls_message">Le certificat de votre instance n’a pas pu être vérifié. S’il est signé par votre propre autorité de certification, installez cette autorité sur l’appareil, puis réessayez.</string>
     <string name="error_unauthorized_title">Connexion requise</string>
     <string name="error_unauthorized_message">Votre session a expiré ou vos identifiants ont été refusés.</string>
+    <string name="error_forbidden_title">Action non autorisée</string>
+    <string name="error_forbidden_message">Votre compte Mealie n’a pas le droit de faire cela. Demandez la permission à un administrateur de l’instance.</string>
     <string name="error_not_found_title">Introuvable</string>
     <string name="error_not_found_message">Cet élément n’existe plus sur votre instance Mealie.</string>
     <string name="error_server_title">Erreur du serveur</string>
@@ -35,6 +37,8 @@
     <string name="error_invalid_response_message">La réponse ne correspond pas à ce que documente l’API Mealie. L’instance utilise peut-être une version incompatible.</string>
     <string name="error_not_mealie_title">Ce n’est pas une instance Mealie</string>
     <string name="error_not_mealie_message">Cette adresse répond, mais elle n’expose pas l’API Mealie.</string>
+    <string name="error_session_unreadable_title">Connexion enregistrée illisible</string>
+    <string name="error_session_unreadable_message">La connexion à votre instance Mealie enregistrée sur cet appareil n’a pas pu être lue. Elle n’a pas été supprimée : réessayez de la lire.</string>
     <string name="error_unknown_title">Une erreur est survenue</string>
     <string name="error_unknown_message">Veuillez réessayer.</string>
 
@@ -521,6 +525,7 @@
     <string name="settings_calorie_tags_action">Mettre à jour les tags calories</string>
     <string name="settings_calorie_tags_running">Mise à jour…</string>
     <string name="settings_calorie_tags_done">Recettes vérifiées : %1$d. Mises à jour : %2$d. En échec : %3$d.</string>
+    <string name="settings_calorie_tags_incomplete">L’instance compte plus de recettes : seules les %1$d premières, par nom, sont vérifiées.</string>
 
     <!-- Planning : la semaine vers une liste de courses -->
     <string name="week_shopping_title">Ajouter la semaine aux courses</string>

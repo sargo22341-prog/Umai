@@ -4,6 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import org.opensources.umai.R
 import org.opensources.umai.core.download.ModelDownloader
+import org.opensources.umai.core.download.WifiDownloads
 import org.opensources.umai.speech.domain.SpeechModel
 
 /**
@@ -13,12 +14,13 @@ import org.opensources.umai.speech.domain.SpeechModel
 class SpeechModelInstaller(context: Context, private val store: SpeechSettingsStore, scope: CoroutineScope) {
 
     private val downloader = ModelDownloader(
-        context = context,
+        downloads = WifiDownloads(context),
+        modelsFolder = { context.getExternalFilesDir(ModelDownloader.MODELS_DIR) },
         record = store,
         scope = scope,
         filesOf = { model: SpeechModel -> listOf(model) },
         titleOf = SpeechModel::name,
-        description = R.string.speech_download_description,
+        description = { context.getString(R.string.speech_download_description) },
         spaceMargin = SPACE_MARGIN,
     )
 

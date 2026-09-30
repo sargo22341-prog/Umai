@@ -8,13 +8,16 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.sync.Mutex
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.opensources.umai.cooking.domain.CookingTimers
+import org.opensources.umai.cooking.domain.SavedTimers
 import org.opensources.umai.cooking.domain.TimerAlarm
 import org.opensources.umai.cooking.domain.TimerHost
 import org.opensources.umai.cooking.domain.TimerRecipe
+import org.opensources.umai.cooking.domain.TimerStore
 import org.opensources.umai.core.settings.CookingTimerOptions
 import java.time.Duration
 
@@ -28,6 +31,7 @@ class CookingTimerControllerTest {
     private val tart = TimerRecipe(slug = "tarte", name = "Tarte", servings = 6)
     private val alarm = RecordingAlarm()
     private val host = RecordingHost()
+    private val store = MemoryTimerStore()
 
     private fun TestScope.controller(
         options: CookingTimerOptions = CookingTimerOptions(sound = true, vibrate = false),
@@ -36,6 +40,7 @@ class CookingTimerControllerTest {
         scope = backgroundScope,
         alarm = alarm,
         host = host,
+        store = store,
         options = MutableStateFlow(options),
         clock = clock,
     ).also { runCurrent() }
@@ -127,6 +132,75 @@ class CookingTimerControllerTest {
     }
 
     @Test
+    fun `every change is saved, and a restarted app finds its timers again`() = runTest {
+        val first = controller()
+        first.start(tart, 2, Duration.ofMinutes(15))
+        first.start(tart, 3, Duration.ofMinutes(5))
+        first.pause(2)
+        runCurrent()
+
+        val restarted = controller()
+
+        assertEquals(first.timers.value, restarted.timers.value)
+        assertEquals(listOf(1, 2), host.last.timers.map { it.id })
+        // Ids go on where they were: a new timer never takes the id of a saved one.
+        restarted.start(tart, 4, Duration.ofMinutes(1))
+        assertEquals(3, restarted.timers.value.timers.last().id)
+    }
+
+    @Test
+    fun `a timer that ended while the app was not running rings when it is woken up`() = runTest {
+        var now = 0L
+        controller(clock = { now }).start(tart, 0, Duration.ofSeconds(30))
+        runCurrent()
+        // The process dies; the system wakes the app up when the timer should end.
+        now = 31_000
+
+        val restarted = controller(clock = { now })
+
+        assertEquals(listOf("start sound=true vibrate=false"), alarm.calls)
+        assertEquals(1, restarted.timers.value.finished(now).size)
+    }
+
+    @Test
+    fun `an alarm that already rang does not ring again after a restart`() = runTest {
+        val timers = controller()
+        timers.start(tart, 0, Duration.ofSeconds(10))
+        advanceTimeBy(11_000)
+        assertEquals(1, alarm.calls.size)
+
+        val restarted = controller()
+
+        assertEquals(1, restarted.timers.value.finished(testScheduler.currentTime).size)
+        assertEquals(1, alarm.calls.size)
+    }
+
+    @Test
+    fun `what is asked before the timers are read back waits for them`() = runTest {
+        store.saved = SavedTimers(CookingTimers().start(tart, 0, Duration.ofMinutes(10), now = 0))
+        store.slow = true
+        val timers = controller()
+
+        timers.start(tart, 1, Duration.ofMinutes(5))
+        assertTrue(timers.timers.value.isEmpty)
+
+        store.release()
+        runCurrent()
+
+        assertEquals(listOf(1, 2), timers.timers.value.timers.map { it.id })
+    }
+
+    @Test
+    fun `the last timer dismissed leaves nothing saved`() = runTest {
+        val timers = controller()
+        timers.start(tart, 0, Duration.ofMinutes(1))
+        timers.dismiss(1)
+        runCurrent()
+
+        assertTrue(store.saved.timers.isEmpty)
+    }
+
+    @Test
     fun `the clock ticks every second while a timer counts down, then stops`() = runTest {
         val timers = controller()
         timers.start(tart, 0, Duration.ofSeconds(2))
@@ -147,6 +221,24 @@ private class RecordingAlarm : TimerAlarm {
 
     override fun stop() {
         calls += "stop"
+    }
+}
+
+/** Keeps the saved timers in memory; [slow] holds the reading back until [release]. */
+private class MemoryTimerStore : TimerStore {
+    var saved = SavedTimers()
+    var slow = false
+    private val gate = Mutex(locked = true)
+
+    fun release() = gate.unlock()
+
+    override suspend fun load(): SavedTimers {
+        if (slow) gate.lock()
+        return saved
+    }
+
+    override suspend fun save(saved: SavedTimers) {
+        this.saved = saved
     }
 }
 

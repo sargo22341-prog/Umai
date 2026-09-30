@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.opensources.umai.core.network.stringUpTo
 import org.opensources.umai.recipe.domain.VideoStream
 import org.opensources.umai.youtube.domain.ChapterMark
 import org.opensources.umai.youtube.domain.TranscriptCue
@@ -127,10 +128,16 @@ class YouTubeClient(
      */
     private fun captions(url: String): List<TranscriptCue>? = try {
         http.newCall(Request.Builder().url(url).build()).execute().use { response ->
-            if (response.isSuccessful) YouTubeMarkup.ttmlCues(response.body.string()) else null
+            if (response.isSuccessful) YouTubeMarkup.ttmlCues(response.body.stringUpTo(MAX_CAPTIONS_BYTES)) else null
         }
     } catch (_: IOException) {
+        // Unreachable, or longer than MAX_CAPTIONS_BYTES: the video is read without them.
         null
+    }
+
+    private companion object {
+        /** Far above what a caption track weighs: a larger answer is not one. */
+        const val MAX_CAPTIONS_BYTES = 8L * 1024 * 1024
     }
 }
 
