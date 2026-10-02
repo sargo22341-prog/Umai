@@ -11,8 +11,8 @@ Le workflow `.github/workflows/ci.yml` :
   - `testDebugUnitTest`, `lintDebug`, `assembleDebug`, `assembleRelease` (non signé : les erreurs
     R8 apparaissent avant la fusion) et `compileDebugAndroidTestKotlin` (les rapports de tests et
     de Lint sont joints au run en cas d'échec) ;
-  - les dépendances sont vérifiées contre leurs sommes de contrôle
-    (`gradle/verification-metadata.xml`) et les actions GitHub sont épinglées par SHA de commit ;
+  - les actions GitHub sont épinglées par SHA de commit ; les sommes de contrôle des dépendances
+    (`gradle/verification-metadata.xml`) ne sont vérifiées qu'en local (`AGENTS.md` §2) ;
   - pas de tests instrumentés : l'émulateur Android 17 plante sur les runners Linux ; ils se
     lancent à la main sur un appareil (`AGENTS.md` §12) ;
 - sur **chaque push sur `main`** qui touche autre chose que la documentation (`*.md`, `docs/`) ou

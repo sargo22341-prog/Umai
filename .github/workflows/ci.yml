@@ -1,6 +1,8 @@
 # Compilation (debug et release), Lint et tests JVM sur chaque pull request et chaque push.
 # Les actions sont épinglées par SHA de commit (le tag lisible en commentaire) : le job de
 # release écrit dans le dépôt et manipule la clé de signature.
+# --dependency-verification off : verification-metadata.xml, généré sous Windows, n'a pas les
+# artefacts propres à Linux ; les sommes de contrôle sont vérifiées en local (AGENTS.md §2).
 # Pas de job émulateur : l'émulateur Android 17 plante sur les runners Linux ; les tests instrumentés
 # se lancent sur un appareil (AGENTS.md §12).
 # Sur main : montée de version, APK release signé, commit + tag vX.Y.Z et GitHub Release
@@ -50,13 +52,13 @@ jobs:
           chmod +x gradlew
           # La release (R8, règles ProGuard) est construite dès la pull request, non signée :
           # ses erreurs apparaissent avant la fusion, pas dans le job de release.
-          ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :app:compileDebugAndroidTestKotlin --console=plain
+          ./gradlew --dependency-verification off :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :app:compileDebugAndroidTestKotlin --console=plain
 
       - name: Vérifier l'absence de Google Play Services, Firebase et Maps
         run: |
           # AGENTS.md §2 : l'app tourne sans GMS (GrapheneOS). Le graphe de la release fait foi,
           # même quand R8 renomme les classes.
-          ./gradlew :app:dependencies --configuration releaseRuntimeClasspath --console=plain -q > "$RUNNER_TEMP/deps.txt"
+          ./gradlew --dependency-verification off :app:dependencies --configuration releaseRuntimeClasspath --console=plain -q > "$RUNNER_TEMP/deps.txt"
           if grep -E "com\.google\.android\.gms|com\.google\.firebase|com\.google\.android\.maps" "$RUNNER_TEMP/deps.txt"; then
             echo "::error::Une dépendance tire Google Play Services, Firebase ou Maps."
             exit 1
@@ -132,7 +134,7 @@ jobs:
       - name: Compiler l'APK release
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleRelease --console=plain
+          ./gradlew --dependency-verification off :app:assembleRelease --console=plain
 
       - name: Vérifier l'APK sans Google Play Services
         run: |

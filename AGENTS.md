@@ -121,9 +121,9 @@ Règles de dépendances :
   ```powershell
   .\gradlew.bat --write-verification-metadata sha256 :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest :app:lintRelease
   ```
-  Gradle n'enregistre `aapt2` que pour le système qui l'exécute : ajouter à la main les jars
-  `-linux` (CI) et `-osx` de la nouvelle version, hachés depuis `dl.google.com` et contrôlés
-  contre le `.sha1` publié.
+  Ce contrôle ne vaut qu'en local : le fichier, généré sous Windows, n'a pas les artefacts
+  propres à Linux, et la CI passe `--dependency-verification off`. Un échec de vérification
+  en local se corrige par cette régénération, jamais en coupant le contrôle.
 * Vérifier l'APK après ajout : `com/google/android/gms`, `com/google/firebase` et
   `com/google/android/maps` doivent rester absents (§13).
 
