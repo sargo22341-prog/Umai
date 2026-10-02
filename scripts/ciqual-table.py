@@ -3,6 +3,9 @@
 Builds app/src/main/assets/ciqual.tsv, the table of basic foods umai looks
 up when a food is typed in the plan, from the XML release of the Ciqual
 table (ANSES, Licence Ouverte / Etalab 2.0): https://ciqual.anses.fr/
+The 2025 release is the archive
+https://ciqual.anses.fr/cms/sites/default/files/inline-files/2025_11_03.7z
+(SHA-256 b3b34e58890263d0c5959a157de4470f1638271a73235b77750941d96979ae27).
 
     python3 scripts/ciqual-table.py alim_2025_11_03.xml compo_2025_11_03.xml > app/src/main/assets/ciqual.tsv
 
@@ -81,4 +84,6 @@ def main(alim_path, compo_path):
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         sys.exit("usage: ciqual-table.py alim.xml compo.xml > ciqual.tsv")
+    # Windows would otherwise write the names in its ANSI code page.
+    sys.stdout.reconfigure(encoding="utf-8", newline="\n")
     main(sys.argv[1], sys.argv[2])
