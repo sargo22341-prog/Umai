@@ -1,5 +1,9 @@
 package org.opensources.umai.search.ui
 
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -41,13 +45,25 @@ class SearchViewModelTest {
 
     @After
     fun tearDown() {
+        // A debounce still pending keeps a view model waiting on the main dispatcher:
+        // it must stop before the dispatcher is reset, or it wakes up in a later test.
+        viewModels.clear()
         Dispatchers.resetMain()
         fake.shutdown()
     }
 
     private val deletions = MutableSharedFlow<String>(extraBufferCapacity = 1)
 
-    private fun viewModel(initialFilters: RecipeFilters = RecipeFilters.None) = SearchViewModel(
+    /** Every view model of a test, cleared once it ends, as leaving the screen would. */
+    private val viewModels = ViewModelStore()
+    private var created = 0
+
+    private fun viewModel(initialFilters: RecipeFilters = RecipeFilters.None): SearchViewModel {
+        val built = newViewModel(initialFilters)
+        return ViewModelProvider.create(viewModels, viewModelFactory { initializer { built } })["vm${created++}", SearchViewModel::class]
+    }
+
+    private fun newViewModel(initialFilters: RecipeFilters) = SearchViewModel(
         recipeRepository = RecipeRepository({ fake.api() }),
         organizerRepository = OrganizerRepository(apiProvider = { fake.api() }, instanceKey = { "instance" }),
         layout = flowOf(RecipeLayout.GRID),

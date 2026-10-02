@@ -1,5 +1,9 @@
 package org.opensources.umai.planning.ui
 
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -68,9 +72,16 @@ class FoodEntryViewModelTest {
 
     @After
     fun tearDown() {
+        // A suggestion still pending keeps a view model waiting on the main dispatcher:
+        // it must stop before the dispatcher is reset, or it wakes up in a later test.
+        viewModels.clear()
         Dispatchers.resetMain()
         fake.shutdown()
     }
+
+    /** Every view model of a test, cleared once it ends, as leaving the screen would. */
+    private val viewModels = ViewModelStore()
+    private var created = 0
 
     private fun viewModel(
         model: LanguageModel = Model(ready = true, outcome = LlmOutcome.Success(COLA)),
@@ -79,28 +90,33 @@ class FoodEntryViewModelTest {
         scanned: String? = "3560070565313",
         downloaded: EncodedImage? = PRODUCT_PHOTO,
         table: FoodTable? = FoodTableFixtures.table,
-    ) = FoodEntryViewModel(
-        date = day,
-        mealPlanRepository = MealPlanRepository { fake.api() },
-        photos = photos,
-        labelPictures = { picture },
-        labelReader = NutritionLabelReader(model),
-        barcodePictures = { scanned },
-        products = OpenFoodFactsRepository(
-            client = OkHttpClient(),
-            userAgent = "umai/test",
-            language = { "fr" },
-            baseUrl = fake.baseUrl,
-        ),
-        photoDownloader = { downloaded },
-        descriptions = FoodDescriptions(
-            table = { table },
-            model = ModelFoodEstimator(model),
-            language = "fr",
+    ) = retained(
+        FoodEntryViewModel(
+            date = day,
+            mealPlanRepository = MealPlanRepository { fake.api() },
+            photos = photos,
+            labelPictures = { picture },
+            labelReader = NutritionLabelReader(model),
+            barcodePictures = { scanned },
+            products = OpenFoodFactsRepository(
+                client = OkHttpClient(),
+                userAgent = "umai/test",
+                language = { "fr" },
+                baseUrl = fake.baseUrl,
+            ),
+            photoDownloader = { downloaded },
+            descriptions = FoodDescriptions(
+                table = { table },
+                model = ModelFoodEstimator(model),
+                language = "fr",
+                decimalSeparator = ',',
+            ),
             decimalSeparator = ',',
         ),
-        decimalSeparator = ',',
     )
+
+    private fun retained(built: FoodEntryViewModel): FoodEntryViewModel =
+        ViewModelProvider.create(viewModels, viewModelFactory { initializer { built } })["vm${created++}", FoodEntryViewModel::class]
 
     /** Waits for the state; a test that only needs the wait leaves the value. */
     @IgnorableReturnValue
