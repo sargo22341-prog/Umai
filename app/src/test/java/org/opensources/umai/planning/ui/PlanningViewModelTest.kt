@@ -200,7 +200,9 @@ class PlanningViewModelTest {
         fake.enqueueJson(PLAN.replace(""""title":"Cola"""", """"title":"2 × Cola""""))
         vm.setServings(state.entriesByDay.getValue(today).first { it.id == 2 }, 2)
         val updated = withTimeout(TIMEOUT_MS) {
-            vm.state.first { s -> !s.mutating && !s.loading && s.entriesByDay[today].orEmpty().any { it.servings == 2 } }
+            vm.state.first { s ->
+                !s.mutating && !s.loading && !s.loadingCalories && s.entriesByDay[today].orEmpty().any { it.servings == 2 }
+            }
         }
 
         val put = fake.takeRequest()

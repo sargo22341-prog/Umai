@@ -8,6 +8,7 @@ import org.opensources.umai.core.model.MealPlanEntry
 import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.model.Organizer
 import org.opensources.umai.core.model.Recipe
+import org.opensources.umai.core.model.RecipeAsset
 import org.opensources.umai.core.model.RecipeComment
 import org.opensources.umai.core.model.RecipeIngredient
 import org.opensources.umai.core.model.RecipeStep
@@ -110,6 +111,7 @@ object TestData {
         ingredients: List<RecipeIngredient> = listOf(ingredient()),
         steps: List<RecipeStep> = listOf(step()),
         commentsDisabled: Boolean = false,
+        assets: List<RecipeAsset> = emptyList(),
     ) = Recipe(
         summary = summary,
         ingredients = ingredients,
@@ -118,7 +120,7 @@ object TestData {
         notes = emptyList(),
         showNutrition = false,
         showAssets = false,
-        assets = emptyList(),
+        assets = assets,
         commentsDisabled = commentsDisabled,
     )
 

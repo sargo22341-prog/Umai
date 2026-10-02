@@ -1,10 +1,13 @@
 package org.opensources.umai.recipe.ui
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.opensources.umai.core.model.Organizer
 import org.opensources.umai.core.model.Recipe
+import org.opensources.umai.core.model.RecipeAsset
+import org.opensources.umai.core.model.RecipeStep
 import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.search.domain.OrganizerKind
 
@@ -31,7 +34,37 @@ class RecipeDetailStateTest {
         assertTrue(RecipeDetailUiState().organizers.isEmpty())
     }
 
-    private fun recipe(categories: List<Organizer>, tags: List<Organizer>, tools: List<Organizer>) = Recipe(
+    @Test
+    fun `a chapters file means the recipe has a video`() {
+        val withVideo = RecipeDetailUiState(recipe = recipe(assets = listOf(RecipeAsset("Video", "mdi-file", "jow-chapters.json"))))
+        val withoutVideo = RecipeDetailUiState(recipe = recipe(assets = listOf(RecipeAsset("Notes", "mdi-file", "notes.json"))))
+
+        assertTrue(withVideo.hasVideo)
+        assertFalse(withoutVideo.hasVideo)
+    }
+
+    @Test
+    fun `a step photo or an embedded picture counts as step pictures`() {
+        val plain = RecipeStep("s1", null, "Cuire.", images = emptyList(), ingredientReferenceIds = emptyList())
+
+        assertFalse(RecipeDetailUiState(recipe = recipe(steps = listOf(plain))).hasStepPictures)
+        assertTrue(RecipeDetailUiState(recipe = recipe(steps = listOf(plain.copy(photo = "step-1.jpg")))).hasStepPictures)
+        assertTrue(RecipeDetailUiState(recipe = recipe(steps = listOf(plain.copy(images = listOf("a.jpg"))))).hasStepPictures)
+        assertFalse(RecipeDetailUiState().hasStepPictures)
+    }
+
+    @Test
+    fun `a recipe without steps cannot be cooked`() {
+        assertFalse(RecipeDetailUiState(recipe = recipe()).canCook)
+    }
+
+    private fun recipe(
+        categories: List<Organizer> = emptyList(),
+        tags: List<Organizer> = emptyList(),
+        tools: List<Organizer> = emptyList(),
+        steps: List<RecipeStep> = emptyList(),
+        assets: List<RecipeAsset> = emptyList(),
+    ) = Recipe(
         summary = RecipeSummary(
             id = "r1", slug = "curry", name = "Curry", description = "", imageToken = null, servings = 2.0,
             yieldText = null, totalTime = null, prepTime = null, cookTime = null, performTime = null,
@@ -39,11 +72,11 @@ class RecipeDetailStateTest {
             dateAdded = null, lastMade = null,
         ),
         ingredients = emptyList(),
-        steps = emptyList(),
+        steps = steps,
         nutrition = null,
         notes = emptyList(),
         showNutrition = false,
         showAssets = false,
-        assets = emptyList(),
+        assets = assets,
     )
 }

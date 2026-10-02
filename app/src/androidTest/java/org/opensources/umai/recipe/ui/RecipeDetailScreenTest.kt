@@ -28,6 +28,7 @@ import org.opensources.umai.R
 import org.opensources.umai.TestData
 import org.opensources.umai.core.model.Organizer
 import org.opensources.umai.core.model.Recipe
+import org.opensources.umai.core.model.RecipeAsset
 import org.opensources.umai.core.model.RecipeComment
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.settings.RecipeDisplayOptions
@@ -170,6 +171,40 @@ class RecipeDetailScreenTest {
 
         // The cooking mode has to be handed the servings the reader picked.
         assertEquals(recipe.slug to 6, started)
+    }
+
+    @Test
+    fun tappingThePictureStartsTheCookingMode() {
+        var started: Pair<String, Int>? = null
+        render(
+            RecipeDetailUiState(recipe = recipe, loading = false, servings = 6),
+            onStartCooking = { slug, servings -> started = slug to servings },
+        )
+
+        rule.onNodeWithContentDescription(string(R.string.cd_recipe_image, "Poulet au curry")).performClick()
+
+        assertEquals(recipe.slug to 6, started)
+    }
+
+    @Test
+    fun badgesTellAboutTheVideoAndTheStepPictures() {
+        val withVideo = TestData.recipe(
+            steps = recipe.steps,
+            assets = listOf(RecipeAsset("Video", "mdi-file", "jow-chapters.json")),
+        )
+        render(RecipeDetailUiState(recipe = withVideo, loading = false))
+
+        rule.onNodeWithContentDescription(string(R.string.cd_recipe_has_video), useUnmergedTree = true).assertExists()
+        rule.onNodeWithContentDescription(string(R.string.cd_recipe_has_step_pictures), useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun aPlainRecipeShowsNoMediaBadge() {
+        render(RecipeDetailUiState(recipe = TestData.recipe(), loading = false))
+
+        rule.onNodeWithContentDescription(string(R.string.cd_recipe_has_video), useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithContentDescription(string(R.string.cd_recipe_has_step_pictures), useUnmergedTree = true)
+            .assertDoesNotExist()
     }
 
     @Test

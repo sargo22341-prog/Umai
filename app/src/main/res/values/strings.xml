@@ -352,6 +352,8 @@
     <!-- Content descriptions -->
     <string name="cd_recipe_image">Picture of %1$s</string>
     <string name="cd_recipe_no_image">This recipe has no picture</string>
+    <string name="cd_recipe_has_video">This recipe has a video</string>
+    <string name="cd_recipe_has_step_pictures">The steps of this recipe have pictures</string>
     <string name="cd_step_image">Picture for step %1$d</string>
     <string name="cd_open_filters">Open the filters</string>
     <string name="cd_search">Search</string>

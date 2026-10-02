@@ -266,6 +266,7 @@ fun RecipeDetailScreen(
                         onDeleteComment = onDeleteComment,
                         onOpenSource = onOpenSource,
                         onOrganizerClick = onOrganizerClick,
+                        onStartCooking = { onStartCooking(recipe.slug, state.servings) },
                     )
                 }
             }
@@ -319,7 +320,7 @@ private fun RecipeTopBar(
 private fun CookButton(state: RecipeDetailUiState, onStartCooking: (String, Int) -> Unit) {
     val recipe = state.recipe
     // Hidden while typing a comment: it would sit on top of the field.
-    if (recipe != null && recipe.steps.isNotEmpty() && !WindowInsets.isImeVisible) {
+    if (recipe != null && state.canCook && !WindowInsets.isImeVisible) {
         ExtendedFloatingActionButton(
             onClick = { onStartCooking(recipe.slug, state.servings) },
             icon = { Icon(Icons.Rounded.Restaurant, contentDescription = null) },

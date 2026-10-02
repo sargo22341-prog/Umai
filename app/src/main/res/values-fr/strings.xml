@@ -349,6 +349,8 @@
     <!-- Descriptions d’accessibilité -->
     <string name="cd_recipe_image">Photo de %1$s</string>
     <string name="cd_recipe_no_image">Cette recette n’a pas de photo</string>
+    <string name="cd_recipe_has_video">Cette recette a une vidéo</string>
+    <string name="cd_recipe_has_step_pictures">Les étapes de cette recette ont des photos</string>
     <string name="cd_step_image">Photo de l’étape %1$d</string>
     <string name="cd_open_filters">Ouvrir les filtres</string>
     <string name="cd_search">Rechercher</string>

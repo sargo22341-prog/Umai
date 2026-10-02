@@ -28,6 +28,7 @@ import org.opensources.umai.planning.data.MealPlanRepository
 import org.opensources.umai.planning.domain.PlanningWeek
 import org.opensources.umai.recipe.data.RecipeCommentRepository
 import org.opensources.umai.recipe.data.RecipeRepository
+import org.opensources.umai.recipe.domain.RecipeMediaFiles
 import org.opensources.umai.recipe.domain.withoutCalorieTags
 import org.opensources.umai.search.domain.OrganizerEntry
 import org.opensources.umai.search.domain.OrganizerKind
@@ -87,6 +88,19 @@ data class RecipeDetailUiState(
         }
 
     val canScale: Boolean get() = baseServings != null
+
+    /** The cooking mode walks through the steps: without any, there is nothing to cook. */
+    val canCook: Boolean get() = recipe?.steps?.isNotEmpty() == true
+
+    /** The recipe has a video, described by its chapters file. */
+    val hasVideo: Boolean get() = recipe?.let { RecipeMediaFiles.chaptersFile(it.assets) } != null
+
+    /** The ingredients or some step have a picture of their own. */
+    val hasStepPictures: Boolean
+        get() {
+            val recipe = recipe ?: return false
+            return recipe.ingredientsPhoto != null || recipe.steps.any { it.photo != null || it.images.isNotEmpty() }
+        }
 
     /**
      * The stars shown on the page: the reader's own rating, or the average of

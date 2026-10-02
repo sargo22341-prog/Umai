@@ -9,3 +9,4 @@ liste des commits. Détails : [docs/release.md](docs/release.md).
 <!-- notes -->
 - Planning : le nombre de portions d’un repas ou d’un snack se modifie (« 2 portions », « un café de plus ») et les calories suivent.
 
+- Recette : un appui sur la grande photo ouvre le mode cuisine, et des pastilles y signalent une vidéo ou des étapes illustrées.

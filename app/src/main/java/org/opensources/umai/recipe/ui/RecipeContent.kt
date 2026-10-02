@@ -38,7 +38,6 @@ import org.opensources.umai.core.model.Recipe
 import org.opensources.umai.core.model.RecipeComment
 import org.opensources.umai.core.ui.component.ImagePlace
 import org.opensources.umai.core.ui.component.RemoteImage
-import org.opensources.umai.core.ui.component.placeOf
 import org.opensources.umai.search.domain.OrganizerEntry
 
 /**
@@ -62,6 +61,7 @@ internal fun RecipeContent(
     onDeleteComment: (RecipeComment) -> Unit,
     onOpenSource: (String) -> Unit,
     onOrganizerClick: (OrganizerEntry) -> Unit,
+    onStartCooking: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -90,7 +90,7 @@ internal fun RecipeContent(
             bottom = contentPadding.calculateBottomPadding() + 96.dp,
         ),
     ) {
-        headerItems(recipe, state, imageUrl, imagePlace, onToggleFavorite, onRate)
+        headerItems(recipe, state, imageUrl, imagePlace, onToggleFavorite, onRate, onStartCooking)
         ingredientItems(recipe, state, stepPhotoUrl, onServingsChange)
         stepItems(recipe, stepImageUrl, stepPhotoUrl)
         referenceItems(recipe, state, onOrganizerClick, onOpenSource)
@@ -114,22 +114,9 @@ private fun LazyListScope.headerItems(
     imagePlace: ImagePlace,
     onToggleFavorite: () -> Unit,
     onRate: (Int) -> Unit,
+    onStartCooking: () -> Unit,
 ) {
-    item {
-        RemoteImage(
-            url = imageUrl,
-            contentDescription = if (recipe.summary.hasImage) {
-                stringResource(R.string.cd_recipe_image, recipe.name)
-            } else {
-                stringResource(R.string.cd_recipe_no_image)
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(16f / 10f)
-                .placeOf(imagePlace),
-            placeholderIconSize = 48.dp,
-        )
-    }
+    item { RecipeHeroImage(recipe, state, imageUrl, imagePlace, onStartCooking) }
     item {
         Column(
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
