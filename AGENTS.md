@@ -199,7 +199,7 @@ org.opensources.umai
 ├── llm/         data · domain · ui
 ├── speech/      data · domain
 ├── navigation/
-└── core/        di · download · format · image · markdown · model · network(api, dto) · service · session · settings · ui(component, theme)
+└── core/        di · download · format · image · markdown · model · network(api, dto) · service · session · settings · ui(component, motion, theme)
 ```
 
 * Une nouvelle fonctionnalité crée son propre paquet racine, avec ses sous-paquets

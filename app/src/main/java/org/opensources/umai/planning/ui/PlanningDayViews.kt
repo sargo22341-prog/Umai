@@ -1,6 +1,7 @@
 package org.opensources.umai.planning.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,6 +40,9 @@ import org.opensources.umai.core.format.rememberDateFormatter
 import org.opensources.umai.core.model.MealPlanEntry
 import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.ui.component.RemoteImage
+import org.opensources.umai.core.ui.motion.RollingContent
+import org.opensources.umai.core.ui.motion.animatePressScale
+import org.opensources.umai.core.ui.motion.scaledBy
 import org.opensources.umai.planning.domain.DayCalories
 import org.opensources.umai.recipe.ui.labelRes
 import java.text.NumberFormat
@@ -98,6 +102,8 @@ internal fun DayColumn(
                         onClick = onRecipeClick,
                         onDelete = { onDelete(sorted[index]) },
                         onEdit = { onEdit(sorted[index]) },
+                        // A meal added or removed makes room, or closes the gap, rather than jumping.
+                        modifier = Modifier.animateItem(),
                     )
                 }
             }
@@ -136,19 +142,52 @@ private fun DayHeader(date: LocalDate, label: String, isToday: Boolean, calories
 private fun DayCaloriesLine(calories: DayCalories, loading: Boolean, isToday: Boolean) {
     val locale = currentLocale()
     val number = remember(locale) { NumberFormat.getIntegerInstance(locale) }
-    val total = stringResource(R.string.planning_calories, number.format(calories.total))
-    val text = if (calories.unknown > 0 && !loading) {
-        "$total " + pluralStringResource(R.plurals.planning_calories_unknown, calories.unknown, calories.unknown)
+    val unknown = if (calories.unknown > 0 && !loading) {
+        " " + pluralStringResource(R.plurals.planning_calories_unknown, calories.unknown, calories.unknown)
     } else {
-        total
+        ""
     }
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.SemiBold,
-        color = if (isToday) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(top = 2.dp),
-    )
+    // The total rolls up or down as meals come and go, or their servings change.
+    RollingContent(value = calories.total, modifier = Modifier.padding(top = 2.dp)) { total ->
+        Text(
+            text = stringResource(R.string.planning_calories, number.format(total)) + unknown,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = if (isToday) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+        )
+    }
+}
+
+/** The meal of an entry, and its edit and delete buttons. */
+@Composable
+private fun EntryHeader(entry: MealPlanEntry, onEdit: () -> Unit, onDelete: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = stringResource(entry.type.labelRes()),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Row {
+            IconButton(onClick = onEdit, modifier = Modifier.heightIn(max = 28.dp)) {
+                Icon(
+                    imageVector = Icons.Outlined.Edit,
+                    contentDescription = stringResource(R.string.planning_edit_servings),
+                    modifier = Modifier.height(18.dp),
+                )
+            }
+            IconButton(onClick = onDelete, modifier = Modifier.heightIn(max = 28.dp)) {
+                Icon(
+                    imageVector = Icons.Outlined.Delete,
+                    contentDescription = stringResource(R.string.planning_delete_entry),
+                    modifier = Modifier.height(18.dp),
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -161,40 +200,17 @@ private fun MealEntryCard(
     modifier: Modifier = Modifier,
 ) {
     val recipe = entry.recipe
+    val interactions = remember { MutableInteractionSource() }
+    val pressScale = animatePressScale(interactions)
     Card(
         onClick = { recipe?.slug?.let(onClick) },
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().scaledBy(pressScale),
+        interactionSource = interactions,
         enabled = recipe != null,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
     ) {
         Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = stringResource(entry.type.labelRes()),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Row {
-                    IconButton(onClick = onEdit, modifier = Modifier.heightIn(max = 28.dp)) {
-                        Icon(
-                            imageVector = Icons.Outlined.Edit,
-                            contentDescription = stringResource(R.string.planning_edit_servings),
-                            modifier = Modifier.height(18.dp),
-                        )
-                    }
-                    IconButton(onClick = onDelete, modifier = Modifier.heightIn(max = 28.dp)) {
-                        Icon(
-                            imageVector = Icons.Outlined.Delete,
-                            contentDescription = stringResource(R.string.planning_delete_entry),
-                            modifier = Modifier.height(18.dp),
-                        )
-                    }
-                }
-            }
+            EntryHeader(entry, onEdit, onDelete)
             if (recipe != null || details.imageUrl != null) EntryPicture(entry, details.imageUrl)
             val title = entry.displayTitle.ifBlank { stringResource(R.string.planning_empty_day) }
             Text(

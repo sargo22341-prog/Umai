@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
@@ -37,13 +38,18 @@ import org.opensources.umai.R
 import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.ui.component.EmptyView
-import org.opensources.umai.core.ui.component.LoadingView
 import org.opensources.umai.core.ui.component.NetworkErrorView
 import org.opensources.umai.core.ui.component.RecipeCard
 import org.opensources.umai.core.ui.component.RecipeGridArrangement
-import org.opensources.umai.core.ui.component.recipeGridCells
+import org.opensources.umai.core.ui.component.RecipeGridLoadingView
 import org.opensources.umai.core.ui.component.isNearEnd
 import org.opensources.umai.core.ui.component.recipeCards
+import org.opensources.umai.core.ui.component.recipeGridCells
+import org.opensources.umai.core.ui.motion.ListEntrance
+import org.opensources.umai.core.ui.motion.SharedContainer
+import org.opensources.umai.core.ui.motion.SharedContainerKey
+import org.opensources.umai.core.ui.motion.listEntrance
+import org.opensources.umai.core.ui.motion.rememberListEntrance
 
 @Composable
 fun HomeRoute(
@@ -100,7 +106,7 @@ fun HomeScreen(
         PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize().padding(padding)) {
             val error = state.error
             when {
-                state.loading -> LoadingView()
+                state.loading -> RecipeGridLoadingView()
                 error != null && state.latest.items.isEmpty() ->
                     NetworkErrorView(error = error, modifier = Modifier.fillMaxSize(), onRetry = onRetry)
                 state.isEmpty -> EmptyView(
@@ -109,39 +115,60 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxSize(),
                 )
 
-                else -> LazyVerticalGrid(
-                    columns = recipeGridCells(state.layout),
-                    state = gridState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = GRID_PADDING, vertical = 12.dp),
-                    horizontalArrangement = RecipeGridArrangement,
-                    verticalArrangement = RecipeGridArrangement,
-                ) {
-                    item(span = { GridItemSpan(maxLineSpan) }) { SearchShortcut(onClick = onSearchClick) }
-                    homeSections(state, onRecipeClick, recipeImageUrl, discoveryImageUrl)
-                    recipeCards(
-                        recipes = state.latest.items,
-                        layout = state.layout,
-                        imageUrlFor = recipeImageUrl,
-                        onRecipeClick = { recipe, _ -> onRecipeClick(recipe.slug) },
-                        loadingMore = state.loadingMore,
-                    )
-                }
+                else -> HomeGrid(state, gridState, onRecipeClick, onSearchClick, recipeImageUrl, discoveryImageUrl)
             }
         }
+    }
+}
+
+@Composable
+private fun HomeGrid(
+    state: HomeUiState,
+    gridState: LazyGridState,
+    onRecipeClick: (String) -> Unit,
+    onSearchClick: () -> Unit,
+    recipeImageUrl: (RecipeSummary) -> String?,
+    discoveryImageUrl: (RecipeSummary) -> String?,
+) {
+    val entrance = rememberListEntrance()
+    LazyVerticalGrid(
+        columns = recipeGridCells(state.layout),
+        state = gridState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = GRID_PADDING, vertical = 12.dp),
+        horizontalArrangement = RecipeGridArrangement,
+        verticalArrangement = RecipeGridArrangement,
+    ) {
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            SearchShortcut(onClick = onSearchClick, modifier = Modifier.listEntrance(entrance, 0))
+        }
+        homeSections(state, entrance, onRecipeClick, recipeImageUrl, discoveryImageUrl)
+        recipeCards(
+            recipes = state.latest.items,
+            layout = state.layout,
+            imageUrlFor = recipeImageUrl,
+            onRecipeClick = { recipe, _ -> onRecipeClick(recipe.slug) },
+            loadingMore = state.loadingMore,
+            entrance = entrance,
+            firstIndex = LATEST_ENTRANCE,
+        )
     }
 }
 
 /** The recipes drawn to discover, the ones seen lately, and the title of the latest ones. */
 private fun LazyGridScope.homeSections(
     state: HomeUiState,
+    entrance: ListEntrance,
     onRecipeClick: (String) -> Unit,
     recipeImageUrl: (RecipeSummary) -> String?,
     discoveryImageUrl: (RecipeSummary) -> String?,
 ) {
     if (state.discovery.isNotEmpty()) {
         item(key = DISCOVERY_TITLE_KEY, span = { GridItemSpan(maxLineSpan) }) {
-            SectionTitle(text = stringResource(R.string.home_section_discover), modifier = Modifier.animateItem())
+            SectionTitle(
+                text = stringResource(R.string.home_section_discover),
+                modifier = Modifier.animateItem().listEntrance(entrance, DISCOVERY_ENTRANCE),
+            )
         }
         item(key = DISCOVERY_KEY, span = { GridItemSpan(maxLineSpan) }) {
             DiscoveryCarousel(
@@ -149,30 +176,47 @@ private fun LazyGridScope.homeSections(
                 imageUrl = discoveryImageUrl,
                 onRecipeClick = { onRecipeClick(it.slug) },
                 edgeBleed = GRID_PADDING,
-                modifier = Modifier.animateItem(),
+                modifier = Modifier.animateItem().listEntrance(entrance, DISCOVERY_ENTRANCE + 1),
             )
         }
     }
     if (state.recentlyViewed.isNotEmpty()) {
-        item(span = { GridItemSpan(maxLineSpan) }) { SectionTitle(stringResource(R.string.home_section_recent)) }
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            SectionTitle(stringResource(R.string.home_section_recent), Modifier.listEntrance(entrance, RECENT_ENTRANCE))
+        }
         item(span = { GridItemSpan(maxLineSpan) }) {
             RecentRow(
                 recipes = state.recentlyViewed,
                 onRecipeClick = { onRecipeClick(it.slug) },
                 recipeImageUrl = recipeImageUrl,
+                modifier = Modifier.listEntrance(entrance, RECENT_ENTRANCE + 1),
             )
         }
     }
-    item(span = { GridItemSpan(maxLineSpan) }) { SectionTitle(stringResource(R.string.home_section_latest)) }
+    item(span = { GridItemSpan(maxLineSpan) }) {
+        SectionTitle(stringResource(R.string.home_section_latest), Modifier.listEntrance(entrance, LATEST_ENTRANCE - 1))
+    }
 }
 
 @Composable
 private fun SearchShortcut(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Surface(
-        onClick = onClick,
+    // Unfolds into the field of the search screen it opens.
+    SharedContainer(
+        key = SharedContainerKey.SEARCH_FIELD,
         modifier = modifier
             .fillMaxWidth()
             .padding(bottom = 4.dp),
+        shape = MaterialTheme.shapes.extraLarge,
+    ) {
+        SearchShortcutField(onClick)
+    }
+}
+
+@Composable
+private fun SearchShortcutField(onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
@@ -231,3 +275,8 @@ private fun RecentRow(
 private val GRID_PADDING = 16.dp
 private const val DISCOVERY_TITLE_KEY = "discovery-title"
 private const val DISCOVERY_KEY = "discovery"
+
+/** Where each part of the home screen comes in the cascade of its first appearance. */
+private const val DISCOVERY_ENTRANCE = 1
+private const val RECENT_ENTRANCE = 3
+private const val LATEST_ENTRANCE = 6

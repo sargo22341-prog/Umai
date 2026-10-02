@@ -27,6 +27,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,6 +43,7 @@ import org.opensources.umai.core.model.RecipeIngredient
 import org.opensources.umai.core.model.RecipeNote
 import org.opensources.umai.core.model.RecipeStep
 import org.opensources.umai.core.ui.component.RemoteImage
+import org.opensources.umai.core.ui.motion.RollingContent
 
 @Composable
 internal fun SectionTitle(text: String) {
@@ -77,6 +80,11 @@ internal fun IngredientsHeader(
     // Mealie leaves the serving count at zero on plenty of recipes; there is
     // nothing to scale then, and the plain heading is shown instead.
     val scalable = canScale && servings > 0
+    val haptics = LocalHapticFeedback.current
+    val changeServings = { count: Int ->
+        haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+        onServingsChange(count)
+    }
 
     Row(
         modifier = Modifier
@@ -85,23 +93,24 @@ internal fun IngredientsHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(
-            text = if (scalable) {
-                stringResource(
-                    R.string.recipe_ingredients_for,
-                    pluralStringResource(R.plurals.plural_servings, servings, servings),
-                )
-            } else {
-                stringResource(R.string.recipe_ingredients)
-            },
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleMedium,
-        )
+        RollingContent(value = servings, modifier = Modifier.weight(1f)) { shown ->
+            Text(
+                text = if (scalable) {
+                    stringResource(
+                        R.string.recipe_ingredients_for,
+                        pluralStringResource(R.plurals.plural_servings, shown, shown),
+                    )
+                } else {
+                    stringResource(R.string.recipe_ingredients)
+                },
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
 
         if (scalable) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
-                    onClick = { onServingsChange(servings - 1) },
+                    onClick = { changeServings(servings - 1) },
                     enabled = servings > 1,
                 ) {
                     Icon(
@@ -109,11 +118,10 @@ internal fun IngredientsHeader(
                         contentDescription = stringResource(R.string.servings_decrease),
                     )
                 }
-                Text(
-                    text = servings.toString(),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                IconButton(onClick = { onServingsChange(servings + 1) }) {
+                RollingContent(servings) { shown ->
+                    Text(text = shown.toString(), style = MaterialTheme.typography.titleMedium)
+                }
+                IconButton(onClick = { changeServings(servings + 1) }) {
                     Icon(
                         imageVector = Icons.Outlined.Add,
                         contentDescription = stringResource(R.string.servings_increase),
@@ -196,10 +204,13 @@ internal fun IngredientRow(ingredient: RecipeIngredient, scale: Double) {
                         shape = CircleShape,
                     ),
             )
-            MarkdownText(
-                markdown = IngredientText.format(ingredient, scale),
-                style = MaterialTheme.typography.bodyLarge,
-            )
+            // The quantities roll as the servings change; a line without one stays still.
+            RollingContent(value = scale, contentKey = { IngredientText.format(ingredient, it) }) { shown ->
+                MarkdownText(
+                    markdown = IngredientText.format(ingredient, shown),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
         }
     }
 }

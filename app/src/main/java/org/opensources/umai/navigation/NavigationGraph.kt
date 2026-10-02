@@ -1,10 +1,12 @@
 package org.opensources.umai.navigation
 
 import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -17,6 +19,8 @@ import androidx.navigation.toRoute
 import org.opensources.umai.cooking.ui.CookingRoute
 import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.ui.component.ImageFlightState
+import org.opensources.umai.core.ui.motion.LocalSharedTransitionScope
+import org.opensources.umai.core.ui.motion.ScreenVisibility
 import org.opensources.umai.home.ui.HomeRoute
 import org.opensources.umai.llm.ui.LocalAiRoute
 import org.opensources.umai.planning.ui.DishTypesRoute
@@ -46,29 +50,48 @@ internal fun AppNavHost(
     planFlight: ImageFlightState,
     modifier: Modifier = Modifier,
 ) {
-    NavHost(
-        navController = navController,
-        startDestination = HomeDestination,
+    SharedTransitionLayout(
         // Painted in the app theme: the window behind follows the system theme, and pixel
         // rounding may leave a hairline between the two sliding screens.
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
-        enterTransition = { screenEnter() },
-        exitTransition = { screenExit() },
-        popEnterTransition = { screenPopEnter() },
-        popExitTransition = { screenPopExit() },
+    ) {
+        CompositionLocalProvider(LocalSharedTransitionScope provides this) {
+            AppScreens(navController, showNotice, planFlight)
+        }
+    }
+}
+
+@Composable
+private fun AppScreens(
+    navController: NavHostController,
+    showNotice: (AppNotice) -> Unit,
+    planFlight: ImageFlightState,
+) {
+    NavHost(
+        navController = navController,
+        startDestination = HomeDestination,
+        modifier = Modifier.fillMaxSize(),
+        enterTransition = { if (unfolds()) unfoldEnter() else screenEnter() },
+        exitTransition = { if (unfolds()) unfoldExit() else screenExit() },
+        popEnterTransition = { if (unfolds()) unfoldEnter() else screenPopEnter() },
+        popExitTransition = { if (unfolds()) unfoldExit() else screenPopExit() },
         // The back gesture has its own transitions (a fade and shrink by default): the same
         // as a tap on back, the recipe picker of the meal plan sinking over the week.
         predictivePopEnterTransition = {
-            if (initialState.destination.hasRoute(PlanRecipePickerDestination::class)) {
-                EnterTransition.None
-            } else {
-                screenPopEnter()
+            when {
+                initialState.destination.hasRoute(PlanRecipePickerDestination::class) -> EnterTransition.None
+                unfolds() -> unfoldEnter()
+                else -> screenPopEnter()
             }
         },
         predictivePopExitTransition = {
-            if (initialState.destination.hasRoute(PlanRecipePickerDestination::class)) sinkExit() else screenPopExit()
+            when {
+                initialState.destination.hasRoute(PlanRecipePickerDestination::class) -> sinkExit()
+                unfolds() -> unfoldExit()
+                else -> screenPopExit()
+            }
         },
     ) {
         discoveryGraph(navController)
@@ -82,13 +105,17 @@ internal fun AppNavHost(
 
 private fun NavGraphBuilder.discoveryGraph(navController: NavHostController) {
     composable<HomeDestination> {
-        HomeRoute(
-            onRecipeClick = { navController.navigate(RecipeDestination(it)) },
-            onSearchClick = { navController.switchTab(SearchDestination) },
-        )
+        ScreenVisibility(this) {
+            HomeRoute(
+                onRecipeClick = { navController.navigate(RecipeDestination(it)) },
+                onSearchClick = { navController.switchTab(SearchDestination) },
+            )
+        }
     }
     composable<SearchDestination> {
-        SearchRoute(onRecipeClick = { navController.navigate(RecipeDestination(it)) })
+        ScreenVisibility(this) {
+            SearchRoute(onRecipeClick = { navController.navigate(RecipeDestination(it)) })
+        }
     }
     composable<OrganizerSearchDestination> { entry ->
         val route: OrganizerSearchDestination = entry.toRoute()
@@ -171,15 +198,17 @@ private fun NavGraphBuilder.shoppingGraph(navController: NavHostController) {
 
 private fun NavGraphBuilder.profileGraph(navController: NavHostController) {
     composable<ProfileDestination> {
-        ProfileRoute(
-            onOpenAppSettings = { navController.navigate(AppSettingsDestination) },
-            onOpenMealieSettings = { navController.navigate(MealieSettingsDestination) },
-            onImportRecipe = { navController.navigate(RecipeImportDestination()) },
-            onOpenProviders = { navController.navigate(ProvidersDestination) },
-            onOpenLocalAi = { navController.navigate(LocalAiSettingsDestination) },
-            onCreateRecipe = { navController.navigate(RecipeCreateDestination()) },
-            onOpenDrafts = { navController.navigate(RecipeDraftsDestination) },
-        )
+        ScreenVisibility(this) {
+            ProfileRoute(
+                onOpenAppSettings = { navController.navigate(AppSettingsDestination) },
+                onOpenMealieSettings = { navController.navigate(MealieSettingsDestination) },
+                onImportRecipe = { navController.navigate(RecipeImportDestination()) },
+                onOpenProviders = { navController.navigate(ProvidersDestination) },
+                onOpenLocalAi = { navController.navigate(LocalAiSettingsDestination) },
+                onCreateRecipe = { navController.navigate(RecipeCreateDestination()) },
+                onOpenDrafts = { navController.navigate(RecipeDraftsDestination) },
+            )
+        }
     }
     composable<AppSettingsDestination> {
         AppSettingsRoute(onBack = { navController.popBackStack() })
@@ -220,18 +249,20 @@ private fun NavGraphBuilder.recipeWritingGraph(navController: NavHostController,
     }
     composable<RecipeCreateDestination> { entry ->
         val route: RecipeCreateDestination = entry.toRoute()
-        RecipeCreateRoute(
-            draftId = route.draftId,
-            onLeft = { draftSaved ->
-                if (navController.popIfCurrent(entry) && draftSaved) showNotice(AppNotice.DRAFT_SAVED)
-            },
-            onCreated = { slug, imageSaved ->
-                if (navController.isCurrent(entry)) {
-                    navController.openCreatedRecipe(slug)
-                    if (!imageSaved) showNotice(AppNotice.RECIPE_CREATED_WITHOUT_IMAGE)
-                }
-            },
-        )
+        ScreenVisibility(this) {
+            RecipeCreateRoute(
+                draftId = route.draftId,
+                onLeft = { draftSaved ->
+                    if (navController.popIfCurrent(entry) && draftSaved) showNotice(AppNotice.DRAFT_SAVED)
+                },
+                onCreated = { slug, imageSaved ->
+                    if (navController.isCurrent(entry)) {
+                        navController.openCreatedRecipe(slug)
+                        if (!imageSaved) showNotice(AppNotice.RECIPE_CREATED_WITHOUT_IMAGE)
+                    }
+                },
+            )
+        }
     }
     composable<RecipeDraftsDestination> {
         RecipeDraftsRoute(

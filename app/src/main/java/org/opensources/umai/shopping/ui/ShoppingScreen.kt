@@ -46,8 +46,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -58,6 +58,10 @@ import org.opensources.umai.core.model.ShoppingList
 import org.opensources.umai.core.ui.component.EmptyView
 import org.opensources.umai.core.ui.component.LoadingView
 import org.opensources.umai.core.ui.component.NetworkErrorView
+import org.opensources.umai.core.ui.motion.ListEntrance
+import org.opensources.umai.core.ui.motion.listEntrance
+import org.opensources.umai.core.ui.motion.rememberListEntrance
+import org.opensources.umai.core.ui.motion.scaledBy
 
 /**
  * Shopping lists backed by Mealie. Items are grouped by the Mealie label of
@@ -276,8 +280,11 @@ private fun ListContent(
     val grouped = remember(items) { items.filterNot { it.checked }.groupedByLabel() }
     val checked = remember(items) { items.filter { it.checked } }
     val unlabelled = stringResource(R.string.shopping_unlabelled)
+    val entrance = rememberListEntrance()
     Column(modifier = modifier.fillMaxSize()) {
         LazyColumn(modifier = Modifier.weight(1f), contentPadding = PaddingValues(bottom = 12.dp)) {
+            // The place of each row in the cascade of the list's first appearance.
+            var position = 0
             if (isEmpty) {
                 item {
                     EmptyView(
@@ -287,16 +294,27 @@ private fun ListContent(
                 }
             }
             grouped.forEach { (label, groupItems) ->
+                val headerPosition = position
                 item(key = "header-${label ?: "none"}") {
-                    SectionHeader(text = label ?: unlabelled, color = groupItems.firstOrNull()?.labelColor)
+                    SectionHeader(
+                        text = label ?: unlabelled,
+                        color = groupItems.firstOrNull()?.labelColor,
+                        modifier = Modifier.animateItem().listEntrance(entrance, headerPosition),
+                    )
                 }
-                itemRows(groupItems, onCheckedChange, onDelete)
+                itemRows(groupItems, RowEntrance(entrance, position + 1), onCheckedChange, onDelete)
+                position += groupItems.size + 1
             }
             if (checked.isNotEmpty()) {
+                val headerPosition = position
                 item(key = "header-checked") {
-                    SectionHeader(text = stringResource(R.string.shopping_checked_section, checked.size), color = null)
+                    SectionHeader(
+                        text = stringResource(R.string.shopping_checked_section, checked.size),
+                        color = null,
+                        modifier = Modifier.animateItem().listEntrance(entrance, headerPosition),
+                    )
                 }
-                itemRows(checked, onCheckedChange, onDelete)
+                itemRows(checked, RowEntrance(entrance, position + 1), onCheckedChange, onDelete)
             }
         }
         HorizontalDivider()
@@ -304,13 +322,23 @@ private fun ListContent(
     }
 }
 
+/** The entrance of the list, and the place in it of the first of a run of rows. */
+private class RowEntrance(val entrance: ListEntrance, val firstPosition: Int)
+
 private fun LazyListScope.itemRows(
     rows: List<ShoppingItem>,
+    rowEntrance: RowEntrance,
     onCheckedChange: (ShoppingItem, Boolean) -> Unit,
     onDelete: (ShoppingItem) -> Unit,
 ) {
+    // Keyed by item: a ticked item slides down to the checked ones instead of vanishing.
     items(count = rows.size, key = { rows[it].id }) { index ->
-        ShoppingItemRow(item = rows[index], onCheckedChange = onCheckedChange, onDelete = onDelete)
+        ShoppingItemRow(
+            item = rows[index],
+            onCheckedChange = onCheckedChange,
+            onDelete = onDelete,
+            modifier = Modifier.animateItem().listEntrance(rowEntrance.entrance, rowEntrance.firstPosition + index),
+        )
     }
 }
 
@@ -393,24 +421,25 @@ private fun ShoppingItemRow(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
     ) {
+        val haptics = LocalHapticFeedback.current
+        val bounce = rememberCheckBounce(item.checked)
         Row(
             modifier = Modifier.padding(start = 8.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Checkbox(
                 checked = item.checked,
-                onCheckedChange = { onCheckedChange(item, it) },
-            )
-            Text(
-                text = item.label,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyLarge,
-                textDecoration = if (item.checked) TextDecoration.LineThrough else null,
-                color = if (item.checked) {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    MaterialTheme.colorScheme.onSurface
+                onCheckedChange = { checked ->
+                    haptics.tick(checked)
+                    onCheckedChange(item, checked)
                 },
+                modifier = Modifier.scaledBy(bounce),
+            )
+            StrikeThroughText(
+                text = item.label,
+                struck = item.checked,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f),
             )
             IconButton(onClick = { onDelete(item) }) {
                 Icon(

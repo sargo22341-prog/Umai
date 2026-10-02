@@ -89,4 +89,27 @@ class CookingTimersTest {
         assertEquals(listOf(2, 3, 1), timers.pending(now = 0).map { it.id })
         assertEquals(listOf(3, 1), timers.pending(now = 15_000).map { it.id })
     }
+
+    @Test
+    fun `the progress fills up as the countdown goes, and holds while paused`() {
+        val timers = CookingTimers().start(tart, 0, Duration.ofSeconds(100), now = 0)
+
+        assertEquals(0f, timers.timers.single().progress(now = 0), 0.001f)
+        assertEquals(0.25f, timers.timers.single().progress(now = 25_000), 0.001f)
+        val paused = timers.pause(1, now = 50_000).timers.single()
+        assertEquals(0.5f, paused.progress(now = 90_000), 0.001f)
+        assertEquals(1f, timers.timers.single().progress(now = 200_000), 0.001f)
+    }
+
+    @Test
+    fun `the progress is redrawn by hundredths of the shortest countdown, within bounds`() {
+        val timers = CookingTimers()
+            .start(tart, 0, Duration.ofMinutes(5), now = 0)
+            .start(curry, 0, Duration.ofMinutes(2), now = 0)
+
+        assertEquals(1_200L, timers.progressStepMillis(now = 0))
+        assertEquals(1_000L, CookingTimers().start(tart, 0, Duration.ofSeconds(30), now = 0).progressStepMillis(now = 0))
+        assertEquals(10_000L, CookingTimers().start(tart, 0, Duration.ofHours(2), now = 0).progressStepMillis(now = 0))
+        assertNull(timers.pause(1, now = 0).pause(2, now = 0).progressStepMillis(now = 0))
+    }
 }

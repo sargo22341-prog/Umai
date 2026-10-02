@@ -1,5 +1,10 @@
 package org.opensources.umai.cooking.ui
 
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -15,20 +20,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import org.opensources.umai.core.model.Recipe
-import org.opensources.umai.core.model.RecipeIngredient
-import org.opensources.umai.core.model.RecipeStep
-import org.opensources.umai.core.model.RecipeSummary
-import org.opensources.umai.core.network.FakeMealieServer
-import org.opensources.umai.core.network.NetworkError
-import org.opensources.umai.recipe.data.RecipeMediaRepository
-import org.opensources.umai.recipe.domain.VideoStream
-import org.opensources.umai.recipe.data.RecipeRepository
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelStore
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
-import kotlinx.coroutines.CoroutineScope
 import org.opensources.umai.cooking.data.CookingTimerController
 import org.opensources.umai.cooking.domain.CookingTimers
 import org.opensources.umai.cooking.domain.SavedTimers
@@ -36,7 +27,16 @@ import org.opensources.umai.cooking.domain.TimerAlarm
 import org.opensources.umai.cooking.domain.TimerHost
 import org.opensources.umai.cooking.domain.TimerRecipe
 import org.opensources.umai.cooking.domain.TimerStore
+import org.opensources.umai.core.model.Recipe
+import org.opensources.umai.core.model.RecipeIngredient
+import org.opensources.umai.core.model.RecipeStep
+import org.opensources.umai.core.model.RecipeSummary
+import org.opensources.umai.core.network.FakeMealieServer
+import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.settings.CookingTimerOptions
+import org.opensources.umai.recipe.data.RecipeMediaRepository
+import org.opensources.umai.recipe.data.RecipeRepository
+import org.opensources.umai.recipe.domain.VideoStream
 import java.time.Duration
 
 /**
@@ -187,6 +187,8 @@ class CookingViewModelTest {
         },
         host = object : TimerHost {
             override fun update(timers: CookingTimers, now: Long) = Unit
+
+            override fun refresh(timers: CookingTimers, now: Long) = Unit
         },
         store = object : TimerStore {
             override suspend fun load() = SavedTimers()

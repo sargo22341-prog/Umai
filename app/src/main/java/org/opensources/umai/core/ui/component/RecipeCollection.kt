@@ -18,6 +18,8 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.dp
 import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.settings.RecipeLayout
+import org.opensources.umai.core.ui.motion.ListEntrance
+import org.opensources.umai.core.ui.motion.listEntrance
 
 val RecipeGridSpacing = 12.dp
 
@@ -33,7 +35,8 @@ fun recipeGridCells(layout: RecipeLayout): GridCells = when (layout) {
 /**
  * Adds recipe items plus a trailing spinner to a lazy grid. Kept here so Home
  * and Search render their results identically. [onRecipeClick] also receives
- * where the picture of the recipe shows in the window.
+ * where the picture of the recipe shows in the window. With an [entrance], the
+ * first cards rise into place, the first of them at [firstIndex] of it.
  */
 fun LazyGridScope.recipeCards(
     recipes: List<RecipeSummary>,
@@ -41,22 +44,27 @@ fun LazyGridScope.recipeCards(
     imageUrlFor: (RecipeSummary) -> String?,
     onRecipeClick: (RecipeSummary, Rect?) -> Unit,
     loadingMore: Boolean,
+    entrance: ListEntrance? = null,
+    firstIndex: Int = 0,
 ) {
     items(
         count = recipes.size,
         key = { index -> recipes[index].id },
     ) { index ->
         val recipe = recipes[index]
+        val rise = Modifier.listEntrance(entrance, firstIndex + index)
         when (layout) {
             RecipeLayout.GRID -> RecipeCard(
                 recipe = recipe,
                 imageUrl = imageUrlFor(recipe),
                 onClick = { onRecipeClick(recipe, it) },
+                modifier = rise,
             )
             RecipeLayout.LIST -> RecipeRow(
                 recipe = recipe,
                 imageUrl = imageUrlFor(recipe),
                 onClick = { onRecipeClick(recipe, it) },
+                modifier = rise,
             )
         }
     }

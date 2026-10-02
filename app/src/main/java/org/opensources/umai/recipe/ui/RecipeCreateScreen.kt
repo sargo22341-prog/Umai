@@ -41,6 +41,8 @@ import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.ui.component.BackTopAppBar
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
+import org.opensources.umai.core.ui.motion.SharedContainer
+import org.opensources.umai.core.ui.motion.SharedContainerKey
 import java.io.File
 
 /**
@@ -77,16 +79,18 @@ fun RecipeCreateRoute(
     // change would make the whole form recompose for a single keystroke.
     val actions = remember(viewModel) { RecipeFormActions(viewModel) }
 
-    RecipeCreateScreen(
-        state = state,
-        actions = actions,
-        onLeave = viewModel::leave,
-        onPrevious = viewModel::previous,
-        onNext = viewModel::next,
-        onCreate = viewModel::create,
-        onDismissError = viewModel::dismissError,
-        modifier = modifier,
-    )
+    // Unfolds from the row of the profile that opens it.
+    SharedContainer(SharedContainerKey.RECIPE_CREATION, modifier) {
+        RecipeCreateScreen(
+            state = state,
+            actions = actions,
+            onLeave = viewModel::leave,
+            onPrevious = viewModel::previous,
+            onNext = viewModel::next,
+            onCreate = viewModel::create,
+            onDismissError = viewModel::dismissError,
+        )
+    }
 }
 
 /** Stateless form, driven by [RecipeCreateUiState]. */

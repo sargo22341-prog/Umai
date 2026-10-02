@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,7 +43,6 @@ import org.opensources.umai.core.session.ServerSession
 import org.opensources.umai.core.session.SessionState
 import org.opensources.umai.core.ui.component.ImageFlightOverlay
 import org.opensources.umai.core.ui.component.ImageFlightState
-import org.opensources.umai.core.ui.component.LoadingView
 import org.opensources.umai.core.ui.component.MessageView
 import org.opensources.umai.recipe.domain.ImportRequest
 import org.opensources.umai.setup.ui.SetupRoute
@@ -71,7 +71,10 @@ fun UmaiApp(
     val sessionState by container.sessionManager.state.collectAsStateWithLifecycle()
 
     when (val state = sessionState) {
-        SessionState.Loading -> Box(modifier = modifier.fillMaxSize()) { LoadingView() }
+        SessionState.Loading -> Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            // Reading the session takes an instant: nothing to outline yet.
+            CircularProgressIndicator()
+        }
         SessionState.NotConfigured, is SessionState.Expired -> SetupRoute(modifier = modifier)
         SessionState.Unreadable -> Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             MessageView(

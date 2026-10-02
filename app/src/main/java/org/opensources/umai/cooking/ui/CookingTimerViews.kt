@@ -1,11 +1,21 @@
 package org.opensources.umai.cooking.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -17,6 +27,7 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -25,8 +36,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -36,16 +51,21 @@ import androidx.compose.ui.unit.dp
 import org.opensources.umai.R
 import org.opensources.umai.cooking.domain.CookingTimer
 import org.opensources.umai.cooking.domain.TimerFormat
+import org.opensources.umai.core.ui.motion.scaledBy
 import java.time.Duration
 
 /** One button per duration written in the step: "Start 15 min". */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun StepTimerButtons(durations: List<Duration>, onStart: (Duration) -> Unit) {
+    val haptics = LocalHapticFeedback.current
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         durations.forEach { duration ->
             AssistChip(
-                onClick = { onStart(duration) },
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                    onStart(duration)
+                },
                 label = { Text(stringResource(R.string.cooking_timer_start, durationLabel(duration))) },
                 leadingIcon = {
                     Icon(
@@ -131,7 +151,7 @@ private fun TimerRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Icon(imageVector = if (finished) Icons.Outlined.Alarm else Icons.Outlined.Timer, contentDescription = null)
+            TimerDial(timer, now)
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = label, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (finished) {
@@ -150,6 +170,44 @@ private fun TimerRow(
                 TimerButtons(running = timer.isRunning, label = label, onPause = onPause, onResume = onResume, onDismiss = onDismiss)
             }
         }
+    }
+}
+
+/**
+ * The icon of a timer in a ring that fills as it counts down, smoothly between
+ * the seconds. Over the last ten seconds it beats once a second; at zero it
+ * turns into an alarm clock.
+ */
+@Composable
+private fun TimerDial(timer: CookingTimer, now: Long) {
+    val finished = timer.isFinished(now)
+    val progress = animateFloatAsState(
+        targetValue = timer.progress(now),
+        // The clock moves once a second: the ring runs at the same pace in between.
+        animationSpec = if (timer.isRunning) tween(DIAL_TICK_MILLIS.toInt(), easing = LinearEasing) else snap(),
+        label = "timerDial",
+    )
+    val beat = remember { Animatable(1f) }
+    val secondsLeft = ((timer.remainingMillis(now) + DIAL_TICK_MILLIS - 1) / DIAL_TICK_MILLIS).toInt()
+    LaunchedEffect(secondsLeft, timer.isRunning) {
+        if (!timer.isRunning || secondsLeft !in 1..FINAL_SECONDS) return@LaunchedEffect
+        beat.animateTo(BEAT_SCALE, tween(BEAT_MILLIS, easing = FastOutSlowInEasing))
+        beat.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium))
+    }
+    Box(modifier = Modifier.size(DIAL_SIZE).scaledBy(beat.asState()), contentAlignment = Alignment.Center) {
+        if (!finished) {
+            CircularProgressIndicator(
+                progress = { progress.value },
+                modifier = Modifier.fillMaxSize(),
+                strokeWidth = 3.dp,
+                trackColor = MaterialTheme.colorScheme.outlineVariant,
+            )
+        }
+        Icon(
+            imageVector = if (finished) Icons.Outlined.Alarm else Icons.Outlined.Timer,
+            contentDescription = null,
+            modifier = Modifier.size(if (finished) 24.dp else 18.dp),
+        )
     }
 }
 
@@ -183,3 +241,11 @@ private fun durationLabel(duration: Duration): String = TimerFormat.duration(
         second = stringResource(R.string.unit_second_short),
     ),
 )
+
+private const val DIAL_TICK_MILLIS = 1_000L
+private val DIAL_SIZE = 36.dp
+
+/** The countdown beats over its last seconds, once each. */
+private const val FINAL_SECONDS = 10
+private const val BEAT_MILLIS = 120
+private const val BEAT_SCALE = 1.18f

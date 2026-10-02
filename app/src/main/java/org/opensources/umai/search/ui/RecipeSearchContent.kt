@@ -31,9 +31,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -42,12 +42,15 @@ import org.opensources.umai.R
 import org.opensources.umai.core.model.Food
 import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.ui.component.EmptyView
-import org.opensources.umai.core.ui.component.LoadingView
 import org.opensources.umai.core.ui.component.NetworkErrorView
 import org.opensources.umai.core.ui.component.RecipeGridArrangement
+import org.opensources.umai.core.ui.component.RecipeGridLoadingView
 import org.opensources.umai.core.ui.component.isNearEnd
 import org.opensources.umai.core.ui.component.recipeCards
 import org.opensources.umai.core.ui.component.recipeGridCells
+import org.opensources.umai.core.ui.motion.SharedContainer
+import org.opensources.umai.core.ui.motion.SharedContainerKey
+import org.opensources.umai.core.ui.motion.rememberListEntrance
 import org.opensources.umai.search.domain.RecipeFilters
 import org.opensources.umai.search.domain.SortField
 
@@ -159,12 +162,13 @@ private fun SearchResults(
 ) {
     val gridState = rememberLazyGridState()
     val nearEnd = gridState.isNearEnd()
+    val entrance = rememberListEntrance()
     LaunchedEffect(nearEnd, state.results.page) {
         if (nearEnd) actions.onLoadMore()
     }
     val error = state.error
     when {
-        state.loading && state.results.items.isEmpty() -> LoadingView()
+        state.loading && state.results.items.isEmpty() -> RecipeGridLoadingView()
         error != null && state.results.items.isEmpty() ->
             NetworkErrorView(error = error, modifier = Modifier.fillMaxSize(), onRetry = actions.onRetry)
         state.isEmptyResult -> EmptyView(
@@ -188,6 +192,7 @@ private fun SearchResults(
                     imageUrlFor = recipeImageUrl,
                     onRecipeClick = onRecipeClick,
                     loadingMore = state.loadingMore,
+                    entrance = entrance,
                 )
             }
         }
@@ -211,45 +216,57 @@ private fun SearchField(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            modifier = Modifier
-                .weight(1f)
-                .focusRequester(focusRequester),
-            placeholder = { Text(stringResource(R.string.search_placeholder)) },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Outlined.Search,
-                    contentDescription = stringResource(R.string.cd_search),
-                )
-            },
-            trailingIcon = {
-                if (query.isNotEmpty()) {
-                    IconButton(onClick = onClear) {
-                        Icon(
-                            imageVector = Icons.Outlined.Close,
-                            contentDescription = stringResource(R.string.action_clear),
-                        )
-                    }
-                }
-            },
-            singleLine = true,
-            shape = MaterialTheme.shapes.extraLarge,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        )
+        // The search field of the home screen unfolds into this one.
+        SharedContainer(SharedContainerKey.SEARCH_FIELD, Modifier.weight(1f), MaterialTheme.shapes.extraLarge) {
+            SearchTextField(query, focusRequester, onQueryChange, onClear)
+        }
+        FilterButton(activeFilterCount, onOpenFilters)
+    }
+}
 
-        BadgedBox(
-            badge = {
-                if (activeFilterCount > 0) Badge { Text(activeFilterCount.toString()) }
-            },
-        ) {
-            IconButton(onClick = onOpenFilters) {
-                Icon(
-                    imageVector = Icons.Outlined.FilterList,
-                    contentDescription = stringResource(R.string.cd_open_filters),
-                )
+@Composable
+private fun SearchTextField(query: String, focusRequester: FocusRequester, onQueryChange: (String) -> Unit, onClear: () -> Unit) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .focusRequester(focusRequester),
+        placeholder = { Text(stringResource(R.string.search_placeholder)) },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Outlined.Search,
+                contentDescription = stringResource(R.string.cd_search),
+            )
+        },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = onClear) {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = stringResource(R.string.action_clear),
+                    )
+                }
             }
+        },
+        singleLine = true,
+        shape = MaterialTheme.shapes.extraLarge,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+    )
+}
+
+@Composable
+private fun FilterButton(activeFilterCount: Int, onOpenFilters: () -> Unit) {
+    BadgedBox(
+        badge = {
+            if (activeFilterCount > 0) Badge { Text(activeFilterCount.toString()) }
+        },
+    ) {
+        IconButton(onClick = onOpenFilters) {
+            Icon(
+                imageVector = Icons.Outlined.FilterList,
+                contentDescription = stringResource(R.string.cd_open_filters),
+            )
         }
     }
 }

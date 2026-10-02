@@ -53,14 +53,16 @@ import org.opensources.umai.R
 import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.model.HouseholdStatistics
 import org.opensources.umai.core.model.UserProfile
-import org.opensources.umai.core.ui.component.LoadingView
-import org.opensources.umai.core.ui.component.NetworkErrorView
 import org.opensources.umai.core.ui.component.CropFrame
 import org.opensources.umai.core.ui.component.ImagePicker
+import org.opensources.umai.core.ui.component.LoadingView
+import org.opensources.umai.core.ui.component.NetworkErrorView
 import org.opensources.umai.core.ui.component.UserAvatar
-import org.opensources.umai.core.ui.component.rememberImagePickerState
 import org.opensources.umai.core.ui.component.message
+import org.opensources.umai.core.ui.component.rememberImagePickerState
 import org.opensources.umai.core.ui.component.title
+import org.opensources.umai.core.ui.motion.SharedContainer
+import org.opensources.umai.core.ui.motion.SharedContainerKey
 
 /**
  * The account page: who is signed in, what the household holds, the two sets of
@@ -196,12 +198,15 @@ private fun AddRecipeRows(draftCount: Int, onImportRecipe: () -> Unit, onCreateR
             icon = Icons.Outlined.Link,
             onClick = onImportRecipe,
         )
-        NavigationRow(
-            title = stringResource(R.string.profile_create_recipe),
-            summary = stringResource(R.string.profile_create_recipe_summary),
-            icon = Icons.Outlined.AddCircleOutline,
-            onClick = onCreateRecipe,
-        )
+        // Unfolds into the recipe form it opens.
+        SharedContainer(SharedContainerKey.RECIPE_CREATION) {
+            NavigationRow(
+                title = stringResource(R.string.profile_create_recipe),
+                summary = stringResource(R.string.profile_create_recipe_summary),
+                icon = Icons.Outlined.AddCircleOutline,
+                onClick = onCreateRecipe,
+            )
+        }
         NavigationRow(
             title = stringResource(R.string.profile_drafts),
             summary = if (draftCount == 0) {

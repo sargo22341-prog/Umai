@@ -45,6 +45,11 @@ class SystemTimerHost(
         notifications.show(timers, now)
     }
 
+    override fun refresh(timers: CookingTimers, now: Long) {
+        latest = timers to now
+        notifications.show(timers, now)
+    }
+
     /**
      * Starts the service, and answers whether it could. A timer is started from
      * the cooking mode, on screen, and the wake-up alarm and the notification

@@ -35,6 +35,13 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!--
+      A cooking timer counting down is a Live Update (TimerNotifications): its progress stays on
+      top of the notifications and its countdown in the status bar. Granted at install; the reader
+      can still turn Live Updates off for the app in the system settings.
+    -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+
+    <!--
       The barcode of a product is read live from the camera (BarcodeScannerDialog), which asks
       for this the first time. A phone without a camera still types the barcode.
     -->

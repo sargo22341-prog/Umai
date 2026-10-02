@@ -9,6 +9,7 @@ import org.opensources.umai.R
 import org.opensources.umai.cooking.domain.CookingTimer
 import org.opensources.umai.cooking.domain.CookingTimers
 import org.opensources.umai.cooking.domain.TimerFormat
+import kotlin.math.roundToInt
 
 /**
  * The timers as the system shows them, as a timer app would:
@@ -19,7 +20,9 @@ import org.opensources.umai.cooking.domain.TimerFormat
  *  - a summary grouping the first ones, which is the notification of the
  *    foreground service keeping the app alive while timers run.
  * They show in full on the lock screen, as an alarm clock does, so a timer
- * that rings can be stopped without unlocking the phone.
+ * that rings can be stopped without unlocking the phone. A timer counting down
+ * is a Live Update: its progress bar sits on top of the notifications and its
+ * countdown in the status bar, as long as the reader leaves them allowed.
  */
 class TimerNotifications(context: Context) {
 
@@ -110,6 +113,8 @@ class TimerNotifications(context: Context) {
             .setCategory(Notification.CATEGORY_STOPWATCH)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setContentIntent(TimerIntents.openCooking(context, timer))
+            .setStyle(progress(timer, now))
+            .setRequestPromotedOngoing(true)
         if (timer.isRunning) {
             // The system draws the countdown itself, to the second, with no update from the app.
             builder
@@ -121,12 +126,24 @@ class TimerNotifications(context: Context) {
         } else {
             builder
                 .setShowWhen(false)
+                // The status bar shows this in place of a countdown that no longer moves.
+                .setShortCriticalText(TimerFormat.countdown(timer.remainingMillis(now)))
                 .addAction(action(R.string.cooking_timer_action_resume, TimerAction.RESUME, timer))
         }
         return builder
             .addAction(action(R.string.action_cancel, TimerAction.DISMISS, timer))
             .build()
     }
+
+    /**
+     * The countdown as a bar filling up. The system does not move it on its own:
+     * [CookingTimerController] posts the notification again as time goes by.
+     */
+    private fun progress(timer: CookingTimer, now: Long): Notification.ProgressStyle =
+        Notification.ProgressStyle()
+            .setProgressSegments(listOf(Notification.ProgressStyle.Segment(PROGRESS_MAX)))
+            .setProgress((timer.progress(now) * PROGRESS_MAX).roundToInt())
+            .setProgressTrackerIcon(Icon.createWithResource(context, R.drawable.ic_notification_timer))
 
     private fun ringing(timer: CookingTimer): Notification =
         Notification.Builder(context, CHANNEL_ALARM)
@@ -175,5 +192,6 @@ class TimerNotifications(context: Context) {
         private const val GROUP = "org.opensources.umai.COOKING_TIMERS"
         private const val TAG_TIMER = "timer"
         private const val TAG_ALARM = "timer_alarm"
+        private const val PROGRESS_MAX = 1_000
     }
 }

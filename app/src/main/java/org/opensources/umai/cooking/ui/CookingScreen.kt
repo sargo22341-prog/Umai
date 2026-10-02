@@ -54,8 +54,8 @@ import org.opensources.umai.core.di.LocalAppContainer
 import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.core.ui.component.EmptyView
 import org.opensources.umai.core.ui.component.KeepScreenOn
-import org.opensources.umai.core.ui.component.LoadingView
 import org.opensources.umai.core.ui.component.NetworkErrorView
+import org.opensources.umai.core.ui.component.RecipePageLoadingView
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
 import org.opensources.umai.recipe.domain.StepClip
@@ -281,29 +281,14 @@ private fun CookingBody(
 ) {
     val error = state.error
     when {
-        state.loading -> LoadingView()
+        state.loading -> RecipePageLoadingView()
         error != null -> NetworkErrorView(error = error, modifier = Modifier.fillMaxSize(), onRetry = onRetry)
         state.stepCount == 0 -> EmptyView(
             title = stringResource(R.string.cooking_title),
             message = stringResource(R.string.cooking_no_steps),
             modifier = Modifier.fillMaxSize(),
         )
-        else -> StepContent(
-            stepIndex = state.currentStep,
-            stepCount = state.stepCount,
-            title = state.step?.title,
-            text = state.step?.text.orEmpty(),
-            media = {
-                val number = state.currentStep + 1
-                clip?.let { videoContent(it, number) }
-                state.step?.photo?.let { file -> StepImage(url = stepPhotoUrl(file), stepNumber = number) }
-                state.step?.images.orEmpty().forEach { source -> StepImage(url = stepImageUrl(source), stepNumber = number) }
-            },
-            ingredients = state.ingredientsForStep,
-            scale = state.scale,
-            durations = state.stepDurations,
-            onStartTimer = onStartTimer,
-        )
+        else -> CookingSteps(state, clip, stepImageUrl, stepPhotoUrl, onStartTimer, videoContent)
     }
 }
 

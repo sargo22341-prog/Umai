@@ -32,6 +32,12 @@ data class CookingTimer(
     fun remainingMillis(now: Long): Long = (endsAt?.let { it - now } ?: pausedRemaining ?: 0L).coerceAtLeast(0L)
 
     fun isFinished(now: Long): Boolean = remainingMillis(now) == 0L
+
+    /** How far the countdown went: `0` when it starts, `1` at zero. */
+    fun progress(now: Long): Float {
+        val total = duration.toMillis()
+        return if (total <= 0L) 1f else 1f - remainingMillis(now).toFloat() / total
+    }
 }
 
 /**
@@ -83,9 +89,23 @@ data class CookingTimers(
     /** When the next running timer reaches zero, `null` when none counts down. */
     fun nextEnd(now: Long): Long? = timers.filter { it.isRunning && !it.isFinished(now) }.mapNotNull { it.endsAt }.minOrNull()
 
+    /**
+     * How often a bar drawn from [CookingTimer.progress] is redrawn: a hundredth of the shortest
+     * timer counting down, so the bar moves by about one percent, kept between one and ten seconds.
+     * `null` when no timer counts down, so nothing moves.
+     */
+    fun progressStepMillis(now: Long): Long? = timers
+        .filter { it.isRunning && !it.isFinished(now) }
+        .minOfOrNull { it.duration.toMillis() / PROGRESS_STEPS }
+        ?.coerceIn(MIN_PROGRESS_STEP_MILLIS, MAX_PROGRESS_STEP_MILLIS)
+
     private fun update(id: Int, change: (CookingTimer) -> CookingTimer) =
         copy(timers = timers.map { if (it.id == id) change(it) else it })
 }
+
+private const val PROGRESS_STEPS = 100
+private const val MIN_PROGRESS_STEP_MILLIS = 1_000L
+private const val MAX_PROGRESS_STEP_MILLIS = 10_000L
 
 /** Rings when a timer reaches zero, in the ways the reader allowed. */
 interface TimerAlarm {
@@ -102,6 +122,9 @@ interface TimerAlarm {
 interface TimerHost {
     /** Called after every change; an empty [timers] means there is nothing left to keep alive. */
     fun update(timers: CookingTimers, now: Long)
+
+    /** Redraws what moves with time alone, the progress of each countdown: nothing else changed. */
+    fun refresh(timers: CookingTimers, now: Long)
 }
 
 /** The timers as they are kept when the app is not running. */

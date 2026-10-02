@@ -1,5 +1,6 @@
 package org.opensources.umai.core.ui.component
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,10 +33,13 @@ import org.opensources.umai.R
 import org.opensources.umai.core.format.DurationText
 import org.opensources.umai.core.format.currentLocale
 import org.opensources.umai.core.model.RecipeSummary
+import org.opensources.umai.core.ui.motion.animatePressScale
+import org.opensources.umai.core.ui.motion.scaledBy
 
 /**
  * Card used by the Home and Search grids. [onClick] receives where its
  * picture shows in the window, for a screen that animates it from there.
+ * Like every recipe card, it sinks a little under the finger.
  */
 @Composable
 fun RecipeCard(
@@ -45,9 +49,12 @@ fun RecipeCard(
     modifier: Modifier = Modifier,
 ) {
     val imagePlace = remember { ImagePlace() }
+    val interactions = remember { MutableInteractionSource() }
+    val pressScale = animatePressScale(interactions)
     Card(
         onClick = { onClick(imagePlace.visibleBounds()) },
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().scaledBy(pressScale),
+        interactionSource = interactions,
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
@@ -94,9 +101,12 @@ fun RecipeRow(
     modifier: Modifier = Modifier,
 ) {
     val imagePlace = remember { ImagePlace() }
+    val interactions = remember { MutableInteractionSource() }
+    val pressScale = animatePressScale(interactions)
     Card(
         onClick = { onClick(imagePlace.visibleBounds()) },
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().scaledBy(pressScale),
+        interactionSource = interactions,
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {

@@ -49,9 +49,9 @@ import org.opensources.umai.core.model.Recipe
 import org.opensources.umai.core.model.RecipeComment
 import org.opensources.umai.core.ui.component.ImageFlightOverlay
 import org.opensources.umai.core.ui.component.ImageFlightState
-import org.opensources.umai.core.ui.component.LoadingView
-import org.opensources.umai.core.ui.component.flightTarget
 import org.opensources.umai.core.ui.component.NetworkErrorView
+import org.opensources.umai.core.ui.component.RecipePageLoadingView
+import org.opensources.umai.core.ui.component.flightTarget
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
 import org.opensources.umai.search.domain.OrganizerEntry
@@ -247,7 +247,7 @@ fun RecipeDetailScreen(
             val error = state.error
             val recipe = state.recipe
             when {
-                state.loading -> LoadingView(Modifier.padding(padding))
+                state.loading -> RecipePageLoadingView(Modifier.padding(padding))
                 error != null && recipe == null -> NetworkErrorView(error, Modifier.fillMaxSize().padding(padding), onRetry = onRetry)
                 recipe == null -> Unit
                 else -> PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {

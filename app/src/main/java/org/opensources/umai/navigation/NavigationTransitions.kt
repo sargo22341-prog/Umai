@@ -7,10 +7,12 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.ui.unit.IntOffset
 import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavDestination.Companion.hasRoute
 
 /*
  * Horizontal push between screens: the new screen slides in from the end edge while the previous one
@@ -59,3 +61,28 @@ internal fun sinkExit(): ExitTransition =
 
 /** How far below its place the picker ends: a fraction of its height. */
 private const val SINK_FRACTION = 5
+
+/*
+ * Some screens unfold from a place of the one that opens them (SharedContainer): the search field
+ * of the home screen into the search screen, the "create a recipe" row of the profile into the
+ * recipe form. Between those, the screens fade through one another while that place morphs,
+ * instead of sliding, both ways.
+ */
+
+private val unfoldingScreens = listOf(
+    HomeDestination::class to SearchDestination::class,
+    ProfileDestination::class to RecipeCreateDestination::class,
+)
+
+/** Whether the screens of this transition are one unfolding from the other. */
+internal fun AnimatedContentTransitionScope<NavBackStackEntry>.unfolds(): Boolean {
+    val from = initialState.destination
+    val to = targetState.destination
+    return unfoldingScreens.any { (opener, opened) ->
+        (from.hasRoute(opener) && to.hasRoute(opened)) || (from.hasRoute(opened) && to.hasRoute(opener))
+    }
+}
+
+internal fun unfoldEnter(): EnterTransition = fadeIn(tween(SCREEN_TRANSITION_MILLIS, easing = FastOutSlowInEasing))
+
+internal fun unfoldExit(): ExitTransition = fadeOut(tween(SCREEN_TRANSITION_MILLIS, easing = FastOutSlowInEasing))

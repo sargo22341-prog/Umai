@@ -11,6 +11,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.DragInteraction
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -68,6 +69,8 @@ import org.opensources.umai.core.model.RecipeSummary
 import org.opensources.umai.core.ui.component.RemoteImage
 import org.opensources.umai.core.ui.component.offsetOf
 import org.opensources.umai.core.ui.component.peekingPage
+import org.opensources.umai.core.ui.motion.animatePressScale
+import org.opensources.umai.core.ui.motion.scaledBy
 import kotlin.math.absoluteValue
 
 /**
@@ -162,6 +165,8 @@ private fun DiscoveryCard(
     offset: () -> Float,
     onClick: () -> Unit,
 ) {
+    val interactions = remember { MutableInteractionSource() }
+    val pressScale = animatePressScale(interactions)
     Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
         Card(
             onClick = onClick,
@@ -170,7 +175,9 @@ private fun DiscoveryCard(
                 .heightIn(max = MAX_CARD_HEIGHT)
                 .aspectRatio(CARD_RATIO, matchHeightConstraintsFirst = true)
                 .peekingPage(offset, SIDE_CARD_SCALE, SIDE_CARD_ALPHA)
+                .scaledBy(pressScale)
                 .semantics { stateDescription = position },
+            interactionSource = interactions,
         ) {
             CardArtwork(recipe, imageUrl, offset)
         }

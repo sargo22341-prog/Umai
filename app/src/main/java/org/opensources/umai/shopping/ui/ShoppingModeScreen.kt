@@ -40,10 +40,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -56,6 +56,7 @@ import org.opensources.umai.core.ui.component.LoadingView
 import org.opensources.umai.core.ui.component.NetworkErrorView
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
+import org.opensources.umai.core.ui.motion.scaledBy
 
 /**
  * One shopping list, made for the shop: large rows ticked with a single tap
@@ -228,13 +229,18 @@ private fun ShoppingModeRow(
     onCheckedChange: (ShoppingItem, Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHapticFeedback.current
+    val bounce = rememberCheckBounce(item.checked)
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .toggleable(
                 value = item.checked,
                 role = Role.Checkbox,
-                onValueChange = { onCheckedChange(item, it) },
+                onValueChange = { checked ->
+                    haptics.tick(checked)
+                    onCheckedChange(item, checked)
+                },
             ),
         color = MaterialTheme.colorScheme.surface,
     ) {
@@ -254,18 +260,13 @@ private fun ShoppingModeRow(
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.size(32.dp).scaledBy(bounce),
                 )
-                Text(
+                StrikeThroughText(
                     text = item.label,
-                    modifier = Modifier.weight(1f),
+                    struck = item.checked,
                     style = MaterialTheme.typography.titleLarge,
-                    textDecoration = if (item.checked) TextDecoration.LineThrough else null,
-                    color = if (item.checked) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
+                    modifier = Modifier.weight(1f),
                 )
             }
             HorizontalDivider(modifier = Modifier.padding(start = 68.dp))

@@ -59,6 +59,9 @@ class CookingTimerController(
     /** Wakes the controller up when the next timer ends or the alarm has rung long enough. */
     private var nextCheck: Job? = null
 
+    /** Redraws the progress of the countdowns the system shows, while one counts down. */
+    private var progressRefresh: Job? = null
+
     /** What was asked before the saved timers were read back; `null` once they are. */
     private var waiting: MutableList<() -> Unit>? = mutableListOf()
 
@@ -158,6 +161,7 @@ class CookingTimerController(
         }
         host.update(timers, now)
         scheduleNextCheck(timers, now)
+        scheduleProgressRefresh(timers, now)
         save()
     }
 
@@ -173,6 +177,26 @@ class CookingTimerController(
             scope.launch {
                 delay(at - now)
                 check()
+            }
+        }
+    }
+
+    /**
+     * Every change runs [check] again, which restarts this loop on the new timers: between two
+     * changes, only time moves. It ends once no timer counts down any more.
+     */
+    private fun scheduleProgressRefresh(timers: CookingTimers, now: Long) {
+        progressRefresh?.cancel()
+        val step = timers.progressStepMillis(now)
+        progressRefresh = step?.let {
+            scope.launch {
+                while (true) {
+                    delay(step)
+                    val at = clock()
+                    // The timer that just ended is shown by the check its end triggers.
+                    if (!timers.anyRunning(at)) break
+                    host.refresh(timers, at)
+                }
             }
         }
     }

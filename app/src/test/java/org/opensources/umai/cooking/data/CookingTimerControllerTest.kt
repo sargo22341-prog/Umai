@@ -4,11 +4,11 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.sync.Mutex
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -209,6 +209,20 @@ class CookingTimerControllerTest {
 
         assertEquals(listOf(0L, 1_000L, 2_000L), ticks)
     }
+
+    @Test
+    fun `the progress shown by the system moves while a timer counts down, and stops with it`() = runTest {
+        val timers = controller()
+        timers.start(tart, 0, Duration.ofMinutes(5))
+
+        advanceTimeBy(9_500)
+        // A hundredth of five minutes: the bar moves by one percent every three seconds.
+        assertEquals(listOf(3_000L, 6_000L, 9_000L), host.refreshes)
+
+        timers.pause(1)
+        advanceTimeBy(60_000)
+        assertEquals(3, host.refreshes.size)
+    }
 }
 
 /** Records what the controller asks of the alarm. */
@@ -242,11 +256,16 @@ private class MemoryTimerStore : TimerStore {
     }
 }
 
-/** Keeps the last timers the controller handed to the system. */
+/** Keeps the last timers the controller handed to the system, and when it redrew their progress. */
 private class RecordingHost : TimerHost {
     var last = CookingTimers()
+    val refreshes = mutableListOf<Long>()
 
     override fun update(timers: CookingTimers, now: Long) {
         last = timers
+    }
+
+    override fun refresh(timers: CookingTimers, now: Long) {
+        refreshes += now
     }
 }

@@ -1,6 +1,16 @@
 package org.opensources.umai.cooking.ui
 
 import android.annotation.SuppressLint
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,20 +45,81 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import org.opensources.umai.R
 import org.opensources.umai.core.format.IngredientText
 import org.opensources.umai.core.markdown.MarkdownText
 import org.opensources.umai.core.model.RecipeIngredient
 import org.opensources.umai.core.ui.component.RemoteImage
+import org.opensources.umai.core.ui.motion.RollingContent
+import org.opensources.umai.recipe.domain.StepClip
 import java.time.Duration
+
+/**
+ * The steps, one at a time. Going forward, the next step slides in over the
+ * current one, which draws back more slowly as it fades: a page turned over
+ * another. Going back plays it in reverse. The position and its bar stay in
+ * place above, the bar running on to the new step.
+ */
+@Composable
+internal fun CookingSteps(
+    state: CookingUiState,
+    clip: StepClip?,
+    stepImageUrl: (String) -> String?,
+    stepPhotoUrl: (String) -> String?,
+    onStartTimer: (Duration) -> Unit,
+    videoContent: @Composable (StepClip, Int) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        StepPosition(state.currentStep, state.stepCount, Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp))
+        AnimatedContent(
+            targetState = state,
+            contentKey = { it.currentStep },
+            transitionSpec = { turnStep(forward = targetState.currentStep > initialState.currentStep) },
+            label = "cookingStep",
+        ) { shown ->
+            val number = shown.currentStep + 1
+            StepContent(
+                title = shown.step?.title,
+                text = shown.step?.text.orEmpty(),
+                media = {
+                    // Only the step on screen plays its video: the one leaving keeps its pictures.
+                    if (shown.currentStep == state.currentStep) clip?.let { videoContent(it, number) }
+                    shown.step?.photo?.let { file -> StepImage(url = stepPhotoUrl(file), stepNumber = number) }
+                    shown.step?.images.orEmpty().forEach { source -> StepImage(url = stepImageUrl(source), stepNumber = number) }
+                },
+                ingredients = shown.ingredientsForStep,
+                scale = shown.scale,
+                durations = shown.stepDurations,
+                onStartTimer = onStartTimer,
+                // Opaque: the two steps pass over one another.
+                modifier = Modifier.background(MaterialTheme.colorScheme.background),
+            )
+        }
+    }
+}
+
+private fun AnimatedContentTransitionScope<CookingUiState>.turnStep(forward: Boolean): ContentTransform {
+    val towards = if (forward) SlideDirection.Start else SlideDirection.End
+    val slide = tween<IntOffset>(STEP_TURN_MILLIS, easing = FastOutSlowInEasing)
+    val fade = tween<Float>(STEP_TURN_MILLIS)
+    // The step on top moves all the way; the one underneath a fraction of it, fading.
+    return if (forward) {
+        (slideIntoContainer(towards, slide) togetherWith
+            slideOutOfContainer(towards, slide) { it / PARALLAX_FRACTION } + fadeOut(fade))
+            .apply { targetContentZIndex = 1f }
+    } else {
+        (slideIntoContainer(towards, slide) { it / PARALLAX_FRACTION } + fadeIn(fade) togetherWith
+            slideOutOfContainer(towards, slide))
+            .apply { targetContentZIndex = -1f }
+    }
+}
 
 // `media` is the slot of the step's video and pictures, which come above its text: not the content.
 @SuppressLint("ComposableLambdaParameterNaming")
 @Composable
-internal fun StepContent(
-    stepIndex: Int,
-    stepCount: Int,
+private fun StepContent(
     title: String?,
     text: String,
     ingredients: List<RecipeIngredient>,
@@ -65,7 +136,6 @@ internal fun StepContent(
             .padding(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        StepPosition(stepIndex, stepCount)
         title?.let { Text(text = it, style = MaterialTheme.typography.headlineSmall) }
         // The video of the step, then its photo and the pictures Mealie embeds
         // in the instruction text, extracted at mapping time. A step with none
@@ -86,14 +156,21 @@ internal fun StepContent(
 }
 
 @Composable
-private fun StepPosition(stepIndex: Int, stepCount: Int) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = stringResource(R.string.cooking_step_position, stepIndex + 1, stepCount),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        LinearProgressIndicator(progress = { (stepIndex + 1f) / stepCount }, modifier = Modifier.fillMaxWidth())
+private fun StepPosition(stepIndex: Int, stepCount: Int, modifier: Modifier = Modifier) {
+    val progress = animateFloatAsState(
+        targetValue = (stepIndex + 1f) / stepCount,
+        animationSpec = tween(STEP_TURN_MILLIS, easing = FastOutSlowInEasing),
+        label = "stepProgress",
+    )
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        RollingContent(stepIndex) { shown ->
+            Text(
+                text = stringResource(R.string.cooking_step_position, shown + 1, stepCount),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        LinearProgressIndicator(progress = { progress.value }, modifier = Modifier.fillMaxWidth())
     }
 }
 
@@ -194,3 +271,8 @@ private fun StepNumber(number: Int, current: Boolean) {
         }
     }
 }
+
+private const val STEP_TURN_MILLIS = 380
+
+/** How far the step underneath moves: a third of the way. */
+private const val PARALLAX_FRACTION = 3
