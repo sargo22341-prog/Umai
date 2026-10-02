@@ -62,7 +62,7 @@ class MealPlanRepository(private val apiProvider: () -> MealieApi?) {
                     id = entry.id,
                     date = ApiDates.format(entry.date),
                     entryType = entry.type.apiValue,
-                    title = entry.title,
+                    title = PlanEntryTitle.format(entry.servings, entry.title),
                     text = entry.text,
                     recipeId = entry.recipe?.id,
                     groupId = groupId,
@@ -77,14 +77,16 @@ class MealPlanRepository(private val apiProvider: () -> MealieApi?) {
 
 fun MealPlanEntryDto.toDomain(): MealPlanEntry? {
     val day = ApiDates.parseDate(date) ?: return null
+    val (servings, name) = PlanEntryTitle.parse(title)
     return MealPlanEntry(
         id = id,
         date = day,
         type = MealType.fromApi(entryType),
-        title = title,
+        title = name,
         text = text,
         recipe = recipe?.toDomain(),
         groupId = groupId,
         userId = userId,
+        servings = servings,
     )
 }

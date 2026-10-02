@@ -219,6 +219,7 @@ object TestData {
         recipe: RecipeSummary? = summary(),
         title: String = "",
         text: String = "",
+        servings: Int = 1,
     ) = MealPlanEntry(
         id = id,
         date = date,
@@ -228,5 +229,6 @@ object TestData {
         recipe = recipe,
         groupId = "g",
         userId = "u",
+        servings = servings,
     )
 }

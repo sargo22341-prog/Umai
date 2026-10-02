@@ -13,8 +13,8 @@ class PlanCaloriesTest {
 
     private val day = LocalDate.of(2026, 9, 24)
 
-    private fun entry(id: Int, recipe: RecipeSummary? = null, title: String = "", text: String = "") =
-        MealPlanEntry(id, day, MealType.SNACK, title, text, recipe, "g", "u")
+    private fun entry(id: Int, recipe: RecipeSummary? = null, title: String = "", text: String = "", servings: Int = 1) =
+        MealPlanEntry(id, day, MealType.SNACK, title, text, recipe, "g", "u", servings)
 
     @Test
     fun `the calories of a note are the number written before kcal`() {
@@ -48,6 +48,15 @@ class PlanCaloriesTest {
         assertNull(PlanCalories.ofEntry(recipe, mapOf("r1" to null)))
         assertEquals(139, PlanCalories.ofEntry(entry(2, title = "Cola", text = "139 kcal · 330 ml"), known))
         assertEquals(80, PlanCalories.ofEntry(entry(3, title = "Yaourt 80 kcal"), known))
+    }
+
+    @Test
+    fun `every serving eaten counts`() {
+        val known = mapOf("r1" to 520)
+
+        assertEquals(1040, PlanCalories.ofEntry(entry(1, recipe = summary("r1"), servings = 2), known))
+        assertEquals(6, PlanCalories.ofEntry(entry(2, title = "Café", text = "2 kcal · 1 tasse", servings = 3), known))
+        assertNull(PlanCalories.ofEntry(entry(3, title = "Restaurant", servings = 2), known))
     }
 
     @Test

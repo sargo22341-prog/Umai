@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -59,6 +60,7 @@ internal fun DayColumn(
     onAdd: () -> Unit,
     onRecipeClick: (String) -> Unit,
     onDelete: (MealPlanEntry) -> Unit,
+    onEdit: (MealPlanEntry) -> Unit,
     entryDetails: (MealPlanEntry) -> EntryDetails,
     modifier: Modifier = Modifier,
 ) {
@@ -95,6 +97,7 @@ internal fun DayColumn(
                         details = entryDetails(sorted[index]),
                         onClick = onRecipeClick,
                         onDelete = { onDelete(sorted[index]) },
+                        onEdit = { onEdit(sorted[index]) },
                     )
                 }
             }
@@ -154,6 +157,7 @@ private fun MealEntryCard(
     details: EntryDetails,
     onClick: (String) -> Unit,
     onDelete: () -> Unit,
+    onEdit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val recipe = entry.recipe
@@ -174,17 +178,27 @@ private fun MealEntryCard(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
-                IconButton(onClick = onDelete, modifier = Modifier.heightIn(max = 28.dp)) {
-                    Icon(
-                        imageVector = Icons.Outlined.Delete,
-                        contentDescription = stringResource(R.string.planning_delete_entry),
-                        modifier = Modifier.height(18.dp),
-                    )
+                Row {
+                    IconButton(onClick = onEdit, modifier = Modifier.heightIn(max = 28.dp)) {
+                        Icon(
+                            imageVector = Icons.Outlined.Edit,
+                            contentDescription = stringResource(R.string.planning_edit_servings),
+                            modifier = Modifier.height(18.dp),
+                        )
+                    }
+                    IconButton(onClick = onDelete, modifier = Modifier.heightIn(max = 28.dp)) {
+                        Icon(
+                            imageVector = Icons.Outlined.Delete,
+                            contentDescription = stringResource(R.string.planning_delete_entry),
+                            modifier = Modifier.height(18.dp),
+                        )
+                    }
                 }
             }
             if (recipe != null || details.imageUrl != null) EntryPicture(entry, details.imageUrl)
+            val title = entry.displayTitle.ifBlank { stringResource(R.string.planning_empty_day) }
             Text(
-                text = entry.displayTitle.ifBlank { stringResource(R.string.planning_empty_day) },
+                text = if (entry.servings == 1) title else stringResource(R.string.planning_entry_servings, entry.servings, title),
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,

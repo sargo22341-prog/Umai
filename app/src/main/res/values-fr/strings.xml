@@ -187,6 +187,8 @@
     <string name="planning_or_note">Ou écrire une note</string>
     <string name="planning_note_placeholder">Restes, restaurant, à emporter…</string>
     <string name="planning_delete_entry">Retirer du planning</string>
+    <string name="planning_edit_servings">Modifier les portions</string>
+    <string name="planning_entry_servings">%1$d × %2$s</string>
     <string name="planning_previous_week">Semaine précédente</string>
     <string name="planning_next_week">Semaine suivante</string>
     <string name="planning_back_to_today">Revenir à aujourd’hui</string>

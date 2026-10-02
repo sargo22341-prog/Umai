@@ -13,9 +13,10 @@ data class DayCalories(val total: Int, val unknown: Int) {
 }
 
 /**
- * Counts the calories of the plan, one serving per entry: Mealie's nutrition
- * is written for one serving of a recipe, and a food added to the plan carries
- * the calories of the quantity eaten in its note (see [FoodNote]).
+ * Counts the calories of the plan: Mealie's nutrition is written for one
+ * serving of a recipe, and a food added to the plan carries the calories of
+ * one portion in its note (see [FoodNote]). Both count as many times as the
+ * entry has servings.
  */
 object PlanCalories {
 
@@ -37,12 +38,14 @@ object PlanCalories {
     fun ofTags(recipe: RecipeSummary): Int? = recipe.tags.firstNotNullOfOrNull { CalorieTags.valueOf(it.slug) }
 
     /**
-     * The calories of [entry]: a recipe's are looked up in [recipeCalories], by
-     * recipe id; a note's are read in its text, or else in its title.
+     * The calories of [entry], all its servings counted: a recipe's are looked
+     * up in [recipeCalories], by recipe id; a note's are read in its text, or
+     * else in its title.
      */
     fun ofEntry(entry: MealPlanEntry, recipeCalories: Map<String, Int?>): Int? {
         val recipe = entry.recipe
-        return if (recipe != null) recipeCalories[recipe.id] else ofNote(entry.text) ?: ofNote(entry.title)
+        val serving = if (recipe != null) recipeCalories[recipe.id] else ofNote(entry.text) ?: ofNote(entry.title)
+        return serving?.let { it * entry.servings }
     }
 
     fun ofDay(entries: List<MealPlanEntry>, recipeCalories: Map<String, Int?>): DayCalories {

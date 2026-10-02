@@ -153,6 +153,41 @@ class MealPlanRepositoryTest {
     }
 
     @Test
+    fun `the servings of an entry lead its title in Mealie`() = runTest {
+        fake.enqueueJson(
+            """{"id":2,"date":"2026-09-22","entryType":"snack","title":"3 × Café","text":"2 kcal",
+                "groupId":"g","userId":"u"}""",
+        )
+        val coffee = MealPlanEntry(
+            id = 2,
+            date = LocalDate.of(2026, 9, 22),
+            type = MealType.SNACK,
+            title = "Café",
+            text = "2 kcal",
+            recipe = null,
+            groupId = "g",
+            userId = "u",
+            servings = 3,
+        )
+
+        val updated = (repository.update(coffee) as ApiResult.Success).value
+
+        val request = fake.takeRequest()
+        assertEquals("PUT", request.method)
+        assertEquals("/api/households/mealplans/2", request.url.encodedPath)
+        assertTrue(request.body?.utf8().orEmpty().contains(""""title":"3 × Café""""))
+        assertEquals(3, updated.servings)
+        assertEquals("Café", updated.displayTitle)
+    }
+
+    @Test
+    fun `an entry read without a count is one serving`() = runTest {
+        fake.enqueueJson(PAGE)
+        val entries = (repository.entries(LocalDate.now(), LocalDate.now()) as ApiResult.Success).value
+        assertTrue(entries.all { it.servings == 1 })
+    }
+
+    @Test
     fun `the first day of the week is read from the household preferences`() = runTest {
         // Mealie numbers the days from Sunday: 0 is Sunday, not an out-of-range Monday.
         fake.enqueueJson(PREFERENCES_FROM_SUNDAY)

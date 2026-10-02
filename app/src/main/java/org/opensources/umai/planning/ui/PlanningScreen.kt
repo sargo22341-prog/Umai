@@ -99,6 +99,7 @@ fun PlanningRoute(
             AddMealActions(onSearchRecipe = onSearchRecipe, onAddNote = viewModel::addNote, onAddFood = onAddFood)
         },
         onDeleteEntry = viewModel::deleteEntry,
+        onChangeServings = viewModel::setServings,
         recipeImageUrl = recipeImageUrl,
         onAddToShopping = { weekShopping.open(state.days.flatMap { state.entriesByDay[it].orEmpty() }) },
         modifier = modifier,
@@ -181,10 +182,23 @@ fun PlanningScreen(
     modifier: Modifier = Modifier,
     onAddToShopping: () -> Unit = {},
     onAutoPlan: () -> Unit = {},
+    onChangeServings: (MealPlanEntry, Int) -> Unit = { _, _ -> },
 ) {
     var sheetTarget by remember { mutableStateOf<LocalDate?>(null) }
     sheetTarget?.let { date ->
         AddMealSheet(date = date, actions = addMealActions, onDismiss = { sheetTarget = null })
+    }
+    var editTarget by remember { mutableStateOf<MealPlanEntry?>(null) }
+    editTarget?.let { entry ->
+        ServingsDialog(
+            entry = entry,
+            servingCalories = state.caloriesOf(entry)?.let { it / entry.servings },
+            onConfirm = { servings ->
+                onChangeServings(entry, servings)
+                editTarget = null
+            },
+            onDismiss = { editTarget = null },
+        )
     }
     Scaffold(
         modifier = modifier,
@@ -212,6 +226,7 @@ fun PlanningScreen(
                         onAdd = { sheetTarget = it },
                         onRecipeClick = onRecipeClick,
                         onDeleteEntry = onDeleteEntry,
+                        onEditEntry = { editTarget = it },
                         recipeImageUrl = recipeImageUrl,
                     )
                 }
@@ -276,6 +291,7 @@ private fun WeekRow(
     onAdd: (LocalDate) -> Unit,
     onRecipeClick: (String) -> Unit,
     onDeleteEntry: (MealPlanEntry) -> Unit,
+    onEditEntry: (MealPlanEntry) -> Unit,
     recipeImageUrl: (RecipeSummary) -> String?,
 ) {
     val days = state.days
@@ -312,6 +328,7 @@ private fun WeekRow(
             onAdd = { onAdd(day) },
             onRecipeClick = onRecipeClick,
             onDelete = onDeleteEntry,
+            onEdit = onEditEntry,
             entryDetails = { entry ->
                 EntryDetails(
                     calories = state.caloriesOf(entry),

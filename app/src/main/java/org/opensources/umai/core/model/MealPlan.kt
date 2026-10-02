@@ -30,7 +30,13 @@ data class MealPlanEntry(
     val recipe: RecipeSummary?,
     val groupId: String?,
     val userId: String?,
+    /** How many servings of the recipe, or portions of the food, were eaten. */
+    val servings: Int = 1,
 ) {
+    init {
+        require(servings >= 1) { "A plan entry has at least one serving" }
+    }
+
     /** A plan entry is either a recipe reference or a free-text note. */
     val displayTitle: String get() = recipe?.name ?: title.ifBlank { text }
 }

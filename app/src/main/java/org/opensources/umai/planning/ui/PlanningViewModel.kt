@@ -196,6 +196,11 @@ class PlanningViewModel(
             )
         }
 
+    /** Two servings of a dish instead of one, one more coffee: the calories follow. */
+    fun setServings(entry: MealPlanEntry, servings: Int) = mutate {
+        mealPlanRepository.update(entry.copy(servings = servings))
+    }
+
     fun deleteEntry(entry: MealPlanEntry) = mutate {
         mealPlanRepository.delete(entry.id).also { if (it is ApiResult.Success) photos.delete(entry) }
     }

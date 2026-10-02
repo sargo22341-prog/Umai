@@ -71,6 +71,7 @@ class PlanningScreenTest {
         onSearchRecipe: (LocalDate, MealType, Float) -> Unit = { _, _, _ -> },
         onAddNote: (LocalDate, MealType, String) -> Unit = { _, _, _ -> },
         onAddFood: (LocalDate) -> Unit = {},
+        onChangeServings: (MealPlanEntry, Int) -> Unit = { _, _ -> },
     ) {
         rule.setContent {
             UmaiTheme {
@@ -89,6 +90,7 @@ class PlanningScreenTest {
                     ),
                     onDeleteEntry = onDeleteEntry,
                     recipeImageUrl = { null },
+                    onChangeServings = onChangeServings,
                 )
             }
         }
@@ -170,6 +172,32 @@ class PlanningScreenTest {
         rule.onNodeWithContentDescription(string(R.string.planning_delete_entry)).performClick()
 
         assertTrue(deleted?.id == entry.id)
+    }
+
+    @Test
+    fun oneMoreCoffeeIsCountedAndSaved() {
+        var saved: Pair<Int, Int>? = null
+        val coffee = TestData.planEntry(
+            id = 2,
+            date = today,
+            type = MealType.SNACK,
+            recipe = null,
+            title = "Café",
+            text = "2 kcal · 1 tasse",
+            servings = 2,
+        )
+        render(state(entries = mapOf(today to listOf(coffee))), onChangeServings = { entry, servings -> saved = entry.id to servings })
+
+        rule.onNodeWithText(string(R.string.planning_entry_servings, 2, "Café")).assertIsDisplayed()
+        rule.onAllNodesWithText(string(R.string.planning_calories, 4)).onFirst().assertExists()
+
+        rule.onNodeWithContentDescription(string(R.string.planning_edit_servings)).performClick()
+        rule.onNodeWithContentDescription(string(R.string.servings_increase)).performClick()
+        rule.onNodeWithText(context.resources.getQuantityString(R.plurals.plural_servings, 3, 3)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.planning_calories, 6)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.edit_save)).performClick()
+
+        assertEquals(2 to 3, saved)
     }
 
     @Test

@@ -187,6 +187,32 @@ class PlanningViewModelTest {
     }
 
     @Test
+    fun `one more cola is saved in Mealie and counted in the day`() = runBlocking {
+        fake.enqueueJson(preferences(firstDayOfWeek = 1))
+        fake.enqueueJson(PLAN)
+        fake.enqueueJson("""{"id":"r2","slug":"tarte","name":"Tarte","nutrition":{"calories":"380 kcal"}}""")
+        val vm = viewModel()
+        val state = withTimeout(TIMEOUT_MS) { vm.state.first { !it.loading && !it.loadingCalories } }
+        repeat(3) { fake.takeRequest() }
+
+        fake.enqueueJson("""{"id":2,"date":"2026-09-24","entryType":"snack","title":"2 × Cola","text":"139 kcal · 330 ml",
+            "groupId":"g","userId":"u"}""")
+        fake.enqueueJson(PLAN.replace(""""title":"Cola"""", """"title":"2 × Cola""""))
+        vm.setServings(state.entriesByDay.getValue(today).first { it.id == 2 }, 2)
+        val updated = withTimeout(TIMEOUT_MS) {
+            vm.state.first { s -> !s.mutating && !s.loading && s.entriesByDay[today].orEmpty().any { it.servings == 2 } }
+        }
+
+        val put = fake.takeRequest()
+        assertEquals("PUT", put.method)
+        assertTrue(put.body?.utf8().orEmpty().contains(""""title":"2 × Cola""""))
+        val cola = updated.entriesByDay.getValue(today).first { it.id == 2 }
+        assertEquals("Cola", cola.displayTitle)
+        assertEquals(278, updated.caloriesOf(cola))
+        assertEquals(DayCalories(total = 450 + 278 + 380, unknown = 1), updated.calories(today))
+    }
+
+    @Test
     fun `without the preference, the week keeps starting on Monday`() = runBlocking {
         fake.enqueueError(500)
         fake.enqueueJson(EMPTY_PLAN)
