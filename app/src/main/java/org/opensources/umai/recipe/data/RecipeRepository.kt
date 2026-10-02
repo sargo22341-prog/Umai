@@ -135,11 +135,13 @@ class RecipeRepository(
     /**
      * Rates the recipe for the signed-in user. Mealie stores the rating and the
      * favourite flag on the same row, so the current flag is sent along with it
-     * rather than left for the server to guess.
+     * rather than left for the server to guess. `null` [stars] removes the
+     * rating: Mealie keeps the old value when sent `null`, but stores 0 and
+     * leaves ratings of 0 out of the household average.
      */
-    suspend fun setRating(slug: String, stars: Int, isFavorite: Boolean): ApiResult<Unit> {
+    suspend fun setRating(slug: String, stars: Int?, isFavorite: Boolean): ApiResult<Unit> {
         val userId = currentUserId() ?: return ApiResult.Failure(NetworkError.Unauthorized)
-        val rating = stars.coerceIn(1, MAX_RATING_STARS).toDouble()
+        val rating = stars?.coerceIn(1, MAX_RATING_STARS)?.toDouble() ?: NO_RATING
         return apiProvider.call { setRating(userId, slug, UserRatingUpdateDto(rating, isFavorite)) }
     }
 
@@ -158,6 +160,7 @@ class RecipeRepository(
 
     companion object {
         const val DEFAULT_PAGE_SIZE = 24
+        private const val NO_RATING = 0.0
 
         /** An `OrderByNullPosition` value of the OpenAPI schema. */
         private const val NULLS_LAST = "last"

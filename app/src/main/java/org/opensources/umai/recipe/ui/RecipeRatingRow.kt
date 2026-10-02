@@ -55,6 +55,7 @@ import kotlin.math.sin
  *
  * The stars show the reader's own rating in the accent colour, or the average
  * of the household in a quieter tone until they rate the recipe themselves.
+ * Tapping the last star of their own rating removes it.
  */
 @Composable
 internal fun RecipeRatingRow(
@@ -109,9 +110,14 @@ private fun RatingStars(rating: Int, ratingIsOwn: Boolean, onRate: (Int) -> Unit
                 filled = star <= rating,
                 own = ratingIsOwn,
                 turn = if (star > rating) from - star else star - 1 - from,
-                contentDescription = pluralStringResource(R.plurals.recipe_rate, star, star),
+                contentDescription = if (ratingIsOwn && star == rating) {
+                    stringResource(R.string.recipe_rating_clear)
+                } else {
+                    pluralStringResource(R.plurals.recipe_rate, star, star)
+                },
                 onClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                    val clears = ratingIsOwn && star == rating
+                    haptics.performHapticFeedback(if (clears) HapticFeedbackType.ToggleOff else HapticFeedbackType.Confirm)
                     onRate(star)
                 },
             )

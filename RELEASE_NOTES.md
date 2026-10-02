@@ -13,3 +13,4 @@ liste des commits. Détails : [docs/release.md](docs/release.md).
 - Minuteurs : la notification devient une Live Update, avec une barre de progression et le décompte dans la barre d’état.
 - Animations : la recherche et la création de recette se déplient depuis leur bouton, les cartes s’enfoncent sous le doigt, les listes apparaissent en cascade et le chargement montre le contour de l’écran.
 - Animations : article de courses barré au fil du trait, portions et calories qui défilent, cœur et étoiles animés, étapes du mode cuisine en parallaxe et minuteur qui bat ses dix dernières secondes, avec retours haptiques.
+- Recette : un nouvel appui sur l’étoile de sa propre note retire la note.

@@ -185,7 +185,10 @@ class RecipeDetailViewModel(
         }
     }
 
-    /** Optimistic, like the favourite: the stars move at once and come back on failure. */
+    /**
+     * Optimistic, like the favourite: the stars move at once and come back on
+     * failure. Tapping the star of the reader's own rating takes it back.
+     */
     fun setRating(stars: Int) {
         val recipe = _state.value.recipe ?: return
         if (!_state.value.favoritesSupported) {
@@ -193,8 +196,7 @@ class RecipeDetailViewModel(
             return
         }
         val previous = _state.value.ownRating
-        val target = stars.coerceIn(1, MAX_RATING_STARS)
-        if (target == previous) return
+        val target = stars.coerceIn(1, MAX_RATING_STARS).takeIf { it != previous }
         _state.update { it.copy(ownRating = target) }
         viewModelScope.launch {
             val result = recipeRepository.setRating(recipe.slug, target, _state.value.isFavorite)

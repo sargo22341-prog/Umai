@@ -385,6 +385,7 @@
     <string name="recipe_edit">Edit the recipe</string>
     <string name="recipe_rating_needs_account">Rating a recipe needs a user account; an API token alone is not enough.</string>
     <string name="recipe_rating_none">Not rated yet</string>
+    <string name="recipe_rating_clear">Remove your rating</string>
     <string name="settings_section_recipe_page">Recipe page</string>
     <string name="settings_recipe_times">Times</string>
     <string name="settings_recipe_times_summary">Preparation, cooking and total times</string>

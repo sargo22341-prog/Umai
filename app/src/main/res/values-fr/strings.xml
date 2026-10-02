@@ -385,6 +385,7 @@
     <string name="recipe_edit">Modifier la recette</string>
     <string name="recipe_rating_needs_account">Noter une recette nécessite un compte utilisateur ; un jeton d’API seul ne suffit pas.</string>
     <string name="recipe_rating_none">Pas encore notée</string>
+    <string name="recipe_rating_clear">Retirer votre note</string>
     <string name="settings_section_recipe_page">Page recette</string>
     <string name="settings_recipe_times">Durées</string>
     <string name="settings_recipe_times_summary">Temps de préparation, de cuisson et total</string>

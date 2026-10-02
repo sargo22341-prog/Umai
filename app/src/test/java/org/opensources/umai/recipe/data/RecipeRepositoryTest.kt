@@ -284,6 +284,18 @@ class RecipeRepositoryTest {
     }
 
     @Test
+    fun `removing a rating sends zero, which Mealie leaves out of the average`() = runTest {
+        fake.enqueueJson("null")
+
+        val result = repository.setRating("poulet-au-curry", stars = null, isFavorite = false)
+
+        assertTrue(result is ApiResult.Success)
+        val body = fake.takeRequest().body?.utf8().orEmpty()
+        assertTrue(body.contains(""""rating":0.0"""))
+        assertTrue(body.contains(""""isFavorite":false"""))
+    }
+
+    @Test
     fun `a rating cannot be given without a user id`() = runTest {
         val tokenOnly = RecipeRepository(apiProvider = { fake.api() }, currentUserId = { null })
 
