@@ -45,6 +45,7 @@ import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.ui.component.message
 import org.opensources.umai.core.ui.component.title
 import org.opensources.umai.planning.domain.FoodNoteLabels
+import org.opensources.umai.planning.domain.FoodSuggestion
 import org.opensources.umai.planning.domain.FoodUnit
 import org.opensources.umai.planning.domain.Nutrient
 import org.opensources.umai.recipe.ui.ErrorBanner
@@ -57,6 +58,11 @@ class FoodEntryActions(
     val onNext: () -> Unit,
     val onAdd: () -> Unit,
     val onModeChange: (FoodEntryMode) -> Unit,
+    val onDescriptionChange: (String) -> Unit,
+    val onSuggestionChosen: (FoodSuggestion) -> Unit,
+    val onEstimate: () -> Unit,
+    val onCancelEstimate: () -> Unit,
+    val onClearEstimate: () -> Unit,
     val onBarcodeChange: (String) -> Unit,
     val onBarcodeScanned: (code: String) -> Unit,
     val onBarcodePicked: (sourceUri: String) -> Unit,
@@ -77,8 +83,9 @@ class FoodEntryActions(
 
 /**
  * Adds a food to one day of the plan in three stages, as a recipe is written:
- * the product, found by its barcode or described by hand, its nutrition facts,
- * the portion eaten. The back gesture goes one stage back, then leaves.
+ * the product, found by what was typed or by its barcode, or described by
+ * hand; its nutrition facts; the portion eaten. The back gesture goes one
+ * stage back, then leaves.
  */
 @Composable
 fun FoodEntryRoute(
@@ -108,6 +115,11 @@ fun FoodEntryRoute(
             onNext = viewModel::next,
             onAdd = { viewModel.save(labels) },
             onModeChange = viewModel::setMode,
+            onDescriptionChange = viewModel::setDescription,
+            onSuggestionChosen = viewModel::chooseSuggestion,
+            onEstimate = viewModel::estimateDescription,
+            onCancelEstimate = viewModel::cancelEstimate,
+            onClearEstimate = viewModel::clearEstimate,
             onBarcodeChange = viewModel::setBarcode,
             onBarcodeScanned = viewModel::barcodeScanned,
             onBarcodePicked = viewModel::readBarcodePicture,
@@ -135,7 +147,8 @@ fun FoodEntryRoute(
 private fun rememberFoodNoteLabels(): FoodNoteLabels {
     val locale = currentLocale()
     val names = Nutrient.entries.associateWith { stringResource(it.labelRes()) }
-    return remember(locale, names) { FoodNoteLabels(locale, names) }
+    val estimated = stringResource(R.string.food_note_estimated)
+    return remember(locale, names, estimated) { FoodNoteLabels(locale, names, estimated) }
 }
 
 /** Stateless form, driven by [FoodEntryUiState]. */

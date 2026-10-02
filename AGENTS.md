@@ -103,6 +103,7 @@ Avant de coder : lire ce fichier, parcourir le dépôt, et consulter `.context/`
 | IA locale | LiteRT-LM (TPU Tensor → CPU → GPU, derrière `AiEngine`), modèles `.litertlm` téléchargés à part |
 | Transcription | whisper.cpp (CPU, JNI, compilé depuis ses sources par CMake), modèles `ggml` téléchargés à part |
 | Codes-barres | CameraX (aperçu en direct, zone du cadre de visée) + ZXing core ; produits cherchés dans Open Food Facts (client « sites externes ») |
+| Aliments de base | Table Ciqual (Anses, Licence Ouverte 2.0) en `assets/ciqual.tsv`, régénérée par `scripts/ciqual-table.py`, + noms usuels et portions en `assets/basic_foods.tsv` |
 | Stockage | DataStore Preferences + Android Keystore |
 | Injection | `AppContainer` écrit à la main (§4) |
 
@@ -292,7 +293,9 @@ filtres, images, planning, listes de courses, préférences, organizers
 * Mealie reste la source de vérité. Ne jamais dupliquer côté app une fonctionnalité
   déjà offerte par le serveur.
 * Les seules données locales admises sont celles que Mealie **ne stocke pas** :
-  préférences d'affichage, langue, session, historique de consultation.
+  préférences d'affichage, langue, session, historique de consultation. La table Ciqual des
+  aliments de base est une donnée de référence en lecture seule, livrée avec l'app : Mealie n'a
+  aucune valeur nutritionnelle sur ses aliments.
 * `core/network/api/MealieApi.kt` est écrit d'après l'OpenAPI. Toute signature
   ajoutée doit être vérifiable dans `.context/Mealie/openapi.json`.
 

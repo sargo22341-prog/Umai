@@ -31,8 +31,12 @@ import org.opensources.umai.llm.domain.LlmRequest
 import org.opensources.umai.planning.data.FakePlanPhotos
 import org.opensources.umai.planning.data.MealPlanRepository
 import org.opensources.umai.planning.data.OpenFoodFactsRepository
+import org.opensources.umai.planning.domain.FoodDescriptions
 import org.opensources.umai.planning.domain.FoodNoteLabels
+import org.opensources.umai.planning.domain.FoodTable
+import org.opensources.umai.planning.domain.FoodTableFixtures
 import org.opensources.umai.planning.domain.FoodUnit
+import org.opensources.umai.planning.domain.ModelFoodEstimator
 import org.opensources.umai.planning.domain.NutritionLabelReader
 import org.opensources.umai.planning.domain.Nutrient
 import java.time.LocalDate
@@ -47,6 +51,7 @@ class FoodEntryViewModelTest {
     private val labels = FoodNoteLabels(
         locale = Locale.FRENCH,
         nutrients = mapOf(Nutrient.CARBOHYDRATES to "Glucides", Nutrient.SUGARS to "Sucres"),
+        estimated = "Estimation de l’IA locale",
     )
 
     private class Model(private val ready: Boolean, private val outcome: LlmOutcome) : LanguageModel {
@@ -73,6 +78,7 @@ class FoodEntryViewModelTest {
         picture: ByteArray? = byteArrayOf(1, 2, 3),
         scanned: String? = "3560070565313",
         downloaded: EncodedImage? = PRODUCT_PHOTO,
+        table: FoodTable? = FoodTableFixtures.table,
     ) = FoodEntryViewModel(
         date = day,
         mealPlanRepository = MealPlanRepository { fake.api() },
@@ -87,6 +93,12 @@ class FoodEntryViewModelTest {
             baseUrl = fake.baseUrl,
         ),
         photoDownloader = { downloaded },
+        descriptions = FoodDescriptions(
+            table = { table },
+            model = ModelFoodEstimator(model),
+            language = "fr",
+            decimalSeparator = ',',
+        ),
         decimalSeparator = ',',
     )
 
@@ -340,6 +352,109 @@ class FoodEntryViewModelTest {
     }
 
     @Test
+    fun `the foods typed are offered once the user pauses, and one chosen fills the form`() = runBlocking {
+        val vm = viewModel()
+
+        vm.setDescription("2 pommes")
+        val offered = vm.await { it.suggestions.isNotEmpty() }
+        vm.chooseSuggestion(offered.suggestions.first())
+        val state = vm.state.value
+
+        assertEquals("2 × Pomme", state.name)
+        assertEquals(FoodEntryMode.AUTO, state.mode)
+        assertTrue(state.showsProductForm)
+        assertFalse(state.showsSearch)
+        assertFalse(state.isModelEstimate)
+        assertEquals("54", state.values[Nutrient.ENERGY])
+        assertEquals("11,6", state.values[Nutrient.CARBOHYDRATES])
+        assertEquals("300", state.quantity)
+        assertEquals(162, state.calories)
+        assertTrue(state.suggestions.isEmpty())
+    }
+
+    @Test
+    fun `several basic foods typed become one food of the plan`() = runBlocking {
+        val vm = viewModel()
+        vm.setDescription("2 pommes, 1 café")
+
+        vm.estimateDescription()
+        val state = vm.await { it.estimate != null }
+
+        assertEquals("2 pommes, 1 café", state.name.lowercase())
+        assertEquals(2, state.estimate!!.items.size)
+        assertEquals(FoodUnit.GRAM, state.unit)
+        assertEquals("450", state.quantity)
+        // 162 kcal of apples and 9 of coffee.
+        assertEquals(171, state.calories)
+        assertTrue(state.canGoOn)
+    }
+
+    @Test
+    fun `a meal the table lacks is estimated by the model, and the note says so`() = runBlocking {
+        val model = Model(ready = true, outcome = LlmOutcome.Success(MEAL))
+        fake.enqueueJson(CREATED)
+        val vm = viewModel(model = model)
+        vm.await { it.canAskModel }
+        vm.setDescription("1 pizza saumon raviole")
+
+        vm.estimateDescription()
+        val state = vm.await { it.estimate != null }
+        assertTrue(state.isModelEstimate)
+        assertEquals("1 pizza saumon raviole", state.name.lowercase())
+        assertEquals("450", state.quantity)
+        vm.save(labels)
+        vm.await { it.added != null }
+
+        val body = Json.parseToJsonElement(fake.takeRequest().body!!.utf8()).jsonObject
+        assertEquals("1012 kcal · 450 g\nEstimation de l’IA locale", body["text"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `without a model a food the table lacks is described by hand`() = runBlocking {
+        val vm = viewModel(model = Model(ready = false, outcome = LlmOutcome.Failure(LlmFailure.NOT_READY)))
+        vm.setDescription("pizza saumon raviole")
+
+        vm.estimateDescription()
+        val state = vm.await { !it.estimating && it.descriptionIssue != null }
+
+        assertEquals(DescriptionIssue.NOT_FOUND, state.descriptionIssue)
+        assertEquals(FoodEntryMode.MANUAL, state.mode)
+        assertEquals("Pizza saumon raviole", state.name)
+        assertNull(state.estimate)
+    }
+
+    @Test
+    fun `a table that cannot be read, or a model that fails, says why`() = runBlocking {
+        val unreadable = viewModel(table = null)
+        unreadable.setDescription("pomme")
+        unreadable.estimateDescription()
+        assertEquals(DescriptionIssue.TABLE_UNREADABLE, unreadable.await { !it.estimating }.descriptionIssue)
+
+        val failing = viewModel(model = Model(ready = true, outcome = LlmOutcome.Failure(LlmFailure.LOAD_FAILED)))
+        failing.setDescription("pizza saumon raviole")
+        failing.estimateDescription()
+        val state = failing.await { !it.estimating }
+        assertEquals(DescriptionIssue.MODEL_FAILED, state.descriptionIssue)
+        assertEquals(FoodEntryMode.AUTO, state.mode)
+    }
+
+    @Test
+    fun `another food can be searched after an estimate`() = runBlocking {
+        val vm = viewModel()
+        vm.setDescription("1 pomme")
+        vm.estimateDescription()
+        vm.await { it.estimate != null }
+
+        vm.clearEstimate()
+        val state = vm.state.value
+
+        assertNull(state.estimate)
+        assertTrue(state.showsSearch)
+        assertEquals("", state.name)
+        assertTrue(state.values.isEmpty())
+    }
+
+    @Test
     fun `a photo removed or replaced is discarded`() {
         val photos = FakePlanPhotos()
         val vm = viewModel(photos = photos)
@@ -370,6 +485,11 @@ class FoodEntryViewModelTest {
               "product_name":"CLASSIC' Jambon Beurre","serving_quantity":125,"serving_quantity_unit":"g",
               "image_front_url":"https://images.example/front.jpg",
               "nutriments":{"energy-kcal_100g":238,"fat_100g":10,"saturated-fat_100g":4.7}}}
+        """
+
+        /** 300 g of a pizza the table lacks, and smoked salmon it has: 201 kcal per 100 g. */
+        const val MEAL = """
+            {"foods":[{"name":"pizza raviole","grams":300,"kcal":710},{"name":"saumon fumé","grams":150,"kcal":250}]}
         """
 
         const val CREATED = """

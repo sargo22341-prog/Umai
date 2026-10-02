@@ -58,8 +58,11 @@ Fonctionnalités principales :
   choisis pour partager leurs ingrédients, dans le respect des règles de planning de Mealie ; les
   **calories de chaque jour**, une portion par recette, et les **produits** pris à côté (un snack,
   une boisson) : par défaut, le code-barres est scanné et le produit, ses valeurs nutritionnelles
-  et sa photo viennent d'[Open Food Facts](https://fr.openfoodfacts.org) ; sinon, à la main, avec
-  l'étiquette nutritionnelle photographiée et lue par l'IA locale (ou saisie) ;
+  et sa photo viennent d'[Open Food Facts](https://fr.openfoodfacts.org) ; ou ce que l'on a mangé
+  s'écrit comme on le dit (« 2 pommes, 1 café »), ses calories tirées de la table
+  [Ciqual](https://ciqual.anses.fr) embarquée dans l'application, et un plat qu'elle n'a pas est
+  estimé par l'IA locale ; sinon, à la main, avec l'étiquette nutritionnelle photographiée et lue
+  par l'IA locale (ou saisie) ;
 - **listes de courses** : plusieurs listes, articles regroupés par étiquette, envoi des ingrédients
   d'une recette vers une liste (ajustés aux portions choisies), et un **mode courses** aux grandes
   lignes cochées d'un seul appui ;
@@ -193,6 +196,8 @@ avec la GPLv3 (Apache 2.0, MIT, BSD, MPL 2.0). Les codes-barres sont lus en dire
 par l'appareil photo avec [CameraX](https://developer.android.com/media/camera/camerax) et
 [ZXing](https://github.com/zxing/zxing) (Apache 2.0), et les produits cherchés dans
 [Open Food Facts](https://fr.openfoodfacts.org), dont les données sont sous Open Database License.
+Les aliments de base viennent de la table [Ciqual](https://ciqual.anses.fr) de l'Anses (2025), sous
+Licence Ouverte Etalab 2.0.
 
 umai est un projet indépendant, sans lien avec Mealie. Les recettes visibles sur les captures
 appartiennent à leurs auteurs respectifs.

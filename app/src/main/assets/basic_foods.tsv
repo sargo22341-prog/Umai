@@ -1,0 +1,126 @@
+code	serving	unit	names_fr	names_en
+13039	150	g	pomme	apple
+13037	150	g	poire	pear
+13005	120	g	banane	banana
+13034	150	g	orange	orange
+13024	60	g	clémentine|mandarine	clementine|mandarin|tangerine
+13021	80	g	kiwi	kiwi|kiwifruit
+13395	125	g	raisin|grappe de raisin	grapes|grape
+13014	125	g	fraises|fraise	strawberries|strawberry
+13000	40	g	abricot	apricot
+13043	150	g	pêche|nectarine	peach|nectarine
+13025	200	g	mangue	mango
+13002	150	g	ananas	pineapple
+13008	125	g	cerises|cerise	cherries|cherry
+13100	40	g	prune	plum
+13026	200	g	melon	melon
+13036	250	g	pastèque	watermelon
+13028	125	g	myrtilles|myrtille	blueberries|blueberry
+13015	125	g	framboises|framboise	raspberries|raspberry
+13012	50	g	figue	fig
+13004	100	g	avocat	avocado
+13011	8	g	datte	date
+13046	30	g	raisins secs	raisins
+13134	150	g	salade de fruits	fruit salad
+13185	100	g	compote	compote|fruit compote
+13038	100	g	compote de pomme	apple sauce|apple compote
+18004	150	ml	café|café noir|café sans sucre|café filtre	coffee|black coffee|filter coffee
+18071	40	ml	expresso|espresso|café serré	espresso
+18070	150	ml	café décaféiné|déca	decaf|decaf coffee|decaffeinated coffee
+18151	200	ml	café au lait|café crème|cappuccino|crème	white coffee|coffee with milk|cappuccino|latte
+18020	250	ml	thé|thé sans sucre|thé nature	tea|unsweetened tea
+18155	250	ml	thé vert	green tea
+18154	250	ml	thé noir	black tea
+18022	250	ml	tisane|infusion	herbal tea|infusion
+18104	250	ml	chocolat chaud	hot chocolate|cocoa
+18044	250	ml	eau|verre d'eau	water|glass of water
+19033	250	ml	lait|lait demi-écrémé	milk|semi-skimmed milk
+19016	250	ml	lait entier	whole milk
+2070	200	ml	jus d'orange	orange juice
+2074	200	ml	jus de pomme	apple juice
+18018	330	ml	coca|cola	coke|cola
+18060	330	ml	coca zéro|coca light|cola sans sucre	diet coke|coke zero|sugar-free cola
+18026	330	ml	soda	soda|soft drink
+18010	250	ml	limonade	lemonade
+18075	330	ml	thé glacé	iced tea
+18352	250	ml	boisson énergisante	energy drink
+18017	20	ml	sirop	syrup|cordial
+18111	250	ml	lait d'amande|boisson à l'amande	almond milk
+18113	250	ml	lait de soja|boisson au soja	soy milk
+2500	250	ml	smoothie	smoothie
+5001	250	ml	bière	beer
+5214	125	ml	vin rouge|vin	red wine|wine
+5215	125	ml	vin blanc	white wine
+5216	125	ml	vin rosé|rosé	rosé|rose wine
+5207	100	ml	champagne	champagne
+5003	250	ml	cidre	cider
+22000	50	g	oeuf|œuf	egg
+7001	250	g	baguette	baguette
+7001	40	g	pain|tranche de pain|morceau de pain	bread|slice of bread
+7200	25	g	pain de mie|tranche de pain de mie	sandwich bread|white bread
+7110	40	g	pain complet	wholemeal bread|whole wheat bread
+7300	10	g	biscotte	rusk
+7603	60	g	croissant	croissant
+7730	70	g	pain au chocolat|chocolatine	pain au chocolat|chocolate croissant
+7720	90	g	pain aux raisins	raisin pastry
+7740	40	g	brioche	brioche
+23952	80	g	muffin	muffin
+24684	15	g	cookie	cookie
+24001	8	g	biscuit|petit beurre	biscuit
+24632	25	g	madeleine	madeleine
+23000	80	g	gâteau|part de gâteau	cake|slice of cake
+23800	50	g	crêpe	crepe|pancake
+7352	9	g	galette de riz	rice cake
+32003	40	g	céréales|bol de céréales	cereal|breakfast cereal
+32004	40	g	muesli	muesli
+32140	40	g	flocons d'avoine|porridge	oats|oatmeal|porridge
+31008	10	g	miel	honey
+31016	5	g	sucre|morceau de sucre	sugar|sugar cube
+30887	15	g	confiture	jam
+31032	15	g	pâte à tartiner|nutella	chocolate spread|hazelnut spread
+16400	10	g	beurre	butter
+31074	10	g	chocolat noir|carré de chocolat	dark chocolate|square of chocolate
+31004	10	g	chocolat au lait	milk chocolate
+31000	45	g	barre chocolatée	chocolate bar|candy bar
+19600	125	g	yaourt|yaourt nature|yogourt	yogurt|yoghurt|plain yogurt
+19501	100	g	fromage blanc	fromage blanc|quark
+19664	60	g	petit suisse	petit suisse
+39230	125	g	crème dessert	custard|custard dessert
+39206	60	g	mousse au chocolat	chocolate mousse
+39500	100	g	glace|crème glacée|sorbet	ice cream|sorbet
+12001	30	g	camembert	camembert
+12115	30	g	emmental	emmental|swiss cheese
+12110	30	g	comté	comte
+12805	30	g	fromage de chèvre|chèvre	goat cheese
+19590	125	g	mozzarella	mozzarella
+15000	30	g	amandes|amande	almonds|almond
+15005	30	g	noix	walnuts|walnut
+15004	30	g	noisettes|noisette	hazelnuts|hazelnut
+15002	30	g	cacahuètes|cacahuète	peanuts|peanut
+15054	30	g	noix de cajou	cashews|cashew
+15044	30	g	pistaches|pistache	pistachios|pistachio
+4004	30	g	chips	crisps|chips|potato chips
+9231	30	g	pop-corn|popcorn	popcorn
+9104	150	g	riz	rice
+9811	200	g	pâtes	pasta
+4003	150	g	pommes de terre|pomme de terre	potatoes|potato
+4030	150	g	frites	fries|french fries
+20009	80	g	carotte	carrot
+20172	15	g	tomate cerise	cherry tomato
+20019	150	g	concombre	cucumber
+20031	50	g	salade verte|laitue	lettuce|green salad
+28900	45	g	jambon|tranche de jambon	ham|slice of ham
+36005	120	g	poulet	chicken
+6200	120	g	steak	steak
+6253	100	g	steak haché	burger patty|minced beef
+26036	120	g	saumon	salmon
+26039	80	g	thon	tuna
+25992	30	g	saumon fumé|tranche de saumon fumé	smoked salmon
+25516	300	g	pizza	pizza
+25464	300	g	pizza au saumon|pizza saumon	salmon pizza
+25404	300	g	pizza margherita	margherita pizza
+25413	200	g	hamburger|burger	hamburger|burger
+25405	150	g	quiche|quiche lorraine	quiche
+25456	30	g	sushi|maki	sushi|maki
+25429	300	g	kebab	kebab|doner
+25475	250	g	sandwich	sandwich

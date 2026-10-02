@@ -4,18 +4,20 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.opensources.umai.core.di.AppContainer
 import org.opensources.umai.core.image.CropRegion
 import org.opensources.umai.core.image.PhotoDownloader
 import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.network.ApiResult
-import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.llm.domain.LlmFailure
 import org.opensources.umai.planning.data.BarcodePictures
 import org.opensources.umai.planning.data.LabelPictures
@@ -23,131 +25,32 @@ import org.opensources.umai.planning.data.MealPlanRepository
 import org.opensources.umai.planning.data.OpenFoodFactsRepository
 import org.opensources.umai.planning.data.PlanPhotos
 import org.opensources.umai.planning.domain.Barcodes
+import org.opensources.umai.planning.domain.DescriptionOutcome
+import org.opensources.umai.planning.domain.FoodDescriptions
+import org.opensources.umai.planning.domain.FoodEstimate
 import org.opensources.umai.planning.domain.FoodLookup
 import org.opensources.umai.planning.domain.FoodNote
 import org.opensources.umai.planning.domain.FoodNoteLabels
 import org.opensources.umai.planning.domain.FoodProduct
+import org.opensources.umai.planning.domain.FoodSuggestion
 import org.opensources.umai.planning.domain.FoodUnit
 import org.opensources.umai.planning.domain.LabelOutcome
-import org.opensources.umai.planning.domain.NutritionFacts
+import org.opensources.umai.planning.domain.ModelFoodEstimator
 import org.opensources.umai.planning.domain.NutritionLabelReader
-import org.opensources.umai.planning.domain.NutritionNumbers
 import org.opensources.umai.planning.domain.Nutrient
 import java.time.LocalDate
 import kotlin.math.roundToInt
 
-/** The stages of adding a food to the plan. */
-enum class FoodEntryStep { PRODUCT, NUTRITION, PORTION }
-
-/** How the product is described: found by its barcode, or typed. */
-enum class FoodEntryMode { AUTO, MANUAL }
-
-/** Why the barcode did not give the product. */
-enum class LookupIssue {
-    /** No barcode was found on the picture. */
-    UNREADABLE,
-
-    /** The digits typed are not a barcode: wrong length, or a mistyped digit. */
-    INVALID_CODE,
-
-    /** Open Food Facts does not know the product: it is typed instead. */
-    NOT_FOUND,
-
-    /** Open Food Facts knows the product, not its nutrition: the rest is typed. */
-    NO_NUTRITION,
-
-    /** Open Food Facts could not be reached. */
-    FAILED,
-}
-
-/** Why the label was not read. */
-enum class LabelIssue {
-    /** No model is installed, or the local AI is off. */
-    NO_MODEL,
-
-    /** The model installed has no vision part, or it does not load on this phone. */
-    NO_VISION,
-
-    /** The picture could not be opened. */
-    PICTURE_UNREADABLE,
-
-    /** The model saw no nutrition table. */
-    NOTHING_FOUND,
-
-    FAILED,
-}
-
-data class FoodEntryUiState(
-    val date: LocalDate,
-    val step: FoodEntryStep = FoodEntryStep.PRODUCT,
-    val mode: FoodEntryMode = FoodEntryMode.AUTO,
-    /** The barcode, as scanned or typed. */
-    val barcode: String = "",
-    /** While the barcode is read on its photo, then looked up. */
-    val searching: Boolean = false,
-    val lookupIssue: LookupIssue? = null,
-    /** The product found by its barcode, whose details fill the form. */
-    val found: FoodProduct? = null,
-    val name: String = "",
-    val mealType: MealType = MealType.SNACK,
-    /** The photo of the product, framed and kept on the phone once the food is added. */
-    val photoPath: String? = null,
-    val processingPhoto: Boolean = false,
-    val photoFailed: Boolean = false,
-    /** Whether the on-device model can be asked to read the label. */
-    val canReadLabel: Boolean = false,
-    val readingLabel: Boolean = false,
-    val labelRead: Boolean = false,
-    val labelIssue: LabelIssue? = null,
-    val unit: FoodUnit = FoodUnit.GRAM,
-    /** The values for 100 [unit], as typed or read. */
-    val values: Map<Nutrient, String> = emptyMap(),
-    /** The quantity eaten, in [unit]. */
-    val quantity: String = "",
-    val saving: Boolean = false,
-    val error: NetworkError? = null,
-    /** Set once the food is in the plan; the screen then closes. */
-    val added: FoodAdded? = null,
-) {
-    val stepNumber: Int get() = step.ordinal + 1
-    val stepCount: Int get() = FoodEntryStep.entries.size
-    val isFirstStep: Boolean get() = step == FoodEntryStep.entries.first()
-    val isLastStep: Boolean get() = step == FoodEntryStep.entries.last()
-
-    val per100: NutritionFacts
-        get() = NutritionFacts(
-            values.mapNotNull { (nutrient, text) -> NutritionNumbers.parse(text)?.let { nutrient to it } }.toMap(),
-        )
-
-    val quantityValue: Double? get() = NutritionNumbers.parse(quantity)?.takeIf { it > 0 }
-
-    /** The nutrition of the quantity eaten; empty until both are known. */
-    val portion: NutritionFacts
-        get() = quantityValue?.let { per100.scaled(it / NutritionFacts.LABEL_QUANTITY) } ?: NutritionFacts()
-
-    val calories: Int? get() = portion[Nutrient.ENERGY]?.roundToInt()
-
-    val canGoOn: Boolean get() = step != FoodEntryStep.PRODUCT || (name.isNotBlank() && !searching)
-
-    /** In automatic mode, the form waits for a product found before asking for the rest. */
-    val showsProductForm: Boolean get() = mode == FoodEntryMode.MANUAL || found != null
-
-    val busy: Boolean get() = saving || processingPhoto || readingLabel || searching
-
-    val canSave: Boolean get() = name.isNotBlank() && !busy
-}
-
-/** [photoKept] is false when the photo of the product could not be kept. */
-data class FoodAdded(val photoKept: Boolean)
-
 /**
  * Adds to the plan something eaten that is not a recipe: a snack, a drink.
  *
- * By default the product is found by its barcode, scanned or typed, in Open
- * Food Facts, which gives its name, nutrition, portion and photo; a product it
- * does not know is typed instead. Typed, the nutrition label can be
- * photographed and read by the on-device model, and its photo forgotten at
- * once. The food becomes a note of the Mealie plan, which carries the calories
+ * By default the food is typed as it was eaten, "2 pommes, 1 café", and
+ * looked up in the table of basic foods, or estimated by the on-device model
+ * when the table does not have it ([FoodDescriptions]). A product is found
+ * instead by its barcode, scanned or typed, in Open Food Facts, which gives
+ * its name, nutrition, portion and photo; a product it does not know is typed
+ * instead. Typed, the nutrition label can be photographed and read by the
+ * on-device model, and its photo forgotten at once. The food becomes a note of the Mealie plan, which carries the calories
  * of the quantity eaten.
  */
 class FoodEntryViewModel(
@@ -159,6 +62,7 @@ class FoodEntryViewModel(
     private val barcodePictures: BarcodePictures,
     private val products: OpenFoodFactsRepository,
     private val photoDownloader: PhotoDownloader,
+    private val descriptions: FoodDescriptions,
     /** How the app writes decimals: values read on a label are filled in as the user would type them. */
     private val decimalSeparator: Char = '.',
 ) : ViewModel() {
@@ -168,12 +72,94 @@ class FoodEntryViewModel(
 
     private var readJob: Job? = null
     private var searchJob: Job? = null
+    private var suggestJob: Job? = null
+    private var estimateJob: Job? = null
 
     init {
         viewModelScope.launch {
-            val ready = labelReader.isReady()
-            _state.update { it.copy(canReadLabel = ready) }
+            val canAsk = descriptions.canAskModel()
+            val canRead = labelReader.isReady()
+            _state.update { it.copy(canAskModel = canAsk, canReadLabel = canRead) }
         }
+    }
+
+    /** Offers the foods of the table the text may be, once the user pauses typing. */
+    fun setDescription(text: String) {
+        _state.update { it.copy(description = text, descriptionIssue = null) }
+        suggestJob?.cancel()
+        if (text.isBlank()) {
+            _state.update { it.copy(suggestions = emptyList()) }
+            return
+        }
+        suggestJob = viewModelScope.launch {
+            delay(SUGGESTION_DELAY_MS)
+            val found = withContext(Dispatchers.Default) { descriptions.suggestions(text) }
+            _state.update { current ->
+                if (found == null) {
+                    current.copy(suggestions = emptyList(), descriptionIssue = DescriptionIssue.TABLE_UNREADABLE)
+                } else {
+                    current.copy(suggestions = found)
+                }
+            }
+        }
+    }
+
+    fun chooseSuggestion(suggestion: FoodSuggestion) {
+        suggestJob?.cancel()
+        fillEstimate(FoodEstimate(listOf(suggestion.item), byModel = false), suggestion.title)
+    }
+
+    /** Looks up every food of the description, and asks the model when the table does not have them all. */
+    fun estimateDescription() {
+        val current = _state.value
+        if (!current.canEstimate) return
+        val text = current.description.trim()
+        suggestJob?.cancel()
+        _state.update { it.copy(estimating = true, descriptionIssue = null, suggestions = emptyList()) }
+        estimateJob = viewModelScope.launch {
+            val title = text.replaceFirstChar { it.titlecase() }
+            when (val outcome = withContext(Dispatchers.Default) { descriptions.describe(text) }) {
+                is DescriptionOutcome.Estimated -> fillEstimate(outcome.estimate, title)
+                DescriptionOutcome.NotFound -> _state.update {
+                    it.copy(
+                        estimating = false,
+                        descriptionIssue = DescriptionIssue.NOT_FOUND,
+                        mode = FoodEntryMode.MANUAL,
+                        name = it.name.ifBlank { title },
+                    )
+                }
+                DescriptionOutcome.ModelFoundNothing -> failDescription(DescriptionIssue.MODEL_FOUND_NOTHING)
+                is DescriptionOutcome.ModelFailed -> failDescription(DescriptionIssue.MODEL_FAILED)
+                DescriptionOutcome.TableUnreadable -> failDescription(DescriptionIssue.TABLE_UNREADABLE)
+            }
+        }
+    }
+
+    fun cancelEstimate() {
+        estimateJob?.cancel()
+        _state.update { it.copy(estimating = false) }
+    }
+
+    /** Forgets the food the description gave, to type another. */
+    fun clearEstimate() = _state.update {
+        it.copy(estimate = null, name = "", values = emptyMap(), quantity = "", unit = FoodUnit.GRAM)
+    }
+
+    private fun failDescription(issue: DescriptionIssue) =
+        _state.update { it.copy(estimating = false, descriptionIssue = issue) }
+
+    /** Fills the form with what the description gave, over what was there. */
+    private fun fillEstimate(estimate: FoodEstimate, title: String) = _state.update { current ->
+        current.copy(
+            estimating = false,
+            estimate = estimate,
+            suggestions = emptyList(),
+            descriptionIssue = null,
+            name = title,
+            unit = estimate.unit,
+            values = estimate.per100.values.mapValues { (_, value) -> numberText(value) },
+            quantity = estimate.amount?.let(::numberText).orEmpty(),
+        )
     }
 
     fun setName(name: String) = _state.update { it.copy(name = name) }
@@ -352,7 +338,13 @@ class FoodEntryViewModel(
         if (!current.canSave) return
         _state.update { it.copy(saving = true, error = null) }
         viewModelScope.launch {
-            val text = FoodNote.text(current.quantityValue, current.unit, current.portion, labels)
+            val text = FoodNote.text(
+                quantity = current.quantityValue,
+                unit = current.unit,
+                portion = current.portion,
+                labels = labels,
+                estimated = current.isModelEstimate,
+            )
             val result = mealPlanRepository.add(
                 date = current.date,
                 type = current.mealType,
@@ -385,8 +377,13 @@ class FoodEntryViewModel(
     }
 
     companion object {
+        /** The pause in typing after which the foods it may be are looked up. */
+        private const val SUGGESTION_DELAY_MS = 200L
+
         fun factory(container: AppContainer, date: LocalDate) = viewModelFactory {
             initializer {
+                val language = container.localeController.appLanguage()
+                val separator = if (language == "fr") ',' else '.'
                 FoodEntryViewModel(
                     date = date,
                     mealPlanRepository = container.mealPlanRepository,
@@ -396,7 +393,13 @@ class FoodEntryViewModel(
                     barcodePictures = container.barcodePictures,
                     products = container.openFoodFacts,
                     photoDownloader = container.externalPhotoDownloader,
-                    decimalSeparator = if (container.localeController.appLanguage() == "fr") ',' else '.',
+                    descriptions = FoodDescriptions(
+                        table = container.foodTable::table,
+                        model = ModelFoodEstimator(container.localLanguageModel),
+                        language = language,
+                        decimalSeparator = separator,
+                    ),
+                    decimalSeparator = separator,
                 )
             }
         }

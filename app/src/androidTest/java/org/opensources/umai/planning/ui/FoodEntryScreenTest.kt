@@ -20,7 +20,11 @@ import org.junit.runner.RunWith
 import org.opensources.umai.R
 import org.opensources.umai.core.model.MealType
 import org.opensources.umai.core.ui.theme.UmaiTheme
+import org.opensources.umai.planning.domain.EstimatedFood
+import org.opensources.umai.planning.domain.FoodEstimate
 import org.opensources.umai.planning.domain.FoodProduct
+import org.opensources.umai.planning.domain.FoodSource
+import org.opensources.umai.planning.domain.FoodSuggestion
 import org.opensources.umai.planning.domain.FoodUnit
 import org.opensources.umai.planning.domain.Nutrient
 import org.opensources.umai.planning.domain.NutritionFacts
@@ -47,6 +51,10 @@ class FoodEntryScreenTest {
         var value: Pair<Nutrient, String>? = null
         var mode: FoodEntryMode? = null
         var searched = false
+        var description: String? = null
+        var estimated = false
+        var chosen: FoodSuggestion? = null
+        var cleared = false
     }
 
     private fun render(state: FoodEntryUiState, recorded: Recorded = Recorded()) {
@@ -60,6 +68,11 @@ class FoodEntryScreenTest {
                         onNext = { recorded.next = true },
                         onAdd = { recorded.added = true },
                         onModeChange = { recorded.mode = it },
+                        onDescriptionChange = { recorded.description = it },
+                        onSuggestionChosen = { recorded.chosen = it },
+                        onEstimate = { recorded.estimated = true },
+                        onCancelEstimate = {},
+                        onClearEstimate = { recorded.cleared = true },
                         onBarcodeChange = {},
                         onBarcodeScanned = {},
                         onBarcodePicked = {},
@@ -87,14 +100,86 @@ class FoodEntryScreenTest {
         val recorded = Recorded()
         render(FoodEntryUiState(date = day, barcode = "3560070565313"), recorded)
 
-        rule.onNodeWithText(string(R.string.food_barcode_scan)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.food_barcode_scan)).performScrollTo().assertIsDisplayed()
         rule.onNodeWithText(string(R.string.food_name)).assertDoesNotExist()
         rule.onNodeWithText(string(R.string.create_next)).assertIsNotEnabled()
-        rule.onNodeWithText(string(R.string.food_barcode_search)).performClick()
+        rule.onNodeWithText(string(R.string.food_barcode_search)).performScrollTo().performClick()
         rule.onNodeWithText(string(R.string.food_mode_manual)).performClick()
 
         assertTrue(recorded.searched)
         assertEquals(FoodEntryMode.MANUAL, recorded.mode)
+    }
+
+    @Test
+    fun whatWasEatenIsTypedAndLookedUp() {
+        val recorded = Recorded()
+        render(FoodEntryUiState(date = day), recorded)
+
+        rule.onNodeWithText(string(R.string.food_describe_search)).assertIsNotEnabled()
+        rule.onNode(hasSetTextAction() and hasText(string(R.string.food_describe_field))).performTextInput("2 pommes")
+
+        assertEquals("2 pommes", recorded.description)
+    }
+
+    @Test
+    fun theFoodsOfTheTableAreOfferedAndOneIsChosen() {
+        val recorded = Recorded()
+        val suggestion = FoodSuggestion("2 × Pomme", APPLES)
+        render(FoodEntryUiState(date = day, description = "2 pommes", suggestions = listOf(suggestion)), recorded)
+
+        rule.onNodeWithText(string(R.string.food_estimate_amount, 300, "g", 162)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.food_describe_search)).assertIsEnabled().performClick()
+        rule.onNodeWithText("2 × Pomme").performClick()
+
+        assertTrue(recorded.estimated)
+        assertEquals(suggestion, recorded.chosen)
+    }
+
+    @Test
+    fun aMealEstimatedByTheModelSaysItIsAGuess() {
+        val recorded = Recorded()
+        val guess = EstimatedFood(
+            name = "Pizza raviole",
+            amount = 300.0,
+            unit = FoodUnit.GRAM,
+            per100 = NutritionFacts(mapOf(Nutrient.ENERGY to 230.0)),
+            source = FoodSource.MODEL,
+        )
+        val estimate = FoodEstimate(listOf(guess, APPLES), byModel = true)
+        render(
+            FoodEntryUiState(
+                date = day,
+                estimate = estimate,
+                name = "1 pizza raviole, 2 pommes",
+                values = mapOf(Nutrient.ENERGY to "189,3"),
+                quantity = "600",
+            ),
+            recorded,
+        )
+
+        rule.onNodeWithText(string(R.string.food_estimate_model_title)).assertIsDisplayed()
+        val guessed = string(R.string.food_estimate_amount, 300, "g", 690)
+        rule.onNodeWithText(string(R.string.food_estimate_item_guessed, "Pizza raviole", guessed)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.food_estimate_model_warning)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.food_describe_field)).assertDoesNotExist()
+        rule.onNodeWithText(string(R.string.food_estimate_change)).performScrollTo().performClick()
+
+        assertTrue(recorded.cleared)
+    }
+
+    @Test
+    fun aFoodNeitherTheTableNorAModelKnowsIsDescribedByHand() {
+        render(
+            FoodEntryUiState(
+                date = day,
+                mode = FoodEntryMode.MANUAL,
+                descriptionIssue = DescriptionIssue.NOT_FOUND,
+                name = "Pizza saumon raviole",
+            ),
+        )
+
+        rule.onNodeWithText(string(R.string.food_describe_not_found)).assertIsDisplayed()
+        rule.onNodeWithText(string(R.string.create_next)).assertIsEnabled()
     }
 
     @Test
@@ -227,5 +312,15 @@ class FoodEntryScreenTest {
 
         rule.onNodeWithText(string(R.string.food_calories_missing, "g")).performScrollTo().assertIsDisplayed()
         rule.onNodeWithText(string(R.string.action_add)).assertIsEnabled()
+    }
+
+    private companion object {
+        val APPLES = EstimatedFood(
+            name = "Pomme",
+            amount = 300.0,
+            unit = FoodUnit.GRAM,
+            per100 = NutritionFacts(mapOf(Nutrient.ENERGY to 54.0)),
+            source = FoodSource.TABLE,
+        )
     }
 }

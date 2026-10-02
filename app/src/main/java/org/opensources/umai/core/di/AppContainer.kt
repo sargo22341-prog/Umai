@@ -41,6 +41,7 @@ import org.opensources.umai.planning.data.DeviceBarcodePictures
 import org.opensources.umai.planning.data.DeviceLabelPictures
 import org.opensources.umai.planning.data.DevicePlanPhotos
 import org.opensources.umai.planning.data.DishPoolRepository
+import org.opensources.umai.planning.data.FoodTableRepository
 import org.opensources.umai.planning.data.MealPlanRepository
 import org.opensources.umai.planning.data.OpenFoodFactsRepository
 import org.opensources.umai.planning.data.RecipeCaloriesRepository
@@ -157,6 +158,9 @@ class AppContainer(context: Context) {
         language = localeController::appLanguage,
     )
     val barcodePictures = DeviceBarcodePictures(appContext)
+
+    /** Basic foods and their nutrition, shipped with the app, for the foods typed in the plan. */
+    val foodTable = FoodTableRepository { name -> appContext.assets.open(name) }
 
     /**
      * Monotonic, and counting while the device sleeps: the cooking timers are

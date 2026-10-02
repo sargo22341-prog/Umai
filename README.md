@@ -53,7 +53,10 @@ Main features:
   following Mealie's meal plan rules; the **calories of each day**, one serving per recipe, and
   **products** eaten on the side (a snack, a drink): by default, the barcode is scanned and the
   product, its nutrition and its photo come from [Open Food Facts](https://world.openfoodfacts.org);
-  otherwise, by hand, with the nutrition label photographed and read by the local AI (or typed);
+  or what was eaten is typed as it is said ("2 apples, 1 coffee"), its calories taken from the
+  [Ciqual](https://ciqual.anses.fr) food table shipped with the app, and a dish it lacks estimated by
+  the local AI; otherwise, by hand, with the nutrition label photographed and read by the local AI
+  (or typed);
 - **shopping lists**: several lists, items grouped by label, send the ingredients of a recipe to a
   list (scaled to the chosen servings), and a **shopping mode** with large rows ticked in one tap;
 - **recipe creation and editing**: import from a web page (Mealie parses it), with the video and
@@ -179,7 +182,8 @@ itself under GPL-3.0-or-later; every other dependency is under a license compati
 (Apache 2.0, MIT, BSD, MPL 2.0). Barcodes are read live from the camera with
 [CameraX](https://developer.android.com/media/camera/camerax) and [ZXing](https://github.com/zxing/zxing)
 (Apache 2.0), and products looked up in [Open Food Facts](https://world.openfoodfacts.org), whose
-data is under the Open Database License.
+data is under the Open Database License. Basic foods come from the [Ciqual](https://ciqual.anses.fr)
+table of ANSES (2025), under the Etalab Open Licence 2.0.
 
 umai is an independent project, not affiliated with Mealie. The recipes shown in the screenshots
 belong to their respective authors.

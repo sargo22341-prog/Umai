@@ -16,6 +16,7 @@ class FoodNoteTest {
             Nutrient.PROTEIN to "Protéines",
             Nutrient.SALT to "Sel",
         ),
+        estimated = "Estimation de l’IA locale",
     )
 
     private val cola = NutritionFacts(
@@ -54,6 +55,20 @@ class FoodNoteTest {
 
         assertEquals("Lipides 1,4 g", FoodNote.text(null, FoodUnit.GRAM, facts, french).substringAfter('\n'))
         assertEquals("Fat 1.4 g", FoodNote.text(null, FoodUnit.GRAM, facts, english))
+    }
+
+    @Test
+    fun `values the model guessed say so on a last line, after the calories read back`() {
+        val text = FoodNote.text(
+            quantity = 450.0,
+            unit = FoodUnit.GRAM,
+            portion = NutritionFacts(mapOf(Nutrient.ENERGY to 1012.0)),
+            labels = french,
+            estimated = true,
+        )
+
+        assertEquals("1012 kcal · 450 g\nEstimation de l’IA locale", text)
+        assertEquals(1012, PlanCalories.ofNote(text))
     }
 
     @Test

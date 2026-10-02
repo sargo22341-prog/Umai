@@ -62,16 +62,22 @@ import org.opensources.umai.recipe.ui.labelRes
 import java.io.File
 
 /**
- * How the product is described, automatic by its barcode or manual; then its
- * name, the meal it is part of, and its photo if the user wants one.
+ * How the product is described, automatic by what was typed or its barcode,
+ * or manual; then its name, the meal it is part of, and its photo if the user
+ * wants one.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ProductSection(state: FoodEntryUiState, actions: FoodEntryActions) {
     ModeSelector(state, actions)
     state.lookupIssue?.let { LookupIssueBanner(it) }
-    if (state.mode == FoodEntryMode.AUTO && state.found == null) BarcodeSection(state, actions)
+    state.descriptionIssue?.let { DescriptionIssueBanner(it) }
+    if (state.showsSearch) {
+        DescriptionSection(state, actions)
+        BarcodeSection(state, actions)
+    }
     FoundProductCard(state)
+    EstimateCard(state, actions)
     if (!state.showsProductForm) return
 
     OutlinedTextField(
@@ -173,8 +179,12 @@ private fun PhotoPreview(photo: String?, processing: Boolean, name: String) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NutritionSection(state: FoodEntryUiState, actions: FoodEntryActions) {
-    if (state.found != null && state.mode == FoodEntryMode.AUTO) {
-        HelperText(stringResource(R.string.food_values_from_database))
+    if (state.mode == FoodEntryMode.AUTO) {
+        when {
+            state.found != null -> HelperText(stringResource(R.string.food_values_from_database))
+            state.isModelEstimate -> HelperText(stringResource(R.string.food_values_estimated))
+            state.estimate != null -> HelperText(stringResource(R.string.food_values_from_table))
+        }
     }
     if (state.canReadLabel) {
         LabelCapture(state, actions)

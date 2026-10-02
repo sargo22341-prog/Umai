@@ -12,6 +12,7 @@ classique.
 | Import d'une vidéo YouTube | Lit titre, description, chapitres et transcription horodatée ; sans sous-titres, fait **écouter** la vidéo par Whisper, et en dernier recours **regarde** ses images (voir *Vidéos sans sous-titres*) ; écrit des étapes rédigées et titrées, le début de chaque étape dans la vidéo, et les ingrédients quand ni la page de recette ni la description ne les donnent. | Ingrédients de la page de recette ou de la description, étapes lues dans la description, sinon étapes = chapitres (texte tiré de la transcription), placées par les chapitres ou par alignement mots-transcription. |
 | Planning automatique | Classe les recettes que rien ne situe (ni catégorie, ni tag, ni nom, ni historique) : voir *Planning automatique* plus bas. | Ces recettes sont jugées sur leurs ingrédients (sucré seul = dessert). |
 | Produit ajouté au planning | **Lit** l'étiquette nutritionnelle photographiée : voir *Étiquettes nutritionnelles* plus bas. | Les valeurs pour 100 g se saisissent à la main. |
+| Aliment écrit au planning (« 1 pizza saumon raviole ») | **Estime** un plat que la table Ciqual n'a pas : voir *Aliments écrits* plus bas. | Un aliment absent de la table se décrit à la main. |
 
 Restent volontairement **algorithmiques**, parce qu'un algorithme y est plus fiable qu'un modèle
 de téléphone :
@@ -395,6 +396,36 @@ couleurs, souvent en plusieurs langues, et il faudrait en plus reconnaître les 
   sandwich (une colonne, bilingue français-néerlandais, texte clair sur fond orange).
 - Le formulaire sert aussi sans modèle, ou quand la lecture échoue : les valeurs se saisissent, et la
   raison de l'échec est dite (pas de modèle, modèle sans vision, image illisible, aucun tableau).
+
+## Aliments écrits
+
+Au planning, un snack ou une boisson s'écrit comme on le dit : « 2 pommes, 1 café sans sucre »,
+« 200 g de riz », « un verre de lait ». Tout passe d'abord **sans le modèle** :
+
+- `FoodPhrases` découpe la phrase (virgule, « et », « + », retour à la ligne, pas la virgule d'un
+  décimal) et lit la quantité de chaque aliment : un nombre de portions (chiffres, fractions, « deux »,
+  « une demi »), un poids ou un volume (`g`, `kg`, `cl`, `l`…), ou une mesure de cuisine (verre
+  200 ml, tasse 200 ml, bol 300 ml, cuillère à soupe 15, à café 5, canette 330, bouteille 500).
+- `FoodTable` cherche l'aliment dans la **table Ciqual** de l'Anses (version 2025, Licence Ouverte
+  Etalab 2.0), embarquée dans `assets/ciqual.tsv` : les 8 nutriments d'une étiquette pour 100 g, en
+  français et en anglais (les deux langues sont cherchées). Le fichier se régénère avec
+  `scripts/ciqual-table.py` depuis le XML publié sur ciqual.anses.fr ; une valeur « traces » ou
+  « < x » y vaut 0, une valeur inconnue reste vide. Une boisson est comptée pour 100 ml (1 g ≈ 1 ml).
+- `assets/basic_foods.tsv`, écrit à la main, donne aux aliments courants leur **nom usuel**
+  (« pomme » plutôt que « Pomme, chair et peau, crue ») et leur **portion** (pomme 150 g, café
+  150 ml, œuf 50 g…) : c'est elle qui fait de « 2 pommes » 300 g. Un aliment sans portion connue
+  demande sa quantité à l'étape *Portion*. Pour en ajouter un, une ligne suffit (code Ciqual, portion,
+  unité, noms français et anglais séparés par `|`).
+- La recherche compare les mots sans casse, accents, pluriel ni petits mots (`FoodWords`) : tous les
+  mots tapés doivent être dans le nom, le dernier peut être tronqué pendant la frappe, mais un mot
+  entier passe avant (« lait » donne le lait avant la laitue).
+
+Quand la table n'a pas **tous** les aliments de la phrase, et seulement alors, le modèle est
+interrogé (`ModelFoodEstimator`) : texte seul, réponse courte (une liste `{name, grams, kcal}`),
+température 0. Il **décompose** le plat en aliments pesés ; chacun est recherché dans la table, dont
+les valeurs l'emportent sur les calories devinées par le modèle, qui ne servent que pour un aliment
+absent de la table. L'écran dit que c'est une estimation, ligne par ligne, et la note Mealie porte la
+mention « Estimation de l'IA locale ». Sans modèle, l'aliment se décrit à la main.
 
 ## Téléphones sans TPU : mesures sur un Pixel 6 Pro
 

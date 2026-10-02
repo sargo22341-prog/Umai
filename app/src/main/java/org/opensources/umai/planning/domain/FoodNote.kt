@@ -4,8 +4,11 @@ import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.roundToInt
 
-/** The names of the nutrients in the language of the app, and how it writes numbers. */
-data class FoodNoteLabels(val locale: Locale, val nutrients: Map<Nutrient, String>)
+/**
+ * The names of the nutrients in the language of the app, how it writes
+ * numbers, and the line that tells values the on-device model guessed.
+ */
+data class FoodNoteLabels(val locale: Locale, val nutrients: Map<Nutrient, String>, val estimated: String)
 
 /**
  * The text of the Mealie note a food added to the plan becomes. Mealie has no
@@ -17,14 +20,21 @@ data class FoodNoteLabels(val locale: Locale, val nutrients: Map<Nutrient, Strin
  * ```
  *
  * The calories come first, which is where [PlanCalories.ofNote] reads them back.
+ * Values the model guessed say so on a last line.
  */
 object FoodNote {
 
     /**
      * [portion] is the nutrition of the quantity eaten; its energy, rounded,
-     * is the calories of the note.
+     * is the calories of the note. [estimated] when the model guessed it.
      */
-    fun text(quantity: Double?, unit: FoodUnit, portion: NutritionFacts, labels: FoodNoteLabels): String {
+    fun text(
+        quantity: Double?,
+        unit: FoodUnit,
+        portion: NutritionFacts,
+        labels: FoodNoteLabels,
+        estimated: Boolean = false,
+    ): String {
         val decimal = NumberFormat.getNumberInstance(labels.locale).apply { maximumFractionDigits = 1 }
         val summary = listOfNotNull(
             portion[Nutrient.ENERGY]?.let { "${it.roundToInt()} kcal" },
@@ -38,7 +48,8 @@ object FoodNote {
                 "$name ${decimal.format(value)} g"
             }
             .joinToString(SEPARATOR)
-        return listOf(summary, details).filter { it.isNotEmpty() }.joinToString("\n")
+        val origin = if (estimated) labels.estimated else ""
+        return listOf(summary, details, origin).filter { it.isNotEmpty() }.joinToString("\n")
     }
 
     private const val SEPARATOR = " · "
