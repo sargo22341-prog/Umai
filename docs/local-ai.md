@@ -29,12 +29,12 @@ de téléphone :
 
 La réponse du modèle est **contrainte par un schéma JSON** : le runtime n'autorise que les jetons qui
 le respectent, donc la réponse est toujours du JSON valide, puis elle est vérifiée (débuts d'étapes
-hors de la vidéo ou dans le désordre écartés, champs vides complétés par les règles). Avec la version
-de LiteRT-LM utilisée (voir plus bas), seul le décodage des **appels d'outils** est contraint : le
-schéma devient les paramètres de l'unique outil `answer` par lequel le modèle répond, et l'app lit
-les arguments de l'appel (`LiteRtLmEngine`).
+hors de la vidéo ou dans le désordre écartés, champs vides complétés par les règles). L'app conserve
+le décodage des **appels d'outils**, validé sur le TPU : le schéma devient les paramètres de l'unique
+outil `answer` par lequel le modèle répond, et l'app lit les arguments de l'appel (`LiteRtLmEngine`).
 
-Ce que ce décodage contraint respecte, et ne respecte pas, constaté sur le Pixel 10 Pro XL :
+Ce que ce décodage contraint respecte, et ne respecte pas, constaté sur la référence 0.14 du
+Pixel 10 Pro XL (les limites générales du schéma n'ont pas été retestées exhaustivement sur 0.18) :
 
 - les **propriétés** d'un objet et leur caractère obligatoire sont respectées : c'est pourquoi le
   placement des étapes sur des images demande une clé par étape (`step_1`, `step_2`…), et non une
@@ -69,14 +69,11 @@ Ce que ce décodage contraint respecte, et ne respecte pas, constaté sur le Pix
   échoue en cours d'écriture est reprise sur le backend suivant. Un prompt trop long pour le contexte
   d'un backend va directement au suivant ; si seul un backend à grand contexte pouvait le prendre et
   qu'il échoue, l'appelant reçoit `TOO_LONG` et raccourcit la transcription.
-- LiteRT-LM 0.14.0 ne compte pas les jetons à l'avance et ne plafonne pas la réponse : la taille est
-  **estimée** (`LocalLanguageModel.estimatedTokens` : système + message + schéma à 3,5 caractères par
-  jeton, plus la réponse attendue). Mesure sur le prompt d'import d'une vidéo française de 4 min 45
-  (`theImportPromptEstimateHoldsOnTheTpu`) : 5 497 caractères = **1 403 jetons** (3,9 car./jeton),
-  réponse de 451 jetons, 38 s au TPU. L'ancienne estimation (3 car./jeton, schéma oublié, 2 048 jetons
-  réservés à la réponse) donnait 4 414 jetons pour un tel import : il partait sur le GPU, trois fois
-  plus lent à écrire. Le journal dit quand un backend est écarté pour cette raison
-  (`Backend: TPU skipped: about 4414 tokens needed, context 4096`).
+- La taille reste **estimée** dans l'app (`LocalLanguageModel.estimatedTokens` : système + message
+  + schéma à 3,5 caractères par jeton, plus la réponse attendue). Les appels d'outils restent le
+  format de réponse validé sur le TPU. Sur 0.18, le prompt d'import de 5 497 caractères demande
+  1 403 jetons et produit 505 jetons en 42 s ; son estimation de 2 866 jetons tient dans le contexte
+  de 4 096.
 - Journal (`adb logcat -s UmaiAi`) : `Backend: TPU | Model: Gemma 4 E2B | SoC: Tensor G5` au
   chargement, puis après chaque réponse les vitesses mesurées par le runtime
   (`prompt 130 tokens at 136,6/s | answer 50 tokens at 13,9/s`).
@@ -90,41 +87,25 @@ Ce que ce décodage contraint respecte, et ne respecte pas, constaté sur le Pix
 
 ### Le TPU Tensor
 
-- LiteRT-LM passe par une **bibliothèque de dispatch** Google Tensor, qui remet le modèle compilé au
-  pilote TPU du téléphone (`/vendor/lib64/libedgetpu_litert.so`, déclaré public par le fabricant,
-  `<uses-native-library>` dans le manifeste). Google la publie précompilée avec chaque release de
-  LiteRT (`litert_npu_runtime_libraries.zip`, Apache 2.0, construite depuis
-  `litert/vendors/google_tensor/dispatch`) ; elle est téléchargée à la compilation, à une release
-  épinglée, vérifiée par SHA-256 (`FetchTensorDispatch`, `app/build.gradle.kts`), jamais commitée.
-  Box fait de même (en la commitant dans son dépôt) ; umai reprend le mécanisme, pas Box.
-- **Box n'a pas de solution plus récente** (vérifié le 26/09/2026 sur ses branches `main`,
-  `custom-rom-support` et `experimental`) : il est épinglé sur LiteRT-LM **0.10.0**, plus ancien que
-  le 0.14.0 d'umai, avec un dispatch commité. Le code publié s'arrête à sa v1.0.12 (avril 2026) ; les
-  versions suivantes, dont l'APK « custom-rom-support » pour GrapheneOS, ne publient que leur README.
-  Cet APK retire surtout ce qui dépend des services Google (Gemini Nano via AICore, synthèse vocale
-  Google) : umai n'en a jamais dépendu.
-- **Le dispatch et le runtime doivent venir du même source LiteRT** : l'API qu'ils partagent change
-  sans numéro de version. Essais sur le Pixel 10 Pro XL :
-
-  | LiteRT-LM (LiteRT embarqué) | Dispatch | Résultat |
-  |---|---|---|
-  | 0.17.1 (`9fe5be4`, 27/08) | v2.2.0 | SIGSEGV dans le dispatch (options Google Tensor) |
-  | 0.16.1 (`0ff2811`, 03/08) | v2.1.6 | « Unsupported dispatch runtime version » |
-  | 0.15.0 (`3cb830a`, 28/07) | v2.1.6 | SIGSEGV (pointeur de fonction nul) |
-  | **0.14.0** (`622f1f3`, 29/06) | **v2.1.6** (`1461b6b`, un commit plus tôt) | **TPU utilisé** |
-
-  Les autres versions n'offrent pas de meilleure paire : 0.16.0 et 0.17.0 embarquent le même LiteRT
-  que 0.16.1 et 0.17.1. La plus proche du dispatch v2.2.0 (`145c752`, 06/08) est 0.16.x (`0ff2811`,
-  03/08), mais les 40 commits qui les séparent ajoutent un `LiteRtAbiHeader` en tête de
-  `LiteRtDispatchApi` (48 → 56 octets) : les deux ne lisent pas la même structure.
-
-  D'où l'épinglage de LiteRT-LM à **0.14.0** (commentaire dans `gradle/libs.versions.toml`,
-  avertissement lint ciblé dans `app/lint.xml`). Cette version n'a pas encore `ResponseFormat` : d'où
-  le schéma porté par un appel d'outil (plus haut), et une réponse livrée **d'un bloc** une fois
-  écrite (l'app ne peut plus compter les jetons pendant l'écriture ; la progression affiche « lecture
-  et rédaction »). Monter de version exige un dispatch publié du même source : comparer le
-  `LITERT_REF` du `WORKSPACE` de LiteRT-LM au commit de la release LiteRT, puis passer le test
-  matériel.
+- **LiteRT-LM 0.18.0** utilise le dispatch Google Tensor compilé depuis son commit LiteRT
+  **`26895c9fbcc25c43faa8c1a98cd1fd28951602c3`**, via `scripts/tensor-dispatch` et
+  `FetchTensorDispatch`. Docker Linux est requis sur l'hôte de build. Les fichiers du workspace
+  LiteRT-LM sont téléchargés au commit immuable et vérifiés par SHA-256 ; Bazel vérifie les archives
+  de dépendances. L'image Docker, Bazel et les archives NDK/SDK sont aussi épinglés. Aucun binaire
+  généré ne va dans le dépôt.
+- Le seul correctif natif retire une dépendance **inutilisée** aux hooks de profilage Google internes
+  non publiés (`platforms/darwinn/devtools/power_stats`). Le chemin d'inférence, le pilote du téléphone
+  et les contrôles ABI restent intacts. Le dispatch charge `/vendor/lib64/libedgetpu_litert.so`
+  via la déclaration `<uses-native-library>` existante.
+- **Vérifié le 14/10/2026**, Pixel 10 Pro XL, Tensor G5, GrapheneOS Android 17 : 0.15, 0.17.1 et 0.18
+  passent une génération NPU réelle avec leur dispatch reconstruit ; 0.16.1 rejette encore son dispatch
+  public pour version ABI incompatible. Les graphes `decode`, `prefill_128` et `verify` passent
+  intégralement au DispatchDelegate, les pilotes sont mappés et des jetons corrects sont générés.
+  Les prompts d'import et de planning passent également sur 0.18. Détails, preuves, limites et
+  référence conservée **0.14/v2.1.6** : [rapport de migration](litert-tensor-upgrade.md).
+- L'APK ne dépend pas de GMS, d'AICore ni d'un service distant. Le téléphone de cette session contient
+  cependant GMS : cette exécution ne constitue pas un test sur un système où GMS est absent. Aucun
+  service ni protection GrapheneOS n'a été désactivé. Tensor G6 n'a pas été testé.
 - Un dispatch incompatible plante **en code natif**, hors de portée d'un `try`. `TpuCrashGuard`
   pose un marqueur avant le chargement TPU et le retire après : trouvé au démarrage suivant, il écarte
   le TPU pour cette version de l'app sur cette version du système, et le modèle tourne sur le GPU ou

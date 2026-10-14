@@ -6,6 +6,7 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.google.ai.edge.litertlm.LiteRtLmJniException
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -14,11 +15,14 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.opensources.umai.TestModelFiles
 import org.opensources.umai.llm.domain.AiBackend
+import org.opensources.umai.llm.domain.AiBackendUnavailable
 import org.opensources.umai.llm.domain.AiSense
 import org.opensources.umai.llm.domain.LlmMedia
 import org.opensources.umai.llm.domain.LlmRequest
@@ -44,6 +48,21 @@ class LiteRtLmBackendTest {
     private val model = LocalModelCatalog.recommended
 
     @Test
+    fun failedInitializationKeepsItsNativeCause() {
+        assumeTrue("No native runtime on this device", loader.isAvailable)
+        val invalid = File.createTempFile("invalid-model", ".litertlm", context.cacheDir)
+        try {
+            invalid.writeText("Invalid model for initialization failure testing")
+            val failure = assertThrows(AiBackendUnavailable::class.java) {
+                loader.load(invalid.path, AiBackend.CPU, 4096, sense = null).close()
+            }
+            assertTrue(failure.cause is LiteRtLmJniException)
+        } finally {
+            invalid.delete()
+        }
+    }
+
+    @Test
     fun theTensorTpuRunsTheModel() {
         assumeTrue("No TPU the app can reach on ${device.socName}", device.tpuReachable)
         val file = model.filesFor(device.tensorChip).first { AiBackend.TPU in it.backends }
@@ -60,7 +79,7 @@ class LiteRtLmBackendTest {
     fun theImportPromptEstimateHoldsOnTheTpu() = runBlocking {
         assumeTrue("No TPU the app can reach on ${device.socName}", device.tpuReachable)
         val file = model.filesFor(device.tensorChip).first { AiBackend.TPU in it.backends }
-        val path = context.getExternalFilesDir("models")?.resolve(file.fileName)
+        val path = TestModelFiles.pathFor(file.fileName)
         assumeTrue("${file.fileName} is not on the phone", path?.isFile == true)
         val request = ImportPromptSample.request()
         val estimated = LocalLanguageModel.estimatedTokens(request)
@@ -69,6 +88,8 @@ class LiteRtLmBackendTest {
             val started = SystemClock.elapsedRealtime()
             engine.generate(request).toList()
             val speed = checkNotNull(engine.lastSpeed) { "The runtime did not time the answer" }
+            assertNull(DeviceAccelerators.missingDriver(AiBackend.TPU))
+            assertTrue(speed.promptTokens > 0 && speed.generatedTokens > 0)
             Log.i(
                 TAG,
                 "Import prompt: ${request.system.length + request.user.length + request.jsonSchema.length} chars | " +
@@ -95,7 +116,7 @@ class LiteRtLmBackendTest {
         val onTpu = device.tpuReachable
         val file = if (onTpu) model.filesFor(device.tensorChip).first { AiBackend.TPU in it.backends } else universalFile()
         val backend = if (onTpu) AiBackend.TPU else AiBackend.CPU
-        val path = context.getExternalFilesDir("models")?.resolve(file.fileName)
+        val path = TestModelFiles.pathFor(file.fileName)
         assumeTrue("${file.fileName} is not on the phone", path?.isFile == true)
         val started = SystemClock.elapsedRealtime()
         val engine = loader.load(checkNotNull(path).path, backend, file.contextSizeOn(backend), sense = null)
@@ -147,7 +168,7 @@ class LiteRtLmBackendTest {
 
     private fun sense(sense: AiSense, media: LlmMedia) = runBlocking {
         val file = universalFile()
-        val path = context.getExternalFilesDir("models")?.resolve(file.fileName)
+        val path = TestModelFiles.pathFor(file.fileName)
         assumeTrue("${file.fileName} is not on the phone", path?.isFile == true)
         val engine = loader.load(checkNotNull(path).path, AiBackend.CPU, file.contextSizeOn(AiBackend.CPU), sense)
         try {
@@ -161,7 +182,7 @@ class LiteRtLmBackendTest {
     }
 
     private fun run(file: ModelFile, backend: AiBackend) = runBlocking {
-        val path = context.getExternalFilesDir("models")?.resolve(file.fileName)
+        val path = TestModelFiles.pathFor(file.fileName)
         assumeTrue("${file.fileName} is not on the phone", path?.isFile == true)
         logMemory(backend, "before")
         val engine = loader.load(checkNotNull(path).path, backend, file.contextSizeOn(backend), sense = null)
@@ -172,6 +193,8 @@ class LiteRtLmBackendTest {
             val answer = engine.generate(REQUEST).toList().joinToString("")
             logMemory(backend, "answered")
             val speed = checkNotNull(engine.lastSpeed) { "The runtime did not time the answer" }
+            assertNull(DeviceAccelerators.missingDriver(backend))
+            assertTrue(speed.promptTokens > 0 && speed.generatedTokens > 0)
             Log.i(
                 TAG,
                 "Backend: $backend | Model: ${model.name} | SoC: ${device.socName} | " +

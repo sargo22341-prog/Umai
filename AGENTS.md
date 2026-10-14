@@ -135,12 +135,14 @@ Pièges du build, déjà rencontrés — ne pas les réintroduire :
   `kotlin { compilerOptions }` racine.
 * Pas de rétrocompatibilité : utiliser directement les API Android 17, sans
   `Build.VERSION` ni bibliothèque de compat superflue.
-* La bibliothèque de dispatch TPU Google Tensor est téléchargée à la compilation (release LiteRT
-  épinglée + SHA-256, tâche `FetchTensorDispatch` de `app/build.gradle.kts`) et n'est **jamais**
-  copiée dans le dépôt.
-* LiteRT-LM est **épinglé à 0.14.0** : c'est la seule version construite depuis le même source
-  LiteRT que ce dispatch (v2.1.6). Les suivantes le refusent ou plantent le TPU en code natif. Ne
-  monter les deux qu'ensemble, puis repasser `LiteRtLmBackendTest` sur un Pixel Tensor G5/G6.
+* La bibliothèque de dispatch TPU Google Tensor est compilée à la compilation dans Docker Linux
+  (`scripts/tensor-dispatch`, tâche `FetchTensorDispatch` de `app/build.gradle.kts`). Les sources,
+  l'image et les outils sont épinglés et vérifiés ; le binaire n'est **jamais** copié dans le dépôt.
+* LiteRT-LM est **épinglé à 0.18.0**, vérifié sur le NPU réel d'un Pixel 10 Pro XL Tensor G5.
+  Le dispatch est construit depuis son commit LiteRT `26895c9`, avec retrait de la seule dépendance
+  aux hooks de profilage Google internes non publiés. Ne monter les deux qu'ensemble, puis repasser
+  `LiteRtLmBackendTest` sur un Pixel Tensor G5/G6. La référence 0.14/v2.1.6 et les essais intermédiaires
+  sont documentés dans `docs/litert-tensor-upgrade.md` ; G6 n'a pas été testé.
 * NewPipeExtractor n'est publié que sur JitPack : `settings.gradle.kts` limite ce dépôt au groupe
   `com.github.TeamNewPipe` (`exclusiveContent`). Ne pas l'ouvrir à d'autres groupes.
 * NewPipeExtractor : imposer la langue sur l'extracteur (`forceLocalization`), sa préférence globale

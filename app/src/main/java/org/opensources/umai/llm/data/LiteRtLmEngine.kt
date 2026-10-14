@@ -89,15 +89,14 @@ class LiteRtLmLoader(
         try {
             if (backend == AiBackend.TPU) tpuGuard.loading { engine.initialize() } else engine.initialize()
         } catch (e: LiteRtLmJniException) {
-            engine.close()
+            if (engine.isInitialized()) engine.close()
             throw AiBackendUnavailable("LiteRT-LM could not load the model on $backend: ${e.message}", e)
         } catch (e: IllegalStateException) {
-            engine.close()
+            if (engine.isInitialized()) engine.close()
             throw AiBackendUnavailable("LiteRT-LM could not load the model on $backend: ${e.message}", e)
         }
         // A backend whose driver refuses the model can leave the engine uninitialized without an error.
         if (!engine.isInitialized()) {
-            engine.close()
             throw AiBackendUnavailable("LiteRT-LM did not initialize the model on $backend")
         }
         DeviceAccelerators.missingDriver(backend)?.let { driver ->
@@ -116,9 +115,8 @@ class LiteRtLmLoader(
 
 /**
  * One loaded model. The answer is held to the JSON schema of the request by
- * the runtime's constrained decoding: this version of LiteRT-LM (the one the
- * published Tensor dispatch library is built with) only constrains tool calls,
- * so the schema becomes the parameters of the one tool the model answers with.
+ * constrained tool-call decoding. The schema becomes the parameters of the
+ * one tool the model answers with, preserving the validated TPU prompt format.
  * The runtime hands a tool call over whole, once written.
  */
 @OptIn(ExperimentalApi::class)

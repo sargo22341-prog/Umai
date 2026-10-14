@@ -1,5 +1,7 @@
 package org.opensources.umai.planning.ui
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -59,9 +61,11 @@ class FoodEntryScreenTest {
 
     private fun render(state: FoodEntryUiState, recorded: Recorded = Recorded()) {
         rule.setContent {
+            // Feed controlled text back before the IME changes focus.
+            val currentState = remember { mutableStateOf(state) }
             UmaiTheme {
                 FoodEntryScreen(
-                    state = state,
+                    state = currentState.value,
                     actions = FoodEntryActions(
                         onLeave = {},
                         onPrevious = {},
@@ -78,7 +82,10 @@ class FoodEntryScreenTest {
                         onBarcodePicked = {},
                         onSearchBarcode = { recorded.searched = true },
                         onCancelSearch = {},
-                        onNameChange = { recorded.name = it },
+                        onNameChange = {
+                            recorded.name = it
+                            currentState.value = currentState.value.copy(name = it)
+                        },
                         onMealTypeChange = { recorded.mealType = it },
                         onPhotoPicked = { _, _ -> },
                         onRemovePhoto = {},
@@ -224,6 +231,7 @@ class FoodEntryScreenTest {
 
         rule.onNodeWithText(string(R.string.create_next)).assertIsNotEnabled()
         rule.onNode(hasSetTextAction() and hasText(string(R.string.food_name))).performTextInput("Cola")
+        rule.onNodeWithText(string(R.string.create_next)).assertIsEnabled()
         rule.onNodeWithText(string(R.string.meal_drink)).performClick()
 
         assertEquals("Cola", recorded.name)

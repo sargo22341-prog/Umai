@@ -2,6 +2,7 @@ import java.net.URI
 import java.security.MessageDigest
 import java.util.Properties
 import java.util.zip.ZipInputStream
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 plugins {
@@ -190,50 +191,66 @@ dependencies {
  * Fetches the Google Tensor dispatch library of LiteRT, through which LiteRT-LM
  * runs a model on the TPU of a Tensor G5 or G6: it hands the compiled model to
  * the phone's own TPU driver (`libedgetpu_litert.so`, in the vendor partition).
- * Google publishes it prebuilt with each LiteRT release (Apache 2.0, built from
- * `litert/vendors/google_tensor/dispatch`); it is downloaded at a pinned
- * release, checked against its hash and never committed.
+ * Builds the public Apache-2.0 source at LiteRT-LM's exact LiteRT pin. Published
+ * LiteRT releases do not match this runtime ABI. Docker isolates the Linux
+ * toolchain; sources and downloads are checksum-verified by the build recipe.
  */
 abstract class FetchTensorDispatch : DefaultTask() {
 
-    @get:Input
-    abstract val url: Property<String>
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val recipeDir: DirectoryProperty
 
     @get:Input
-    abstract val sha256: Property<String>
+    abstract val runtimeVersion: Property<String>
 
     @get:OutputDirectory
     abstract val outputDir: DirectoryProperty
 
     @TaskAction
     fun fetch() {
-        // Bounded waits: a stalled download fails the build rather than hanging it.
-        val connection = URI(url.get()).toURL().openConnection().apply {
-            connectTimeout = CONNECT_TIMEOUT_MS
-            readTimeout = READ_TIMEOUT_MS
+        val manifest = recipeDir.file("sources.json").get().asFile.readText()
+        check(manifest.contains("\"litertlm_version\": \"${runtimeVersion.get()}\"")) {
+            "LiteRT-LM and Google Tensor dispatch must be updated together"
         }
-        val archive = connection.getInputStream().use { it.readBytes() }
-        val digest = MessageDigest.getInstance("SHA-256").digest(archive)
-            .joinToString("") { "%02x".format(it) }
-        check(digest.equals(sha256.get(), ignoreCase = true)) { "Unexpected hash for ${url.get()}: $digest" }
-        val target = outputDir.get().dir("arm64-v8a").asFile.apply { mkdirs() }.resolve(LIBRARY)
-        ZipInputStream(archive.inputStream()).use { zip ->
-            generateSequence { zip.nextEntry }.first { it.name == "$ENTRY_DIR/$LIBRARY" }
-            target.outputStream().use { zip.copyTo(it) }
+        val image = "umai-tensor-dispatch:${runtimeVersion.get()}"
+        val target = outputDir.get().dir("arm64-v8a").asFile.apply { mkdirs() }
+        runCommand(listOf("docker", "build", "--tag", image, recipeDir.get().asFile.absolutePath), "build.log")
+        runCommand(
+            listOf("docker", "run", "--rm", "--network", "none", "--mount",
+                "type=bind,source=${target.absolutePath.replace('\\', '/')},target=/output", image),
+            "extract.log",
+        )
+        check(target.resolve(LIBRARY).isFile) { "Google Tensor dispatch build produced no library" }
+    }
+
+    private fun runCommand(arguments: List<String>, logName: String) {
+        val log = temporaryDir.resolve(logName)
+        val process = ProcessBuilder(arguments).redirectErrorStream(true).redirectOutput(log).start()
+        try {
+            check(process.waitFor(BUILD_TIMEOUT_MINUTES, TimeUnit.MINUTES)) {
+                "Tensor dispatch command timed out; see $log"
+            }
+            check(process.exitValue() == 0) { "Tensor dispatch command failed; see $log\n${log.readText().takeLast(8000)}" }
+        } finally {
+            // The Docker client cancels a BuildKit build when it is terminated.
+            if (process.isAlive) {
+                check(process.destroyForcibly().waitFor(10, TimeUnit.SECONDS)) {
+                    "Tensor dispatch process did not terminate"
+                }
+            }
         }
     }
 
     private companion object {
-        const val ENTRY_DIR = "google_tensor_runtime/src/main/jni/arm64-v8a"
         const val LIBRARY = "libLiteRtDispatch_GoogleTensor.so"
-        const val CONNECT_TIMEOUT_MS = 30_000
-        const val READ_TIMEOUT_MS = 60_000
+        const val BUILD_TIMEOUT_MINUTES = 45L
     }
 }
 
 val fetchTensorDispatch = tasks.register<FetchTensorDispatch>("fetchTensorDispatch") {
-    url.set("https://github.com/google-ai-edge/LiteRT/releases/download/v2.1.6/litert_npu_runtime_libraries.zip")
-    sha256.set("98aabbdce8607f6dc6ab7cb92217326eef24a8c97b973b69e62bd0ce14b7495b")
+    recipeDir.set(rootProject.layout.projectDirectory.dir("scripts/tensor-dispatch"))
+    runtimeVersion.set(libs.versions.litertlm)
     outputDir.set(layout.buildDirectory.dir("tensor-dispatch"))
 }
 

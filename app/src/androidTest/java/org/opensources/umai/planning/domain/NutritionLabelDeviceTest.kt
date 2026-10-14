@@ -15,6 +15,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.opensources.umai.TestPictures
+import org.opensources.umai.TestModelFiles
 import org.opensources.umai.core.image.DeviceImageCropper
 import org.opensources.umai.llm.data.LiteRtLmLoader
 import org.opensources.umai.llm.data.TpuCrashGuard
@@ -108,7 +109,7 @@ class NutritionLabelDeviceTest {
         private fun model(): LanguageModel? {
             engine?.let { return EngineModel(it) }
             val file = LocalModelCatalog.recommended.files.first { it.chip == null }
-            val path = context.getExternalFilesDir("models")?.resolve(file.fileName)
+            val path = TestModelFiles.pathFor(file.fileName)
             assumeTrue("${file.fileName} is not on the phone", path?.isFile == true)
             val nativeLibraryDir = context.applicationInfo.nativeLibraryDir
             val guard = TpuCrashGuard(context.cacheDir.resolve("tpu-loading-test"), "test")

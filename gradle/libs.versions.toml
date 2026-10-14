@@ -19,10 +19,9 @@ media3 = "1.11.1"
 newpipeExtractor = "0.26.5"
 zxing = "3.5.4"
 camerax = "1.6.2"
-# Held at 0.14.0 on purpose: it is built from the same LiteRT source as the Google Tensor
-# dispatch library that LiteRT publishes (v2.1.6, FetchTensorDispatch in app/build.gradle.kts).
-# Later versions refuse that library or crash the TPU in native code: see docs/local-ai.md.
-litertlm = "0.14.0"
+# Paired with the source-built Google Tensor dispatch in scripts/tensor-dispatch.
+# Tested on a real Tensor G5 NPU; update both pins together (docs/local-ai.md).
+litertlm = "0.18.0"
 junit = "4.13.2"
 androidxTestJunit = "1.3.0"
 # Not called by the tests: pins the Espresso that compose-ui-test runs on. The 3.5.0 it

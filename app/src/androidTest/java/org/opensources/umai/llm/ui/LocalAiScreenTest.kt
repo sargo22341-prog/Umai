@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -184,7 +185,8 @@ class LocalAiScreenTest {
         rule.onNodeWithText("Whisper Large v3 Turbo").assertIsDisplayed()
 
         // Any size can be picked, not only the recommended one: the last card is Turbo.
-        rule.onAllNodesWithText(string(R.string.local_ai_download)).onLast().performClick()
+        rule.onAllNodesWithText(string(R.string.local_ai_download)).onLast()
+            .performScrollTo().assertIsDisplayed().performClick()
         assertEquals(listOf(SpeechModelCatalog.turbo), speechDownloads)
     }
 
