@@ -259,6 +259,7 @@ fun RecipeDetailScreen(
                         stepImageUrl = stepImageUrl,
                         stepPhotoUrl = { file -> stepPhotoUrl(recipe, file) },
                         contentPadding = padding,
+                        onImportImage = { onEdit(recipe.slug) },
                         onServingsChange = onServingsChange,
                         onToggleFavorite = onToggleFavorite,
                         onRate = onRate,

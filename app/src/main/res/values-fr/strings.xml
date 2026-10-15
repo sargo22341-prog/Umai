@@ -850,4 +850,20 @@
     <string name="food_estimate_source">Valeurs de la table Ciqual de l’Anses (2025), sous Licence Ouverte Etalab.</string>
     <string name="food_estimate_change">Chercher un autre aliment</string>
     <string name="notice_food_added_without_photo">Ajouté au planning, sans sa photo</string>
+    <string name="generation_title">Créer avec l’IA</string>
+    <string name="generation_summary">Décrivez la recette dont vous avez envie</string>
+    <string name="generation_intro">Décrivez vos ingrédients, vos envies et vos contraintes alimentaires. La recette sera enregistrée dans Mealie.</string>
+    <string name="generation_prompt">Votre envie de recette</string>
+    <string name="generation_example">Un dîner vegan et peu calorique, ou des spaghettis au poulet…</string>
+    <string name="generation_hint">Votre demande est prioritaire. Vos recettes et plats déjà cuisinés servent seulement d’inspiration. Les calories utilisent la table des aliments si possible et restent estimées. La génération continue en arrière-plan. Les réglages de notification Android contrôlent le son de fin. Le modèle local ne génère pas d’images ; vous pourrez ensuite importer une photo.</string>
+    <string name="generation_no_model">Activez l’IA locale et installez un modèle de langage pour générer une recette.</string>
+    <string name="generation_running">Création de votre recette… Vous pouvez quitter cette page.</string>
+    <string name="generation_done">Votre recette IA est prête</string>
+    <string name="generation_open">Voir la recette</string>
+    <string name="generation_another">Créer une autre recette</string>
+    <string name="generation_action">Générer la recette</string>
+    <string name="generation_failed">Le modèle local n’a pas pu produire une recette complète. Réessayez ou simplifiez votre demande.</string>
+    <string name="generation_busy">Un import de recette est déjà en cours. Attendez sa fin.</string>
+    <string name="generation_import_image">Importer une image</string>
+    <string name="generation_attribution">Recette créée par l’IA locale. Calories estimées par portion, à vérifier.</string>
 </resources>

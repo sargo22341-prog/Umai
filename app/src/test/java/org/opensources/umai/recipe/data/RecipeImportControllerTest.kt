@@ -158,6 +158,42 @@ class RecipeImportControllerTest {
         assertEquals("curry", (duplicate.outcome as ImportOutcome.Duplicate).existing.slug)
     }
 
+    @Test
+    fun `generation always announces completion even when its screen is visible`() {
+        controller.watch(true)
+        controller.generate("Vegan soup") { ImportOutcome.Imported(ImportedRecipe("soup", null)) }
+        assertEquals("soup", (host.announced?.outcome as ImportOutcome.Imported).recipe.slug)
+        assertTrue(checkNotNull(controller.run.value).isGeneration)
+        assertFalse(host.keepsAlive)
+    }
+
+    @Test
+    fun `cancelling generation stops its work and clears the notification`() {
+        var cancelled = false
+        controller.generate("Soup") {
+            try {
+                kotlinx.coroutines.awaitCancellation()
+            } finally {
+                cancelled = true
+            }
+        }
+        assertTrue(host.keepsAlive)
+        controller.cancel()
+        assertTrue(cancelled)
+        assertFalse(host.keepsAlive)
+        assertNull(controller.run.value)
+        assertNull(host.announced)
+    }
+
+    @Test
+    fun `an active generation prevents another import or generation`() {
+        controller.generate("First") { kotlinx.coroutines.awaitCancellation() }
+        controller.generate("Second") { error("Must not start") }
+        controller.start("https://example.org", true, true, true)
+        assertEquals("First", controller.run.value?.url)
+        controller.cancel()
+    }
+
     private companion object {
         const val TIMEOUT_MS = 5_000L
         const val EMPTY_SEARCH = """{"page":1,"per_page":10,"total":0,"total_pages":0,"items":[]}"""

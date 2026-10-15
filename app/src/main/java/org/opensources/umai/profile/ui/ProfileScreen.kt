@@ -78,6 +78,7 @@ fun ProfileRoute(
     onCreateRecipe: () -> Unit,
     onOpenDrafts: () -> Unit,
     modifier: Modifier = Modifier,
+    onGenerateRecipe: () -> Unit = {},
 ) {
     val container = LocalAppContainer.current
     val viewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.factory(container))
@@ -122,6 +123,7 @@ fun ProfileRoute(
         onImportRecipe = onImportRecipe,
         onCreateRecipe = onCreateRecipe,
         onOpenDrafts = onOpenDrafts,
+        onGenerateRecipe = onGenerateRecipe,
         modifier = modifier,
     )
 }
@@ -143,6 +145,7 @@ fun ProfileScreen(
     onCreateRecipe: () -> Unit,
     onOpenDrafts: () -> Unit,
     modifier: Modifier = Modifier,
+    onGenerateRecipe: () -> Unit = {},
     onOpenLocalAi: () -> Unit = {},
 ) {
     Scaffold(
@@ -179,7 +182,7 @@ fun ProfileScreen(
                     }
                     item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
                     item { SectionHeader(stringResource(R.string.profile_section_add)) }
-                    item { AddRecipeRows(state.draftCount, onImportRecipe, onCreateRecipe, onOpenDrafts) }
+                    item { AddRecipeRows(state.draftCount, onImportRecipe, onCreateRecipe, onOpenDrafts, onGenerateRecipe) }
                     item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
                     item { SectionHeader(stringResource(R.string.profile_section_settings)) }
                     item { SettingsRows(onOpenMealieSettings, onOpenAppSettings, onOpenProviders, onOpenLocalAi) }
@@ -190,13 +193,19 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun AddRecipeRows(draftCount: Int, onImportRecipe: () -> Unit, onCreateRecipe: () -> Unit, onOpenDrafts: () -> Unit) {
+private fun AddRecipeRows(draftCount: Int, onImportRecipe: () -> Unit, onCreateRecipe: () -> Unit, onOpenDrafts: () -> Unit, onGenerateRecipe: () -> Unit) {
     Column {
         NavigationRow(
             title = stringResource(R.string.profile_import_recipe),
             summary = stringResource(R.string.profile_import_recipe_summary),
             icon = Icons.Outlined.Link,
             onClick = onImportRecipe,
+        )
+        NavigationRow(
+            title = stringResource(R.string.generation_title),
+            summary = stringResource(R.string.generation_summary),
+            icon = Icons.Outlined.AutoAwesome,
+            onClick = onGenerateRecipe,
         )
         // Unfolds into the recipe form it opens.
         SharedContainer(SharedContainerKey.RECIPE_CREATION) {

@@ -7,4 +7,5 @@ la GitHub Release, puis vide la liste dans le commit `Version X.Y.Z`. Sans notes
 liste des commits. Détails : [docs/release.md](docs/release.md).
 
 <!-- notes -->
+- Créez une recette avec l’IA locale depuis vos envies, avec calories estimées et notification de fin.
 

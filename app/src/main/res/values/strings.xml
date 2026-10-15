@@ -840,4 +840,20 @@
     <string name="food_estimate_source">Values from the Ciqual table of ANSES (2025), under the Etalab Open Licence.</string>
     <string name="food_estimate_change">Search another food</string>
     <string name="notice_food_added_without_photo">Added to the meal plan, without its photo</string>
+    <string name="generation_title">Create with AI</string>
+    <string name="generation_summary">Describe the recipe you would like</string>
+    <string name="generation_intro">Describe your ingredients, preferences and dietary requirements. The recipe will be saved to Mealie.</string>
+    <string name="generation_prompt">Your recipe idea</string>
+    <string name="generation_example">A vegan, low-calorie dinner, or spaghetti with chicken…</string>
+    <string name="generation_hint">Your request takes priority. Existing and previously cooked recipes are only inspiration. Calories use the food table when possible and remain estimates. Generation continues in the background. Android notification settings control the completion sound. The local model cannot generate images; you can import a photo afterwards.</string>
+    <string name="generation_no_model">Enable local AI and install a language model to generate a recipe.</string>
+    <string name="generation_running">Creating your recipe… You can leave this screen.</string>
+    <string name="generation_done">Your AI recipe is ready</string>
+    <string name="generation_open">View recipe</string>
+    <string name="generation_another">Create another recipe</string>
+    <string name="generation_action">Generate recipe</string>
+    <string name="generation_failed">The local model could not produce a complete recipe. Please try again or simplify your request.</string>
+    <string name="generation_busy">A recipe import is already running. Wait for it to finish.</string>
+    <string name="generation_import_image">Import an image</string>
+    <string name="generation_attribution">Recipe created by local AI. Estimated calories per serving; please check.</string>
 </resources>

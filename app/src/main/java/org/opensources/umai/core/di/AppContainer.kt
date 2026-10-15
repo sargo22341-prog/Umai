@@ -219,7 +219,7 @@ class AppContainer(context: Context) {
         LiteRtLmLoader(nativeLibraryDir, appContext.cacheDir.resolve("litertlm"), tpuGuard)
     }
 
-    /** The on-device language model; every feature using it also works without it. */
+    /** The on-device language model, shared by recipe generation, extraction and classification. */
     val localLanguageModel by lazy {
         LocalLanguageModel(
             installed = modelInstaller::installedModel,
@@ -264,7 +264,7 @@ class AppContainer(context: Context) {
     }
 
     /** The recipe import, which outlives the import screen. */
-    val recipeImports by lazy {
+    private val recipeImportsDelegate = lazy {
         RecipeImportController(
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
             repository = recipeEditRepository,
@@ -274,6 +274,16 @@ class AppContainer(context: Context) {
             mediaImporter = providerMediaImporter,
             videoImporter = videoRecipeImporter,
             host = importHost,
+        )
+    }
+
+    val recipeImports: RecipeImportController get() = recipeImportsDelegate.value
+
+    val recipeGeneration by lazy {
+        org.opensources.umai.generation.data.RecipeGenerationRepository(
+            apiProvider, instanceKey, localLanguageModel, foodTable, localeController::appLanguage,
+            attribution = { appContext.getString(org.opensources.umai.R.string.generation_attribution) },
+            calorieTags = calorieTagRepository,
         )
     }
 
@@ -294,6 +304,9 @@ class AppContainer(context: Context) {
         // good there: it goes when the app is signed in somewhere else.
         applicationScope.launch {
             sessionManager.watchInstanceChanges {
+                kotlinx.coroutines.withContext(Dispatchers.Main.immediate) {
+                    if (recipeImportsDelegate.isInitialized()) recipeImports.cancel()
+                }
                 recentRecipesStore.clear()
                 dishCourseStore.clear()
             }

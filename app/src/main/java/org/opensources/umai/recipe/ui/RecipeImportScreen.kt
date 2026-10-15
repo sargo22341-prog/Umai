@@ -181,6 +181,9 @@ fun RecipeImportScreen(
 /** What the address typed is: a video, or a page of a provider the app knows. */
 @Composable
 private fun SourceHints(state: RecipeImportUiState) {
+    if (state.generationRunning) {
+        Text(stringResource(R.string.generation_running), style = MaterialTheme.typography.bodySmall)
+    }
     if (state.isVideo) {
         Text(
             text = stringResource(if (state.videoUsesModel) R.string.import_video_hint_model else R.string.import_video_hint_rules),

@@ -54,9 +54,10 @@ data class RecipeImportUiState(
     val videoEmpty: Boolean = false,
     /** Set once Mealie has created the recipe; the screen then navigates to it. */
     val imported: ImportedRecipe? = null,
+    val generationRunning: Boolean = false,
 ) {
     val importing: Boolean get() = phase != null
-    val canSubmit: Boolean get() = !importing && url.isNotBlank()
+    val canSubmit: Boolean get() = !importing && !generationRunning && url.isNotBlank()
 }
 
 /**
@@ -78,12 +79,16 @@ class RecipeImportViewModel(
     private var displayed = false
 
     val state: StateFlow<RecipeImportUiState> = combine(form, imports.run) { form, run ->
-        if (run?.running == true) form.showing(run) else form
+        when {
+            run?.running == true && run.isGeneration -> form.copy(generationRunning = true)
+            run?.running == true -> form.showing(run)
+            else -> form
+        }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, form.value)
 
     init {
         // A page shared to the app is the one to import; otherwise the import under way, if any.
-        (initialUrl?.takeIf { it.isNotBlank() } ?: imports.run.value?.url)?.let(::onUrlChange)
+        (initialUrl?.takeIf { it.isNotBlank() } ?: imports.run.value?.takeUnless { it.isGeneration }?.url)?.let(::onUrlChange)
         viewModelScope.launch {
             imports.run.collect { run -> if (run?.outcome != null && displayed) takeOver(run) }
         }
@@ -155,6 +160,7 @@ class RecipeImportViewModel(
 
     /** The form shows how [run] ended, which is then over for the app. */
     private fun takeOver(run: RecipeImportRun) {
+        if (run.isGeneration) return
         val outcome = run.outcome ?: return
         form.update { current ->
             val base = if (current.url.trim() == run.url) current else current.copy(url = run.url, isVideo = run.isVideo)
@@ -163,6 +169,7 @@ class RecipeImportViewModel(
                 is ImportOutcome.Duplicate -> base.copy(duplicate = outcome.existing)
                 is ImportOutcome.Failed -> base.copy(error = outcome.error)
                 is ImportOutcome.VideoFailed -> base.copy(videoFailure = outcome.failure)
+                ImportOutcome.GenerationFailed -> base.copy(error = org.opensources.umai.core.network.NetworkError.InvalidResponse)
                 ImportOutcome.VideoEmpty -> base.copy(videoEmpty = true)
             }
         }

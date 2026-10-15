@@ -52,15 +52,15 @@ class ImportNotifications(context: Context) {
     fun running(run: RecipeImportRun): Notification {
         val builder = Notification.Builder(context, CHANNEL_RUNNING)
             .setSmallIcon(R.drawable.ic_notification_import)
-            .setContentTitle(context.getString(R.string.import_notification_running))
-            .setContentText(context.getString(phaseText(run)))
-            .setSubText(run.url.toUri().host)
+            .setContentTitle(context.getString(if (run.isGeneration) R.string.generation_running else R.string.import_notification_running))
+            .setContentText(context.getString(if (run.isGeneration) R.string.generation_running else phaseText(run)))
+            .setSubText(if (run.isGeneration) null else run.url.toUri().host)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .setCategory(Notification.CATEGORY_PROGRESS)
             .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
-            .setContentIntent(open(ImportRequest.OpenImport))
+            .setContentIntent(open(if (run.isGeneration) ImportRequest.OpenGeneration() else ImportRequest.OpenImport))
         val watch = run.watchProgress?.takeIf { run.phase == ImportPhase.WATCHING && it.total > 0 }
         if (watch != null) builder.setProgress(watch.total, watch.done, false) else builder.setProgress(0, 0, true)
         return builder.build()
@@ -73,22 +73,23 @@ class ImportNotifications(context: Context) {
         val outcome = run.outcome ?: return
         val builder = Notification.Builder(context, CHANNEL_ENDED)
             .setSmallIcon(R.drawable.ic_notification_import)
-            .setSubText(run.url.toUri().host)
+            .setSubText(if (run.isGeneration) null else run.url.toUri().host)
             .setAutoCancel(true)
             .setCategory(Notification.CATEGORY_STATUS)
         when (outcome) {
             is ImportOutcome.Imported -> builder
-                .setContentTitle(context.getString(R.string.import_notification_done))
-                .setContentText(context.getString(outcome.recipe.notice?.let(::noticeText) ?: R.string.import_notification_open))
-                .setContentIntent(open(ImportRequest.OpenRecipe(outcome.recipe.slug)))
+                .setContentTitle(context.getString(if (run.isGeneration) R.string.generation_done else R.string.import_notification_done))
+                .setContentText(context.getString(if (run.isGeneration) R.string.generation_open
+                    else outcome.recipe.notice?.let(::noticeText) ?: R.string.import_notification_open))
+                .setContentIntent(open(if (run.isGeneration) ImportRequest.OpenGeneration(outcome.recipe.slug) else ImportRequest.OpenRecipe(outcome.recipe.slug)))
             is ImportOutcome.Duplicate -> builder
                 .setContentTitle(context.getString(R.string.import_duplicate_title))
                 .setContentText(context.getString(R.string.import_duplicate_message, outcome.existing.name))
-                .setContentIntent(open(ImportRequest.OpenImport))
-            is ImportOutcome.Failed, is ImportOutcome.VideoFailed, ImportOutcome.VideoEmpty -> builder
+                .setContentIntent(open(if (run.isGeneration) ImportRequest.OpenGeneration() else ImportRequest.OpenImport))
+            is ImportOutcome.Failed, is ImportOutcome.VideoFailed, ImportOutcome.VideoEmpty, ImportOutcome.GenerationFailed -> builder
                 .setContentTitle(context.getString(R.string.import_notification_failed))
                 .setContentText(context.getString(R.string.import_notification_failed_open))
-                .setContentIntent(open(ImportRequest.OpenImport))
+                .setContentIntent(open(if (run.isGeneration) ImportRequest.OpenGeneration() else ImportRequest.OpenImport))
         }
         manager.notify(ENDED_ID, builder.build())
     }
@@ -124,6 +125,7 @@ class ImportNotifications(context: Context) {
             // The running activity receives it in onNewIntent rather than a second copy opening.
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         when (request) {
+            is ImportRequest.OpenGeneration -> intent.setAction(ACTION_OPEN_GENERATION).putExtra(EXTRA_SLUG, request.slug)
             ImportRequest.OpenImport -> intent.setAction(ACTION_OPEN_IMPORT)
             is ImportRequest.OpenRecipe -> intent.setAction(ACTION_OPEN_RECIPE).putExtra(EXTRA_SLUG, request.slug)
         }
@@ -140,6 +142,7 @@ class ImportNotifications(context: Context) {
         private const val ENDED_ID = 3_001
         private const val CHANNEL_RUNNING = "import_running"
         private const val CHANNEL_ENDED = "import_ended"
+        private const val ACTION_OPEN_GENERATION = "org.opensources.umai.action.OPEN_GENERATION"
         private const val ACTION_OPEN_IMPORT = "org.opensources.umai.action.OPEN_IMPORT"
         private const val ACTION_OPEN_RECIPE = "org.opensources.umai.action.OPEN_IMPORTED_RECIPE"
         private const val EXTRA_SLUG = "slug"
@@ -148,6 +151,7 @@ class ImportNotifications(context: Context) {
         fun request(intent: Intent): ImportRequest? {
             if (!NotificationEntry.isFrom(intent)) return null
             return when (intent.action) {
+                ACTION_OPEN_GENERATION -> ImportRequest.OpenGeneration(intent.getStringExtra(EXTRA_SLUG))
                 ACTION_OPEN_IMPORT -> ImportRequest.OpenImport
                 ACTION_OPEN_RECIPE -> intent.getStringExtra(EXTRA_SLUG)?.let { ImportRequest.OpenRecipe(it) }
                 else -> null

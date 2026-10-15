@@ -60,8 +60,8 @@ enum class LlmFailure {
 
 /**
  * The on-device language model, as the features that use it see it. Every
- * feature also works without it, with a plain algorithm: the model only adds
- * understanding of free text where it is available.
+ * feature decides whether a plain algorithm can replace it. Creating a recipe
+ * from a request requires a model; extraction and classification have fallbacks.
  */
 interface LanguageModel {
 

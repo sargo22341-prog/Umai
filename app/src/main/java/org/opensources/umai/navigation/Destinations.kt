@@ -74,6 +74,9 @@ data object ProfileDestination
 data object AppSettingsDestination
 
 @Serializable
+data class RecipeGenerationDestination(val slug: String? = null)
+
+@Serializable
 data object MealieSettingsDestination
 
 /** [url] fills the address in, as when a page is shared to the app. */
@@ -161,6 +164,7 @@ val FullScreenDestinations: List<KClass<*>> = listOf(
     AppSettingsDestination::class,
     MealieSettingsDestination::class,
     RecipeImportDestination::class,
+    RecipeGenerationDestination::class,
     ProvidersDestination::class,
     ProviderDestination::class,
     RecipeCreateDestination::class,

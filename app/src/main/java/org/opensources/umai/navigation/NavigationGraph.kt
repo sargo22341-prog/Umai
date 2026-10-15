@@ -207,6 +207,7 @@ private fun NavGraphBuilder.profileGraph(navController: NavHostController) {
                 onOpenLocalAi = { navController.navigate(LocalAiSettingsDestination) },
                 onCreateRecipe = { navController.navigate(RecipeCreateDestination()) },
                 onOpenDrafts = { navController.navigate(RecipeDraftsDestination) },
+                onGenerateRecipe = { navController.navigate(RecipeGenerationDestination()) },
             )
         }
     }
@@ -233,6 +234,15 @@ private fun NavGraphBuilder.profileGraph(navController: NavHostController) {
 
 /** The screens that bring a recipe into Mealie: the import, the form and its drafts. */
 private fun NavGraphBuilder.recipeWritingGraph(navController: NavHostController, showNotice: (AppNotice) -> Unit) {
+    composable<RecipeGenerationDestination> { entry ->
+        val route: RecipeGenerationDestination = entry.toRoute()
+        org.opensources.umai.generation.ui.RecipeGenerationRoute(
+            initialSlug = route.slug,
+            onBack = { navController.popBackStack() },
+            onOpenRecipe = { navController.navigate(RecipeDestination(it)) },
+            onOpenLocalAi = { navController.navigate(LocalAiSettingsDestination) },
+        )
+    }
     composable<RecipeImportDestination> { entry ->
         val route: RecipeImportDestination = entry.toRoute()
         RecipeImportRoute(

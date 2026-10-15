@@ -63,6 +63,7 @@ internal fun RecipeContent(
     onOrganizerClick: (OrganizerEntry) -> Unit,
     onStartCooking: () -> Unit,
     modifier: Modifier = Modifier,
+    onImportImage: () -> Unit = {},
 ) {
     val listState = rememberLazyListState()
     var commentFieldFocused by remember { mutableStateOf(false) }
@@ -91,6 +92,13 @@ internal fun RecipeContent(
         ),
     ) {
         headerItems(recipe, state, imageUrl, imagePlace, onToggleFavorite, onRate, onStartCooking)
+        if (imageUrl == null) {
+            item {
+                androidx.compose.material3.TextButton(onClick = onImportImage, modifier = Modifier.padding(horizontal = 20.dp)) {
+                    Text(stringResource(R.string.generation_import_image))
+                }
+            }
+        }
         ingredientItems(recipe, state, stepPhotoUrl, onServingsChange)
         stepItems(recipe, stepImageUrl, stepPhotoUrl)
         referenceItems(recipe, state, onOrganizerClick, onOpenSource)

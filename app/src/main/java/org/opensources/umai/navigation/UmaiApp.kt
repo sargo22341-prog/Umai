@@ -219,6 +219,7 @@ private fun OpenImportRequest(navController: NavHostController, request: ImportR
     LaunchedEffect(request) {
         when (request) {
             null -> return@LaunchedEffect
+            is ImportRequest.OpenGeneration -> navController.navigate(RecipeGenerationDestination(request.slug)) { launchSingleTop = true }
             ImportRequest.OpenImport -> navController.openImport()
             is ImportRequest.OpenRecipe -> navController.navigate(RecipeDestination(request.slug))
         }

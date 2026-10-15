@@ -46,6 +46,8 @@ sealed interface ImportOutcome {
     data class VideoFailed(val failure: YouTubeFailure) : ImportOutcome
 
     /** The video holds nothing a recipe could be rebuilt from. */
+    data object GenerationFailed : ImportOutcome
+
     data object VideoEmpty : ImportOutcome
 }
 
@@ -57,6 +59,7 @@ data class RecipeImportRun(
     val url: String,
     /** The address is a YouTube video, rebuilt into a recipe rather than scraped. */
     val isVideo: Boolean,
+    val isGeneration: Boolean = false,
     val phase: ImportPhase = ImportPhase.CHECKING,
     /** How far the language model is, while it reads the video. */
     val modelProgress: LlmProgress? = null,
@@ -71,6 +74,8 @@ data class RecipeImportRun(
 sealed interface ImportRequest {
     /** The import screen, where the import runs or tells how it ended. */
     data object OpenImport : ImportRequest
+
+    data class OpenGeneration(val slug: String? = null) : ImportRequest
 
     /** The recipe the import created. */
     data class OpenRecipe(val slug: String) : ImportRequest

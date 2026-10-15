@@ -82,6 +82,19 @@ class RecipeImportController(
         }
     }
 
+    /** A generation shares the import slot and foreground lifetime. */
+    fun generate(prompt: String, generate: suspend () -> ImportOutcome) {
+        if (_run.value?.running == true) return
+        val run = RecipeImportRun(prompt, isVideo = false, isGeneration = true, phase = ImportPhase.UNDERSTANDING)
+        host.running(run)
+        _run.value = run
+        job = scope.launch {
+            val outcome = kotlinx.coroutines.withTimeoutOrNull(15 * 60 * 1000L) { generate() }
+                ?: ImportOutcome.Failed(org.opensources.umai.core.network.NetworkError.Timeout)
+            end(outcome)
+        }
+    }
+
     /** Stops the import on its way; a recipe already created on Mealie stays. */
     fun cancel() {
         job?.cancel()
@@ -173,7 +186,7 @@ class RecipeImportController(
 
     private fun end(outcome: ImportOutcome) {
         val ended = _run.value?.copy(modelProgress = null, watchProgress = null, outcome = outcome) ?: return
-        host.ended(ended, announce = watchers == 0)
+        host.ended(ended, announce = ended.isGeneration || watchers == 0)
         _run.value = ended
     }
 }

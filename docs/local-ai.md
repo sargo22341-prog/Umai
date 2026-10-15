@@ -2,13 +2,14 @@
 
 umai peut faire tourner un modèle de langage **sur le téléphone**, sans service distant. Le
 modèle se télécharge à part, depuis *Profil › IA locale*, et se remplace sans mettre à jour
-l'application. Toutes les fonctions qui s'en servent marchent aussi sans lui, avec un algorithme
-classique.
+l'application. L’import et le planning gardent une solution classique sans modèle ; la création
+d’une recette depuis une consigne exige un modèle activé.
 
 ## Où le modèle sert, et où il ne sert pas
 
 | Fonction | Avec le modèle | Sans le modèle |
 |---|---|---|
+| Créer avec l’IA (Profil › Ajout) | Produit une recette à partir des envies et contraintes saisies. Six recettes de l’instance, triées par dernière préparation, donnent des indices secondaires. Les calories par portion utilisent Ciqual pour les aliments reconnus, sinon l’estimation du modèle. La recette est enregistrée dans Mealie sans photo. | Propose d’installer et d’activer un modèle ; aucune recette factice n’est créée. |
 | Import d'une vidéo YouTube | Lit titre, description, chapitres et transcription horodatée ; sans sous-titres, fait **écouter** la vidéo par Whisper, et en dernier recours **regarde** ses images (voir *Vidéos sans sous-titres*) ; écrit des étapes rédigées et titrées, le début de chaque étape dans la vidéo, et les ingrédients quand ni la page de recette ni la description ne les donnent. | Ingrédients de la page de recette ou de la description, étapes lues dans la description, sinon étapes = chapitres (texte tiré de la transcription), placées par les chapitres ou par alignement mots-transcription. |
 | Planning automatique | Classe les recettes que rien ne situe (ni catégorie, ni tag, ni nom, ni historique) : voir *Planning automatique* plus bas. | Ces recettes sont jugées sur leurs ingrédients (sucré seul = dessert). |
 | Produit ajouté au planning | **Lit** l'étiquette nutritionnelle photographiée : voir *Étiquettes nutritionnelles* plus bas. | Les valeurs pour 100 g se saisissent à la main. |
@@ -49,6 +50,14 @@ Pixel 10 Pro XL (les limites générales du schéma n'ont pas été retestées e
   tous de l'alignement par mots.
 
 ## Runtime : LiteRT-LM, sur le TPU, le GPU ou le CPU
+
+La création par texte partage le service de premier plan et le créneau de l’import : une seule
+opération à la fois, annulable et limitée à 15 minutes. La notification de fin est publiée même
+si la page est ouverte ; son son dépend du canal de notification Android. Elle ramène à un bouton
+« Voir la recette », y compris après un redémarrage du processus. Les consignes de l’utilisateur
+priment sur les recettes de l’instance. Les calories sont indiquées comme estimées dans la
+description enregistrée. Gemma 4 produit du texte, pas d’images : le bouton « Importer une image »
+d’une recette sans photo ouvre l’éditeur existant.
 
 - **LiteRT-LM** (Google, Apache 2.0), dépendance Maven `com.google.ai.edge.litertlm:litertlm-android`,
   sans aucun service Google Play. Il est isolé derrière l'interface `AiEngine`

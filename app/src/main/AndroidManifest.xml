@@ -135,7 +135,7 @@
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Recipe import started by the user, such as rebuilding a recipe from a video on the phone, which takes minutes, with its progress shown." />
+                android:value="Recipe import or local AI recipe generation started by the user, which takes minutes, with its progress shown." />
         </service>
 
         <!-- The wake-up alarm of the next timer and the actions of the timer notifications. -->
