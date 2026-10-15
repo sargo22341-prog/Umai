@@ -71,7 +71,7 @@ class RecipeGenerationViewModel(
     fun cancel() = imports.cancel()
 
     fun newRecipe() {
-        form.update { it.copy(slug = null) }
+        form.update { it.copy(prompt = "", slug = null) }
         imports.consume()
     }
 

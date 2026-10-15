@@ -59,6 +59,12 @@ priment sur les recettes de l’instance. Les calories sont indiquées comme est
 description enregistrée. Gemma 4 produit du texte, pas d’images : le bouton « Importer une image »
 d’une recette sans photo ouvre l’éditeur existant.
 
+Chaque ingrédient généré fournit un nom et un poids comestible pour la recette entière
+(pâtes sèches, viande crue, œufs sans coquille). L’app compose elle-même la ligne
+`200 g …` à partir de ce poids validé : la liste d’ingrédients et le calcul calorique
+utilisent ainsi la même quantité. Le libellé libre du modèle ne décide plus si le poids
+est affiché. « Créer une autre recette » efface la demande et le résultat précédents.
+
 - **LiteRT-LM** (Google, Apache 2.0), dépendance Maven `com.google.ai.edge.litertlm:litertlm-android`,
   sans aucun service Google Play. Il est isolé derrière l'interface `AiEngine`
   (`llm/domain/AiEngine.kt`) : seul `llm/data/LiteRtLmEngine.kt` l'importe.

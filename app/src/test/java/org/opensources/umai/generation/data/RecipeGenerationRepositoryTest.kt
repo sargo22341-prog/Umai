@@ -6,6 +6,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.jsonArray
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Test
@@ -56,6 +57,7 @@ class RecipeGenerationRepositoryTest {
             assertTrue(schema.getValue("description").jsonPrimitive.content.contains("Estimated calories"))
             assertTrue(schema.containsKey("recipeIngredient"))
             assertTrue(schema.containsKey("recipeInstructions"))
+            assertEquals(listOf("200 g lentils"), schema.getValue("recipeIngredient").jsonArray.map { it.jsonPrimitive.content })
         }
     }
 
@@ -121,6 +123,14 @@ class RecipeGenerationRepositoryTest {
     }
 
     @Test
+    fun everyIngredientLineUsesItsValidatedWeightWithoutRoundingItAway() {
+        assertEquals("200 g lentils", GeneratedIngredient("lentils", 200.0, 200.0).line)
+        assertEquals("2.5 g olive oil", GeneratedIngredient("olive oil", 2.5, 22.0).line)
+        assertEquals("0.01 g pepper", GeneratedIngredient("pepper", 0.01, 0.0).line)
+        assertNull(GeneratedRecipe.parse(VALID.replace("\"grams\":200.0", "\"grams\":0.001")))
+    }
+
+    @Test
     fun aNewCalorieTagRefreshesTheSearchFilters() = runBlocking {
         withTimeout(5000) {
             val tags = org.opensources.umai.recipe.data.CalorieTagRepository({ api }, { key })
@@ -144,6 +154,6 @@ class RecipeGenerationRepositoryTest {
     }
 
     private companion object {
-        const val VALID = """{"name":"Soup","description":"Vegan soup","servings":2,"prepMinutes":5,"cookMinutes":10,"ingredients":[{"text":"200 g lentils","food":"lentils","grams":200.0,"kcal":200.0}],"steps":["Heat and serve."]}"""
+        const val VALID = """{"name":"Soup","description":"Vegan soup","servings":2,"prepMinutes":5,"cookMinutes":10,"ingredients":[{"food":"lentils","grams":200.0,"kcal":200.0}],"steps":["Heat and serve."]}"""
     }
 }
