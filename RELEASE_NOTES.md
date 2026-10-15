@@ -7,6 +7,4 @@ la GitHub Release, puis vide la liste dans le commit `Version X.Y.Z`. Sans notes
 liste des commits. Détails : [docs/release.md](docs/release.md).
 
 <!-- notes -->
-- Les recettes générées par IA affichent systématiquement leurs poids et « Créer une autre recette » vide la demande précédente.
-- Créez une recette avec l’IA locale depuis vos envies, avec calories estimées et notification de fin.
 
