@@ -54,6 +54,19 @@ def apply_public_hooks_patch(litert_commit: str) -> None:
     shutil.copyfile(RECIPE / 'google-tensor-public-hooks.patch', SOURCE_ROOT / 'google-tensor-public-hooks.patch')
 
 
+def drop_workspace_lines(lines: list[str]) -> None:
+    # A release can carry a dependency re-pin its own WORKSPACE cannot load
+    # (0.18.1 bumps TensorFlow past the rules_cc it declares). Each dropped line
+    # must exist exactly once, so a new release never inherits this silently.
+    workspace = SOURCE_ROOT / 'WORKSPACE'
+    source = workspace.read_text()
+    for line in lines:
+        if source.count(line + '\n') != 1:
+            raise ValueError(f'Expected exactly one WORKSPACE line: {line}')
+        source = source.replace(line + '\n', '')
+    workspace.write_text(source)
+
+
 def main() -> None:
     manifest = json.loads((RECIPE / 'sources.json').read_text())
     files = manifest['files']
@@ -62,6 +75,7 @@ def main() -> None:
     SOURCE_ROOT.mkdir(parents=True, exist_ok=True)
     for relative, expected in files.items():
         fetch_file(manifest['litertlm_commit'], relative, expected)
+    drop_workspace_lines(manifest['dropped_workspace_lines'])
     apply_public_hooks_patch(manifest['litert_commit'])
     print(f"Verified LiteRT-LM {manifest['litertlm_version']}, LiteRT {manifest['litert_commit']}")
 

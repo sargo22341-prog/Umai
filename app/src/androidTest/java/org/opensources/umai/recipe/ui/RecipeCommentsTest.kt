@@ -6,11 +6,15 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -39,6 +43,12 @@ class RecipeCommentsTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
     private fun string(id: Int, vararg args: Any) = context.getString(id, *args)
+
+    /** The field is the last item of the page: it is only composed once the list comes near it. */
+    private fun commentField() = string(R.string.recipe_comment_placeholder).let { placeholder ->
+        rule.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(hasText(placeholder))
+        rule.onNodeWithText(placeholder)
+    }
 
     @OptIn(ExperimentalMaterial3Api::class)
     private fun render(
@@ -99,9 +109,7 @@ class RecipeCommentsTest {
         var posted: String? = null
         render(base, onPostComment = { posted = it })
 
-        rule.onNodeWithText(string(R.string.recipe_comment_placeholder))
-            .performScrollTo()
-            .performTextInput("Merci")
+        commentField().performTextInput("Merci")
         rule.onNodeWithContentDescription(string(R.string.recipe_comment_send)).performClick()
 
         assertEquals("Merci", posted)
@@ -164,10 +172,7 @@ class RecipeCommentsTest {
         render(base.copy(comments = listOf(TestData.comment(text = "Trop bon"))))
 
         // Both are measured at the same scroll position, the end of the page.
-        val field = rule.onNodeWithText(string(R.string.recipe_comment_placeholder))
-            .performScrollTo()
-            .fetchSemanticsNode()
-            .boundsInRoot
+        val field = commentField().fetchSemanticsNode().boundsInRoot
         val comment = rule.onNodeWithText("Trop bon").fetchSemanticsNode().boundsInRoot
 
         assertTrue("the field sits below the comments", field.top >= comment.bottom)

@@ -6,6 +6,9 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -78,11 +81,19 @@ private data class ListEntranceElement(val entrance: ListEntrance, val index: In
 
 private class ListEntranceNode(private val entrance: ListEntrance, private val index: Int) : Modifier.Node(), LayoutModifierNode {
 
-    /** From `0`, hidden below its place, to `1`, in place; `null` when the item shows in place. */
-    private var progress: Animatable<Float, AnimationVector1D>? = null
+    /**
+     * From `0`, hidden below its place, to `1`, in place; `null` when the item shows in place.
+     * Held in a state so the layer sees it change: a lazy list detaches an item while it rises
+     * (prefetch, reuse), which cancels the rise, and the item must not stay hidden when it comes back.
+     */
+    private var progress by mutableStateOf<Animatable<Float, AnimationVector1D>?>(null)
 
     override fun onAttach() {
-        val wait = entrance.delayFor(index) ?: return
+        val wait = entrance.delayFor(index)
+        if (wait == null) {
+            progress = null
+            return
+        }
         val rising = Animatable(0f)
         progress = rising
         coroutineScope.launch {

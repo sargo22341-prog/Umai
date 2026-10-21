@@ -1,7 +1,11 @@
 {
-  "litertlm_version": "0.18.0",
-  "litertlm_commit": "b2f686e2ed4718fb84ec398a61dd59ca0f0aff27",
-  "litert_commit": "26895c9fbcc25c43faa8c1a98cd1fd28951602c3",
+  "litertlm_version": "0.18.1",
+  "litertlm_commit": "bda624851d74be34d4e1f7fac1fc4155939539c7",
+  "litert_commit": "ca21dc99de51c76bdcc572afeea1dd937d3c9e5c",
+  "dropped_workspace_lines": [
+    "TENSORFLOW_REF = \"a1179d3c224967bd979950b823d5ce2a7e8f4c94\"",
+    "TENSORFLOW_SHA256 = \"c99256ecac35ee2d7795de8ee8976afbcc47308edf2c8a04a20a5bd8ffd5b8ae\""
+  ],
   "files": {
     ".bazelrc": "0f585dc62934562993848d588018cd5fd4a4e92ff8a01e17c31a5cd63820aa77",
     ".bazelversion": "ecdac2d3f13898bc2fb0538911463dfe7411e3428c8f4587b944d4f2a80d9cae",
@@ -16,7 +20,7 @@
     "PATCH.llguidance_perf": "f28d127e7dd28073c81570f5db9410b0c0860665ea3ce0877ae0d73b7aeb4daf",
     "PATCH.llguidance_regexvec": "086d5c4a6b059d2a81b15a176898bde062c50c456d4960bbc55b1fcac9e2378d",
     "PATCH.toktrie": "3f0ebc16a6280f4490d20018df9eba5153149b033897533831d57dd2b0bd21a3",
-    "WORKSPACE": "ab0d0c6be44b1c50f3f8892149d87b68cbf801f44797f61f3c9c54e6ef050339",
+    "WORKSPACE": "2dfa4a5a492b9b99be2e767b4573bc65f1c5268a502391755af22ca77ea0e88a",
     "android_ndk_env.bzl": "2f6a8e7295bb482e1cd3b28b04185706ebbc37f8ba757e7312d4707b35396a23",
     "build_config/BUILD": "65f31e6686270374eec2c7789bdf3cde4e384439b36255163eef920d959b16be",
     "cargo-bazel-lock.json": "5ba69a1641a462bf8fa04d0d8742fc5561f4c41c15d1ceb6abd4630132df2304",

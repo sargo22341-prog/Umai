@@ -215,6 +215,11 @@ abstract class FetchTensorDispatch : DefaultTask() {
         }
         val image = "umai-tensor-dispatch:${runtimeVersion.get()}"
         val target = outputDir.get().dir("arm64-v8a").asFile.apply { mkdirs() }
+        // The library comes out of the container read-only: a rebuild cannot overwrite it.
+        val previous = target.resolve(LIBRARY)
+        check(!previous.exists() || (previous.setWritable(true) && previous.delete())) {
+            "Cannot replace the previous Google Tensor dispatch at $previous"
+        }
         runCommand(listOf("docker", "build", "--tag", image, recipeDir.get().asFile.absolutePath), "build.log")
         runCommand(
             listOf("docker", "run", "--rm", "--network", "none", "--mount",

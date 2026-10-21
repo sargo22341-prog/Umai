@@ -26,7 +26,8 @@ réussie n'est jamais utilisée comme preuve de compatibilité NPU.
 | 0.15.0 | `3cb830ad9c94f9922f0a88dd431b005413628919` | Reconstruit depuis ce commit, sans patch natif | NPU, réponse correcte | 399,2 / 13,9 jetons/s | 12,178 s |
 | 0.16.1 | `0ff28117f1cb5556d0e015bf80b773f74e2bee51` | Reconstruit depuis ce commit | Échec : `Unsupported dispatch runtime version`, puis échec du warmup | Aucun jeton | 0,795 s, échec |
 | 0.17.1 | `9fe5be45564c868408e6514c8aabb83e211a0911` | Reconstruit depuis ce commit, sans patch natif | NPU, réponse correcte | 328,7 / 14,8 jetons/s | 11,588 s |
-| **0.18.0** | `26895c9fbcc25c43faa8c1a98cd1fd28951602c3` | Reconstruit ; retrait de la dépendance privée de profilage inutilisée ; GCC hôte explicite | **NPU, réponse correcte** | **588,9 / 14,2 jetons/s** | **11,593 s** |
+| 0.18.0 | `26895c9fbcc25c43faa8c1a98cd1fd28951602c3` | Reconstruit ; retrait de la dépendance privée de profilage inutilisée ; GCC hôte explicite | NPU, réponse correcte | 588,9 / 14,2 jetons/s | 11,593 s |
+| **0.18.1** | `ca21dc99de51c76bdcc572afeea1dd937d3c9e5c` | Idem 0.18.0, plus retrait du re-pin TensorFlow cassé du `WORKSPACE` (voir plus bas) | **NPU, réponse correcte** | **129,8 / 12,9 jetons/s** | **13,870 s** |
 
 Le prompt court contient 130 jetons ; chaque réponse en compte 50 et classe correctement les
 lasagnes, la tarte aux pommes et le mojito. La mémoire anonyme après génération reste proche
@@ -88,8 +89,24 @@ La première suite complète confirme aussi le CPU (15,508 s pour le test court)
 
 ## Intégration et build
 
-`gradle/libs.versions.toml` épingle 0.18.0. `FetchTensorDispatch` construit le dispatch à partir
-du workspace LiteRT-LM au commit **`b2f686e2ed4718fb84ec398a61dd59ca0f0aff27`**. Le manifeste
+`gradle/libs.versions.toml` épingle 0.18.1. `FetchTensorDispatch` construit le dispatch à partir
+du workspace LiteRT-LM au commit **`bda624851d74be34d4e1f7fac1fc4155939539c7`**.
+
+### 0.18.1 (21 octobre 2026)
+
+Côté Android, 0.18.1 ne change que ses dépendances : LiteRT passe de `26895c9` à `ca21dc99`
+(même `BUILD` du dispatch, même API LiteRT 0.1.0) et TensorFlow de `d9a8da74` à `a1179d3c`. Le
+`WORKSPACE` du tag ajoute ces pins **sous** les anciens, et le nouveau TensorFlow charge
+`compatibility_proxy_repo`, absent du `rules_cc` déclaré : Bazel échoue avant toute compilation,
+comme le commentaire du fichier le prévoit. `fetch-sources.py` retire donc les deux lignes du
+re-pin TensorFlow listées dans `dropped_workspace_lines`, chacune devant exister exactement une
+fois. Le pin LiteRT, qui fixe l'ABI du dispatch, reste celui du tag. `main` a depuis corrigé
+le `WORKSPACE` (bazel_skylib 1.9.0), mais sur un autre commit LiteRT.
+
+Sur Pixel 10 Pro XL Tensor G5 : les 7 tests de `LiteRtLmBackendTest` et les 3 de
+`RecipeGenerationDeviceTest` passent ; les trois graphes sont délégués au DispatchDelegate.
+Import vidéo : 1 403 jetons lus, 505 écrits, 43,3 s ; planning 25 recettes : 18,1 s ; 3 recettes :
+5,7 s. Les débits isolés ne comparent pas les versions (voir plus haut). Le manifeste
 `scripts/tensor-dispatch/sources.json` vérifie les 47 fichiers nécessaires par SHA-256, sans
 télécharger les centaines de Mo de fixtures de modèle de l'archive complète.
 
@@ -118,7 +135,8 @@ Les commandes Docker ont elles aussi une borne ; un client interrompu est arrêt
 - [WORKSPACE 0.15.0](https://github.com/google-ai-edge/LiteRT-LM/blob/v0.15.0/WORKSPACE),
   [0.16.1](https://github.com/google-ai-edge/LiteRT-LM/blob/v0.16.1/WORKSPACE),
   [0.17.1](https://github.com/google-ai-edge/LiteRT-LM/blob/v0.17.1/WORKSPACE),
-  [0.18.0](https://github.com/google-ai-edge/LiteRT-LM/blob/v0.18.0/WORKSPACE) : pins officiels.
+  [0.18.0](https://github.com/google-ai-edge/LiteRT-LM/blob/v0.18.0/WORKSPACE),
+  [0.18.1](https://github.com/google-ai-edge/LiteRT-LM/blob/v0.18.1/WORKSPACE) : pins officiels.
 - [LiteRT #7787](https://github.com/google-ai-edge/LiteRT/issues/7787) : signalement du problème
   de runtime/dispatch sur Pixel 10 ; ne constitue pas une preuve pour les versions testées ici.
 - [Recette Tensor G5 publique](https://github.com/bejoyfuuul/litert-lm-tensor-g5-npu) : construction
