@@ -1,6 +1,6 @@
 # Compilation (debug et release), Lint et tests JVM sur chaque pull request et chaque push.
-# Les actions sont épinglées par SHA de commit (le tag lisible en commentaire) : le job de
-# release écrit dans le dépôt et manipule la clé de signature.
+# Les actions suivent leur tag de version majeure (@v7…), mis à jour par leur mainteneur ;
+# les montées de version majeure se font à la main.
 # --dependency-verification off : verification-metadata.xml, généré sous Windows, n'a pas les
 # artefacts propres à Linux ; les sommes de contrôle sont vérifiées en local (AGENTS.md §2).
 # Pas de job émulateur : l'émulateur Android 17 plante sur les runners Linux ; les tests instrumentés
@@ -38,14 +38,14 @@ jobs:
     if: github.server_url == 'https://github.com'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
 
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Compiler, analyser et lancer les tests JVM
         run: |
@@ -66,7 +66,7 @@ jobs:
 
       - name: Conserver les rapports de tests et de Lint
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@v7
         with:
           name: rapports-de-tests
           path: |
@@ -101,14 +101,14 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
 
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Monter la version
         id: version
