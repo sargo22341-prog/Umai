@@ -9,6 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -295,17 +296,30 @@ class RecipeImportViewModelTest {
     @Test
     fun `a cancelled import leaves nothing running nor shown`() = runBlocking {
         fake.enqueueJson("""{"page":1,"per_page":10,"total":0,"total_pages":0,"items":[]}""")
-        val imports = controller(importsMedia = false, video = { CompletableDeferred<YouTubeResult<YouTubeVideo>>().await() })
+        val videoStarted = CompletableDeferred<Unit>()
+        val videoCancelled = CompletableDeferred<Unit>()
+        val imports = controller(importsMedia = false, video = {
+            videoStarted.complete(Unit)
+            try {
+                awaitCancellation()
+            } finally {
+                videoCancelled.complete(Unit)
+            }
+        })
         val viewModel = viewModel("https://youtu.be/0nE7dAlDshk", imports = imports)
         viewModel.import()
         withTimeout(TIMEOUT_MS) { viewModel.state.first { it.phase == ImportPhase.READING_VIDEO } }
+        withTimeout(TIMEOUT_MS) { videoStarted.await() }
         // One import at a time: another one is not started over it.
         imports.start("https://example.org/tarte", includeTags = true, includeCategories = true, evenIfPresent = false)
         assertEquals("https://youtu.be/0nE7dAlDshk", imports.run.value?.url)
 
         viewModel.cancel()
 
-        assertNull(viewModel.state.value.phase)
+        withTimeout(TIMEOUT_MS) { videoCancelled.await() }
+        // combine/stateIn can publish the cancellation after cancel() returns.
+        val cancelled = withTimeout(TIMEOUT_MS) { viewModel.state.first { it.phase == null } }
+        assertNull(cancelled.phase)
         assertNull(imports.run.value)
         assertEquals(false, host.keepsAlive)
         assertNull(host.announced)
