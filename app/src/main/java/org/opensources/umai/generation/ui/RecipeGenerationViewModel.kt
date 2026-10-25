@@ -23,6 +23,7 @@ data class RecipeGenerationUiState(
     val running: Boolean = false,
     val busy: Boolean = false,
     val slug: String? = null,
+    val ingredientsNeedReview: Boolean = false,
     val modelFailed: Boolean = false,
     val error: NetworkError? = null,
 ) {
@@ -46,6 +47,7 @@ class RecipeGenerationViewModel(
             running = run?.isGeneration == true && run.running,
             busy = run?.running == true,
             slug = (outcome as? ImportOutcome.Imported)?.recipe?.slug ?: form.slug,
+            ingredientsNeedReview = (outcome as? ImportOutcome.Imported)?.recipe?.ingredientsNeedReview == true,
             modelFailed = outcome == ImportOutcome.GenerationFailed,
             error = (outcome as? ImportOutcome.Failed)?.error,
         )

@@ -257,7 +257,10 @@ private fun FloatingPills(
             )
         }
         NoticePill(
-            message = notice?.let { stringResource(it.messageRes) },
+            message = notice?.let { current ->
+                listOfNotNull(stringResource(current.messageRes), current.additionalMessageRes?.let { stringResource(it) })
+                    .joinToString("\n")
+            },
             success = notice?.success ?: true,
             modifier = Modifier.align(Alignment.CenterHorizontally),
         )

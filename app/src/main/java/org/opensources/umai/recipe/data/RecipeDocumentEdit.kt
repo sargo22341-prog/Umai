@@ -12,6 +12,8 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.opensources.umai.core.network.dto.RecipeDetailDto
 import org.opensources.umai.core.network.dto.RecipeIngredientDto
+import org.opensources.umai.recipe.domain.IngredientAnalysis
+import org.opensources.umai.recipe.domain.IngredientChoice
 import org.opensources.umai.recipe.domain.DraftFood
 import org.opensources.umai.recipe.domain.DraftIngredient
 import org.opensources.umai.recipe.domain.DraftOrganizer
@@ -41,6 +43,7 @@ internal fun RecipeDetailDto.toEditableDraft(): RecipeDraft {
             DraftIngredient(
                 text = ingredient.editableLine(),
                 referenceId = ingredient.referenceId?.takeIf { it.isNotBlank() } ?: newReferenceId(),
+                analysis = ingredient.toAnalysis(),
                 food = ingredient.food?.name?.takeIf { it.isNotBlank() }
                     ?.let { DraftFood(it, ingredient.food.pluralName?.takeIf { plural -> plural.isNotBlank() }) },
             )
@@ -122,8 +125,8 @@ private fun String.asTime(): JsonElement = trim().takeIf { it.isNotEmpty() }?.le
 
 /**
  * A line left as it was keeps its original object — quantity, unit, food — and
- * an edited or new line becomes a plain note. Every line carries the
- * reference the steps point at, the one the form knows it by.
+ * an edited or new line uses its confirmed analysis, or remains a plain note.
+ * Every line carries the reference the steps point at.
  */
 private fun JsonObject.ingredientsFor(lines: List<DraftIngredient>, originalLines: List<DraftIngredient>): JsonArray {
     val originals = (this["recipeIngredient"] as? JsonArray).orEmpty().filterIsInstance<JsonObject>()
@@ -137,13 +140,20 @@ private fun JsonObject.ingredientsFor(lines: List<DraftIngredient>, originalLine
                 JsonObject(kept + ("referenceId" to JsonPrimitive(line.referenceId)))
             } else {
                 val text = line.text.trim()
-                buildJsonObject {
-                    put("note", text)
+                val original = originalLines.firstOrNull { it.referenceId == line.referenceId }
+                val analysis = line.analysis.takeUnless {
+                    original != null && original.text != line.text && original.analysis == it
+                }
+                val metadata = byReference[line.referenceId].orEmpty().filterKeys { it in ingredientMetadata }
+                JsonObject(metadata + buildJsonObject {
+                    put("note", analysis?.note ?: text)
                     put("display", text)
                     put("originalText", text)
-                    put("quantity", 0.0)
+                    put("quantity", analysis?.quantity ?: 0.0)
+                    analysis?.food?.let { put("food", it.toDocument()) }
+                    analysis?.unit?.let { put("unit", it.toDocument()) }
                     put("referenceId", line.referenceId)
-                }
+                })
             }
         },
     )
@@ -195,3 +205,17 @@ private fun organizersFor(selected: List<DraftOrganizer>, current: JsonElement?)
         },
     )
 }
+
+internal fun RecipeIngredientDto.toAnalysis() = IngredientAnalysis(
+    quantity = quantity,
+    food = food?.let { IngredientChoice(it.name, it.id) },
+    unit = unit?.let { IngredientChoice(it.name, it.id) },
+    note = note.orEmpty(),
+)
+
+private fun IngredientChoice.toDocument() = buildJsonObject {
+    put("name", name)
+    id?.let { put("id", it) }
+}
+
+private val ingredientMetadata = setOf("title", "substitutions")

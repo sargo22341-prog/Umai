@@ -60,6 +60,7 @@ import org.opensources.umai.recipe.data.RecipeImportController
 import org.opensources.umai.recipe.data.SystemImportHost
 import org.opensources.umai.recipe.data.RecipeCommentRepository
 import org.opensources.umai.recipe.data.RecipeDraftStore
+import org.opensources.umai.recipe.data.IngredientAnalysisRepository
 import org.opensources.umai.recipe.data.RecipeEditRepository
 import org.opensources.umai.recipe.data.RecipeMediaRepository
 import org.opensources.umai.recipe.data.RecipeRepository
@@ -112,6 +113,11 @@ class AppContainer(context: Context) {
     )
     val recipeCommentRepository = RecipeCommentRepository(apiProvider)
     val recipeMediaRepository = RecipeMediaRepository(apiProvider)
+    val ingredientAnalysisRepository by lazy {
+        IngredientAnalysisRepository(
+            apiProvider, { localLanguageModel }, foodTable, localeController::appLanguage,
+        )
+    }
     val recipeEditRepository = RecipeEditRepository(apiProvider, recipeMediaRepository)
     val organizerRepository = OrganizerRepository(apiProvider, instanceKey)
     val mealPlanRepository = MealPlanRepository(apiProvider)
@@ -274,6 +280,7 @@ class AppContainer(context: Context) {
             mediaImporter = providerMediaImporter,
             videoImporter = videoRecipeImporter,
             host = importHost,
+            ingredientAnalysis = ingredientAnalysisRepository,
         )
     }
 

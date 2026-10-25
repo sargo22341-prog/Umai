@@ -113,6 +113,7 @@ private fun GenerationStatus(
         state.busy -> Text(stringResource(R.string.generation_busy))
         state.slug != null -> {
             Text(stringResource(R.string.generation_done))
+            if (state.ingredientsNeedReview) Text(stringResource(R.string.ingredients_import_review))
             Button({ onOpenRecipe(state.slug) }) { Text(stringResource(R.string.generation_open)) }
             TextButton(onNewRecipe) { Text(stringResource(R.string.generation_another)) }
         }

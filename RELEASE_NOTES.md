@@ -7,4 +7,7 @@ la GitHub Release, puis vide la liste dans le commit `Version X.Y.Z`. Sans notes
 liste des commits. Détails : [docs/release.md](docs/release.md).
 
 <!-- notes -->
+- Analyse des ingrédients via Mealie à chaque ajout, avec assistance IA locale et correction des quantités dans l’éditeur.
+
+- Mettre à jour la bibliothèque réseau OkHttp, en conservant le moteur d’IA locale et son dispatch Tensor validés.
 

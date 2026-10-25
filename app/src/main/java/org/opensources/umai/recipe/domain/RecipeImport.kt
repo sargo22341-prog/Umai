@@ -15,6 +15,7 @@ enum class ImportPhase { CHECKING, IMPORTING, FETCHING_MEDIA, READING_VIDEO, WAT
 
 /** What the user is told about an import that went through, but not entirely as hoped. */
 enum class ImportNotice {
+    INGREDIENTS_NEED_REVIEW,
     /** The media of the provider could not be fetched. */
     MEDIA_FAILED,
 
@@ -32,7 +33,7 @@ enum class ImportNotice {
 }
 
 /** A recipe imported, and what did not go as hoped, if anything. */
-data class ImportedRecipe(val slug: String, val notice: ImportNotice?)
+data class ImportedRecipe(val slug: String, val notice: ImportNotice?, val ingredientsNeedReview: Boolean = false)
 
 /** How an import ended. */
 sealed interface ImportOutcome {

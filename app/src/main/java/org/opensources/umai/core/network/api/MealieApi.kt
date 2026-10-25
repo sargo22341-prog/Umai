@@ -10,6 +10,9 @@ import org.opensources.umai.core.network.dto.CreateMealPlanEntryDto
 import org.opensources.umai.core.network.dto.CreateRecipeDto
 import org.opensources.umai.core.network.dto.HouseholdPreferencesDto
 import org.opensources.umai.core.network.dto.HouseholdStatisticsDto
+import org.opensources.umai.core.network.dto.IngredientUnitDto
+import org.opensources.umai.core.network.dto.IngredientsRequestDto
+import org.opensources.umai.core.network.dto.ParsedIngredientDto
 import org.opensources.umai.core.network.dto.IngredientFoodListDto
 import org.opensources.umai.core.network.dto.MealPlanEntryDto
 import org.opensources.umai.core.network.dto.PaginationDto
@@ -261,6 +264,17 @@ interface MealieApi {
         @Query("orderBy") orderBy: String? = "name",
         @Query("orderDirection") orderDirection: String? = "asc",
     ): PaginationDto<IngredientFoodListDto>
+
+    @POST("api/parser/ingredients")
+    suspend fun parseIngredients(
+        @Body body: IngredientsRequestDto,
+    ): List<ParsedIngredientDto>
+
+    @GET("api/units")
+    suspend fun units(
+        @Query("search") search: String? = null,
+        @Query("perPage") perPage: Int = 30,
+    ): PaginationDto<IngredientUnitDto>
 
     // ---- Ratings and favourites -------------------------------------------
 

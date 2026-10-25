@@ -856,4 +856,21 @@
     <string name="generation_busy">A recipe import is already running. Wait for it to finish.</string>
     <string name="generation_import_image">Import an image</string>
     <string name="generation_attribution">Recipe created by local AI. Estimated calories per serving; please check.</string>
+    <string name="ingredients_analyze">Analyze ingredients</string>
+    <string name="ingredients_analyzed">Quantified: %1$d. Kept without adjustable quantity: %2$d.</string>
+    <string name="ingredients_analysis_help">Mealie analyzes quantities, units and foods first. Local AI can suggest corrections; uncertain results need your confirmation.</string>
+    <string name="ingredients_review_line">Review: %1$s</string>
+    <string name="ingredients_review_title">Check this ingredient</string>
+    <string name="ingredients_review_help">Keep the original quantity and unit. Leave the unit empty for a count. Search your Mealie foods and units, or enter a name to add it when saving. No weight is guessed. Cancel to keep editing.</string>
+    <string name="ingredients_quantity">Quantity (decimal number)</string>
+    <string name="ingredients_food">Food</string>
+    <string name="ingredients_unit">Unit (optional for a count)</string>
+    <string name="ingredients_note">Preparation / note</string>
+    <string name="ingredients_search_choices">Search Mealie foods and units</string>
+    <string name="ingredients_confirm">Confirm this ingredient</string>
+    <string name="ingredients_import_review">Recipe imported. Some ingredients need review: open Edit recipe, then Ingredients to finish their quantities.</string>
+    <string name="ingredients_keep_text">Keep as text (quantity will not scale)</string>
+    <string name="ingredients_ai_suggestion">Local AI suggestion: check every value before confirming.</string>
+    <string name="ingredients_confidence">Lowest Mealie confidence: %1$s (0 to 1)</string>
+    <string name="ingredients_servings_needed">Set the recipe servings in Basics to enable portion adjustments.</string>
 </resources>

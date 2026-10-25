@@ -79,6 +79,9 @@ fun RecipeEditRoute(
     val viewModel: RecipeEditViewModel =
         viewModel(factory = RecipeEditViewModel.factory(container, slug), key = "recipe-edit-$slug")
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val review = viewModel.ingredientReview
+    val reviewState = review?.state?.collectAsStateWithLifecycle()?.value ?: IngredientReviewState()
+    val reviewActions = remember(review) { review?.let { IngredientReviewActions(it) } ?: IngredientReviewActions() }
     var confirmDiscard by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(state.savedSlug) {
@@ -107,6 +110,8 @@ fun RecipeEditRoute(
 
     RecipeEditScreen(
         state = state,
+        reviewState = reviewState,
+        reviewActions = reviewActions,
         actions = remember(viewModel) { RecipeFormActions(viewModel) },
         videoActions = remember(viewModel) { VideoChapterActions(viewModel) },
         currentImageUrl = state.recipe?.let { container.imageUrls.original(it.recipeId, it.imageToken) },
@@ -155,6 +160,8 @@ fun RecipeEditScreen(
     onDelete: () -> Unit,
     onDismissDeleteError: () -> Unit,
     modifier: Modifier = Modifier,
+    reviewState: IngredientReviewState = IngredientReviewState(),
+    reviewActions: IngredientReviewActions = IngredientReviewActions(),
     videoPlayer: @Composable (VideoStream, ChapterPlayerState) -> Unit = { stream, player -> ChapterVideoPlayer(stream, player) },
 ) {
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
@@ -195,7 +202,7 @@ fun RecipeEditScreen(
                         banners = banners,
                     )
                 } else {
-                    FormSection(section, state, currentImageUrl, stepPhotoUrl, actions, onDismissError, onDismissDeleteError)
+                    FormSection(section, state, currentImageUrl, stepPhotoUrl, actions, onDismissError, onDismissDeleteError, reviewState, reviewActions)
                 }
             }
         }
@@ -258,6 +265,8 @@ private fun FormSection(
     actions: RecipeFormActions,
     onDismissError: () -> Unit,
     onDismissDeleteError: () -> Unit,
+    reviewState: IngredientReviewState,
+    reviewActions: IngredientReviewActions,
 ) {
     Column(
         modifier = Modifier
@@ -276,7 +285,10 @@ private fun FormSection(
                 failed = state.imageFailed,
                 actions = actions,
             )
-            RecipeFormSection.INGREDIENTS -> IngredientsSection(state.draft, actions)
+            RecipeFormSection.INGREDIENTS -> {
+                IngredientReviewPanel(state.draft, reviewState, reviewActions, enabled = !state.saving && !state.deleting)
+                IngredientsSection(state.draft, actions)
+            }
             RecipeFormSection.INSTRUCTIONS -> InstructionsSection(state.draft, state.steps, stepPhotoUrl, actions)
             RecipeFormSection.ORGANIZERS -> OrganizersSection(
                 draft = state.draft,

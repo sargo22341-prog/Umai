@@ -77,7 +77,7 @@ interface RecipeDraftEditing {
     fun onIngredientChange(index: Int, value: String) = editDraft { draft ->
         draft.copy(
             ingredients = draft.ingredients.updateAt(index) {
-                if (it.text == value) it else it.copy(text = value, food = null)
+                if (it.text == value) it else it.copy(text = value, food = null, analysis = null)
             },
         )
     }

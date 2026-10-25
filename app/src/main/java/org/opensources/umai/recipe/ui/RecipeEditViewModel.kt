@@ -17,6 +17,7 @@ import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.home.data.RecentRecipes
 import org.opensources.umai.organizer.data.OrganizerRepository
 import org.opensources.umai.recipe.data.CalorieTagRepository
+import org.opensources.umai.recipe.data.IngredientAnalysisRepository
 import org.opensources.umai.recipe.data.RecipeEditRepository
 import org.opensources.umai.recipe.data.RecipeImageFiles
 import org.opensources.umai.recipe.domain.EditableRecipe
@@ -100,6 +101,7 @@ class RecipeEditViewModel(
     private val calorieTags: CalorieTagRepository? = null,
     /** Where a video is read from: a YouTube page is turned into a stream the player reads. */
     private val streamFor: suspend (String) -> VideoStream? = { null },
+    analysisRepository: IngredientAnalysisRepository? = null,
 ) : ViewModel(), RecipeDraftEditing, VideoChapterEditing {
 
     /** Follows a rename saved here, so a retry addresses the recipe as it now is. */
@@ -107,6 +109,10 @@ class RecipeEditViewModel(
 
     private val _state = MutableStateFlow(RecipeEditUiState())
     val state: StateFlow<RecipeEditUiState> = _state.asStateFlow()
+    val ingredientReview = analysisRepository?.let { repository ->
+        IngredientReview(viewModelScope, repository, { _state.value.draft }, ::editDraft)
+    }
+
 
     init {
         load()
@@ -205,11 +211,16 @@ class RecipeEditViewModel(
      * renaming the recipe changes the slug.
      */
     fun save() {
-        val current = _state.value
+        var current = _state.value
         val recipe = current.recipe ?: return
-        if (!current.canSave) return
+        if (ingredientReview?.state?.value?.busy == true || !current.canSave) return
         _state.update { it.copy(saving = true, saveError = null) }
         viewModelScope.launch {
+            if (current.draft.ingredients != recipe.draft.ingredients && ingredientReview?.analyzeNow() == false) {
+                _state.update { it.copy(saving = false, section = RecipeFormSection.INGREDIENTS) }
+                return@launch
+            }
+            current = _state.value
             val newSlug = when (val result = editRepository.update(slug, recipe.draft, current.draft)) {
                 is ApiResult.Failure -> {
                     _state.update { it.copy(saving = false, saveError = result.error) }
@@ -323,6 +334,7 @@ class RecipeEditViewModel(
                     imageFiles = container.recipeImageFiles,
                     recentRecipes = container.recentRecipesStore,
                     calorieTags = container.calorieTagRepository,
+                    analysisRepository = container.ingredientAnalysisRepository,
                     streamFor = container.videoStreams::streamFor,
                 )
             }

@@ -19,6 +19,7 @@ import org.opensources.umai.core.network.NetworkError
 import org.opensources.umai.organizer.data.OrganizerRepository
 import org.opensources.umai.recipe.data.CalorieTagRepository
 import org.opensources.umai.recipe.data.RecipeDraftStore
+import org.opensources.umai.recipe.data.IngredientAnalysisRepository
 import org.opensources.umai.recipe.data.RecipeEditRepository
 import org.opensources.umai.recipe.data.RecipeImageFiles
 import org.opensources.umai.recipe.domain.RecipeDraft
@@ -68,10 +69,15 @@ class RecipeCreateViewModel(
     private val organizerRepository: OrganizerRepository,
     private val imageFiles: RecipeImageFiles,
     private val calorieTags: CalorieTagRepository? = null,
+    analysisRepository: IngredientAnalysisRepository? = null,
 ) : ViewModel(), RecipeDraftEditing {
 
     private val _state = MutableStateFlow(RecipeCreateUiState())
     val state: StateFlow<RecipeCreateUiState> = _state.asStateFlow()
+    val ingredientReview = analysisRepository?.let { repository ->
+        IngredientReview(viewModelScope, repository, { _state.value.draft }, ::editDraft)
+    }
+
 
     /** Mirrors the draft so it can be persisted without writing on every key. */
     private val pendingDraft = MutableStateFlow<RecipeDraft?>(null)
@@ -191,10 +197,14 @@ class RecipeCreateViewModel(
     }
 
     fun create() {
-        val draft = _state.value.draft
-        if (!_state.value.canCreate) return
+        if (ingredientReview?.state?.value?.busy == true || !_state.value.canCreate) return
         _state.update { it.copy(creating = true, error = null) }
         viewModelScope.launch {
+            if (ingredientReview?.analyzeNow() == false) {
+                _state.update { it.copy(creating = false, step = RecipeFormSection.INGREDIENTS) }
+                return@launch
+            }
+            val draft = _state.value.draft
             val image = draft.imagePath?.let { imageFiles.read(it) }
             val stepPhotos = draft.writtenSteps.mapIndexedNotNull { index, step ->
                 step.photoPath?.let { path -> imageFiles.read(path)?.let { (index + 1) to it } }
@@ -249,6 +259,7 @@ class RecipeCreateViewModel(
                     organizerRepository = container.organizerRepository,
                     imageFiles = container.recipeImageFiles,
                     calorieTags = container.calorieTagRepository,
+                    analysisRepository = container.ingredientAnalysisRepository,
                 )
             }
         }

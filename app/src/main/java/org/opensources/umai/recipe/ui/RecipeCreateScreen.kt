@@ -64,6 +64,9 @@ fun RecipeCreateRoute(
         key = "recipe-create-${draftId.orEmpty()}",
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val review = viewModel.ingredientReview
+    val reviewState = review?.state?.collectAsStateWithLifecycle()?.value ?: IngredientReviewState()
+    val reviewActions = remember(review) { review?.let { IngredientReviewActions(it) } ?: IngredientReviewActions() }
 
     LaunchedEffect(state.exit) {
         when (val exit = state.exit) {
@@ -83,6 +86,8 @@ fun RecipeCreateRoute(
     SharedContainer(SharedContainerKey.RECIPE_CREATION, modifier) {
         RecipeCreateScreen(
             state = state,
+            reviewState = reviewState,
+            reviewActions = reviewActions,
             actions = actions,
             onLeave = viewModel::leave,
             onPrevious = viewModel::previous,
@@ -104,6 +109,8 @@ fun RecipeCreateScreen(
     onCreate: () -> Unit,
     onDismissError: () -> Unit,
     modifier: Modifier = Modifier,
+    reviewState: IngredientReviewState = IngredientReviewState(),
+    reviewActions: IngredientReviewActions = IngredientReviewActions(),
 ) {
     Scaffold(
         modifier = modifier,
@@ -131,6 +138,9 @@ fun RecipeCreateScreen(
             ) {
                 state.error?.let { error ->
                     ErrorBanner(message = "${error.title()}\n${error.message()}", onDismiss = onDismissError)
+                }
+                if (state.step == RecipeFormSection.INGREDIENTS) {
+                    IngredientReviewPanel(state.draft, reviewState, reviewActions, enabled = !state.creating)
                 }
                 CreateSection(state, actions)
                 Spacer(Modifier.size(12.dp))

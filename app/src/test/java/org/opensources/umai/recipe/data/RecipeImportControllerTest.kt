@@ -73,6 +73,8 @@ class RecipeImportControllerTest {
     @After
     fun tearDown() = fake.shutdown()
 
+    private var analyzeIngredients = false
+
     private val controller by lazy {
         RecipeImportController(
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
@@ -102,7 +104,44 @@ class RecipeImportControllerTest {
                 language = { "fr" },
             ),
             host = host,
+            ingredientAnalysis = IngredientAnalysisRepository({ fake.api() }).takeIf { analyzeIngredients },
         )
+    }
+
+    @Test
+    fun `every generated recipe is analyzed before announcing completion`() = runBlocking {
+        analyzeIngredients = true
+        val raw = """{"id":"r1","slug":"test","name":"Test","recipeServings":2,
+            "recipeIngredient":[{"referenceId":"ref1","display":"200 g flour","note":"200 g flour","quantity":0}]}"""
+        fake.enqueueJson(raw)
+        fake.enqueueJson("""[{"input":"200 g flour","confidence":{"quantity":1,"food":1,"unit":1},
+            "ingredient":{"quantity":200,"food":{"id":"f1","name":"flour"},"unit":{"id":"u1","name":"g"}}}]""")
+        fake.enqueueJson(raw)
+        fake.enqueueJson(raw)
+        controller.generate("recipe") { ImportOutcome.Imported(ImportedRecipe("test", null)) }
+        val ended = withTimeout(TIMEOUT_MS) { controller.run.first { it?.outcome != null } }!!
+        assertEquals(ImportOutcome.Imported(ImportedRecipe("test", null)), ended.outcome)
+        assertEquals("GET", fake.takeRequest().method)
+        assertEquals("/api/parser/ingredients", fake.takeRequest().url.encodedPath)
+        assertEquals("GET", fake.takeRequest().method)
+        val write = fake.takeRequest()
+        assertEquals("PUT", write.method)
+        val body = write.body?.utf8().orEmpty()
+        assertTrue(body.contains("\"quantity\":200.0"))
+        assertTrue(body.contains("\"referenceId\":\"ref1\""))
+    }
+
+    @Test
+    fun `an analysis failure announces the existing recipe rather than inviting a duplicate`() = runBlocking {
+        analyzeIngredients = true
+        fake.enqueueJson("""{"id":"r1","slug":"test","name":"Test","recipeIngredient":[{"display":"salt"}]}""")
+        fake.enqueueError(500)
+        controller.generate("recipe") { ImportOutcome.Imported(ImportedRecipe("test", null)) }
+        val ended = withTimeout(TIMEOUT_MS) { controller.run.first { it?.outcome != null } }!!
+        val imported = ended.outcome as ImportOutcome.Imported
+        assertEquals("test", imported.recipe.slug)
+        assertEquals(org.opensources.umai.recipe.domain.ImportNotice.INGREDIENTS_NEED_REVIEW, imported.recipe.notice)
+        assertEquals(2, fake.server.requestCount)
     }
 
     @Test

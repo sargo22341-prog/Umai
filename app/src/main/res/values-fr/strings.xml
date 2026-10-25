@@ -866,4 +866,21 @@
     <string name="generation_busy">Un import de recette est déjà en cours. Attendez sa fin.</string>
     <string name="generation_import_image">Importer une image</string>
     <string name="generation_attribution">Recette créée par l’IA locale. Calories estimées par portion, à vérifier.</string>
+    <string name="ingredients_analyze">Analyser les ingrédients</string>
+    <string name="ingredients_analyzed">Avec quantité : %1$d. Conservés sans quantité ajustable : %2$d.</string>
+    <string name="ingredients_analysis_help">Mealie analyse les quantités, unités et aliments en premier. L’IA locale peut proposer des corrections ; les résultats incertains demandent votre confirmation.</string>
+    <string name="ingredients_review_line">Vérifier : %1$s</string>
+    <string name="ingredients_review_title">Vérifier cet ingrédient</string>
+    <string name="ingredients_review_help">Conservez la quantité et l’unité d’origine. Laissez l’unité vide pour un nombre de pièces. Cherchez les aliments et unités Mealie, ou saisissez un nom à ajouter à l’enregistrement. Aucun poids n’est deviné. Annulez pour continuer à modifier.</string>
+    <string name="ingredients_quantity">Quantité (nombre décimal)</string>
+    <string name="ingredients_food">Aliment</string>
+    <string name="ingredients_unit">Unité (facultative pour des pièces)</string>
+    <string name="ingredients_note">Préparation / note</string>
+    <string name="ingredients_search_choices">Chercher les aliments et unités Mealie</string>
+    <string name="ingredients_confirm">Confirmer cet ingrédient</string>
+    <string name="ingredients_import_review">Recette importée. Certains ingrédients sont à vérifier : ouvrez Éditer la recette puis Ingrédients pour compléter leurs quantités.</string>
+    <string name="ingredients_keep_text">Conserver en texte (quantité non ajustable)</string>
+    <string name="ingredients_ai_suggestion">Suggestion de l’IA locale : vérifiez chaque valeur avant de confirmer.</string>
+    <string name="ingredients_confidence">Confiance Mealie minimale : %1$s (de 0 à 1)</string>
+    <string name="ingredients_servings_needed">Renseignez les portions de la recette dans L?essentiel pour pouvoir ajuster les quantités.</string>
 </resources>

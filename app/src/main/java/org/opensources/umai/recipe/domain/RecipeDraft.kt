@@ -42,6 +42,18 @@ data class RecipeDraft(
 
     val displayName: String get() = name.trim()
 
+    val writtenIngredients: List<DraftIngredient>
+        get() = ingredients.filter { it.text.isNotBlank() }
+
+    val ingredientsNeedingReview: List<DraftIngredient>
+        get() = ingredients.filter { it.text.isNotBlank() && it.analysis?.isResolved != true }
+
+    val quantifiedIngredientCount: Int
+        get() = ingredients.count { it.text.isNotBlank() && it.analysis?.isScalable == true }
+
+    val unscaledIngredientCount: Int
+        get() = ingredients.count { it.text.isNotBlank() && it.analysis?.keptAsText == true }
+
     /** The steps as they will be written: an empty step is dropped. */
     val writtenSteps: List<DraftStep>
         get() = steps.filter { it.text.isNotBlank() || it.title.isNotBlank() }
@@ -60,6 +72,7 @@ data class DraftIngredient(
     val text: String = "",
     val referenceId: String = newReferenceId(),
     val food: DraftFood? = null,
+    val analysis: IngredientAnalysis? = null,
 )
 
 /** The names a food goes by, which are what the steps mention. */

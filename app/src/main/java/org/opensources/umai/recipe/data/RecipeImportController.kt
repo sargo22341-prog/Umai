@@ -58,6 +58,7 @@ class RecipeImportController(
     private val mediaImporter: ProviderMediaImporter,
     private val videoImporter: VideoRecipeImporter,
     private val host: ImportHost,
+    private val ingredientAnalysis: IngredientAnalysisRepository? = null,
 ) {
     private val _run = MutableStateFlow<RecipeImportRun?>(null)
 
@@ -176,6 +177,30 @@ class RecipeImportController(
         }
     }
 
+    private suspend fun analyzeImported(outcome: ImportOutcome): ImportOutcome {
+        val analyzer = ingredientAnalysis ?: return outcome
+        if (outcome !is ImportOutcome.Imported) return outcome
+        val recipe = outcome.recipe
+        val loaded = repository.loadForEdit(recipe.slug)
+        if (loaded !is ApiResult.Success) return reviewNotice(recipe)
+        val result = analyzer.analyze(loaded.value.draft.ingredients)
+        if (result !is ApiResult.Success) return reviewNotice(recipe)
+        // Uncertain suggestions stay out of Mealie until explicitly confirmed in the editor.
+        val safe = result.value.map { line ->
+            if (line.analysis?.isResolved == true) line
+            else loaded.value.draft.ingredients.first { it.referenceId == line.referenceId }
+        }
+        val saved = repository.update(recipe.slug, loaded.value.draft, loaded.value.draft.copy(ingredients = safe))
+        if (saved is ApiResult.Failure || result.value.any { it.text.isNotBlank() && it.analysis?.isResolved != true }) {
+            return reviewNotice(recipe)
+        }
+        return outcome
+    }
+
+    private fun reviewNotice(recipe: ImportedRecipe) = ImportOutcome.Imported(
+        recipe.copy(notice = recipe.notice ?: ImportNotice.INGREDIENTS_NEED_REVIEW, ingredientsNeedReview = true),
+    )
+
     // The host hears of a change before it is published: whoever sees the new run,
     // and may act on it at once (cancel, open the recipe), finds the host up to date.
     private fun progress(change: (RecipeImportRun) -> RecipeImportRun) {
@@ -184,8 +209,9 @@ class RecipeImportController(
         _run.value = next
     }
 
-    private fun end(outcome: ImportOutcome) {
-        val ended = _run.value?.copy(modelProgress = null, watchProgress = null, outcome = outcome) ?: return
+    private suspend fun end(outcome: ImportOutcome) {
+        val completed = analyzeImported(outcome)
+        val ended = _run.value?.copy(modelProgress = null, watchProgress = null, outcome = completed) ?: return
         host.ended(ended, announce = ended.isGeneration || watchers == 0)
         _run.value = ended
     }

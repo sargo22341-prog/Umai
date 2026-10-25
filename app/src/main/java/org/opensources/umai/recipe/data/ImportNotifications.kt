@@ -9,6 +9,7 @@ import android.content.Intent
 import androidx.core.net.toUri
 import org.opensources.umai.NotificationEntry
 import org.opensources.umai.R
+import org.opensources.umai.recipe.domain.ImportedRecipe
 import org.opensources.umai.recipe.domain.ImportNotice
 import org.opensources.umai.recipe.domain.ImportOutcome
 import org.opensources.umai.recipe.domain.ImportPhase
@@ -79,8 +80,8 @@ class ImportNotifications(context: Context) {
         when (outcome) {
             is ImportOutcome.Imported -> builder
                 .setContentTitle(context.getString(if (run.isGeneration) R.string.generation_done else R.string.import_notification_done))
-                .setContentText(context.getString(if (run.isGeneration) R.string.generation_open
-                    else outcome.recipe.notice?.let(::noticeText) ?: R.string.import_notification_open))
+                .setContentText(importedMessage(outcome.recipe, run.isGeneration))
+                .setStyle(Notification.BigTextStyle().bigText(importedMessage(outcome.recipe, run.isGeneration)))
                 .setContentIntent(open(if (run.isGeneration) ImportRequest.OpenGeneration(outcome.recipe.slug) else ImportRequest.OpenRecipe(outcome.recipe.slug)))
             is ImportOutcome.Duplicate -> builder
                 .setContentTitle(context.getString(R.string.import_duplicate_title))
@@ -108,7 +109,17 @@ class ImportNotifications(context: Context) {
         ImportPhase.SAVING -> R.string.import_saving
     }
 
+    private fun importedMessage(recipe: ImportedRecipe, generated: Boolean): String {
+        val primary = recipe.notice?.let(::noticeText)
+            ?: if (generated) R.string.generation_open else R.string.import_notification_open
+        val review = R.string.ingredients_import_review.takeIf {
+            recipe.ingredientsNeedReview && recipe.notice != ImportNotice.INGREDIENTS_NEED_REVIEW
+        }
+        return listOfNotNull(context.getString(primary), review?.let { context.getString(it) }).joinToString("\n")
+    }
+
     private fun noticeText(notice: ImportNotice): Int = when (notice) {
+        ImportNotice.INGREDIENTS_NEED_REVIEW -> R.string.ingredients_import_review
         ImportNotice.MEDIA_FAILED -> R.string.notice_recipe_imported_without_media
         ImportNotice.VIDEO_WITHOUT_MODEL -> R.string.notice_video_without_model
         ImportNotice.VIDEO_MODEL_FAILED -> R.string.notice_video_model_failed

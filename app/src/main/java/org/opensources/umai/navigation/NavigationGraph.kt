@@ -251,7 +251,7 @@ private fun NavGraphBuilder.recipeWritingGraph(navController: NavHostController,
             onImported = { imported ->
                 if (navController.isCurrent(entry)) {
                     navController.openImportedRecipe(entry, imported.slug)
-                    imported.notice?.let { showNotice(AppNotice.of(it)) }
+                    imported.notice?.let { showNotice(AppNotice.of(it, imported.ingredientsNeedReview)) }
                 }
             },
             onOpenRecipe = { navController.navigate(RecipeDestination(it)) },
