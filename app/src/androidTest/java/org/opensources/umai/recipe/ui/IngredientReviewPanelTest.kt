@@ -17,6 +17,7 @@ import org.opensources.umai.R
 import org.opensources.umai.core.ui.theme.UmaiTheme
 import org.opensources.umai.recipe.domain.DraftIngredient
 import org.opensources.umai.recipe.domain.IngredientAnalysis
+import org.opensources.umai.recipe.domain.IngredientChoice
 import org.opensources.umai.recipe.domain.RecipeDraft
 
 @RunWith(AndroidJUnit4::class)
@@ -62,5 +63,41 @@ class IngredientReviewPanelTest {
         assertTrue(confirmed?.keptAsText == true)
         assertTrue(confirmed?.isScalable == false)
         assertEquals(line.text, confirmed?.note)
+    }
+
+    @Test fun editingAFoodRequestsSuggestionsAndEmptySearchHasFeedback() {
+        var searched = ""
+        rule.setContent { UmaiTheme { Column {
+            IngredientReviewPanel(RecipeDraft("test", ingredients = listOf(line)),
+                IngredientReviewState(reviewing = line, searched = true),
+                IngredientReviewActions(search = { food, _ -> searched = food }), enabled = true)
+        } } }
+        rule.onNodeWithText(string(R.string.ingredients_no_choices)).assertExists()
+        rule.onNodeWithText(string(R.string.ingredients_food)).performTextReplacement("sel marin")
+        rule.runOnIdle { assertEquals("sel marin", searched) }
+    }
+
+    @Test fun aTextOnlyServerIngredientGetsMetricFieldsWithoutRunningAI() {
+        val imported = DraftIngredient("150 g (1 Tasse) de cacahuètes grillées",
+            analysis = IngredientAnalysis(0.0, null, note = "150 g (1 Tasse) de cacahuètes grillées"))
+        rule.setContent { UmaiTheme { Column {
+            IngredientReviewPanel(RecipeDraft("test", ingredients = listOf(imported)),
+                IngredientReviewState(reviewing = imported), IngredientReviewActions(), enabled = true)
+        } } }
+        rule.onNodeWithText("150.0").assertExists()
+        rule.onNodeWithText("cacahuètes grillées").assertExists()
+        rule.onNodeWithText("g").assertExists()
+    }
+
+    @Test fun validatedQuantitiesOfferEditingWithoutImplyingAnotherReview() {
+        val validated = line.copy(analysis = IngredientAnalysis(200.0, IngredientChoice("flour"), IngredientChoice("g")))
+        rule.setContent { UmaiTheme { Column {
+            IngredientReviewPanel(RecipeDraft("test", ingredients = listOf(validated)),
+                IngredientReviewState(), IngredientReviewActions(), enabled = true)
+        } } }
+        rule.onNodeWithText(context.getString(R.string.ingredients_analyzed, 1)).assertIsDisplayed()
+        rule.onNodeWithText(context.getString(R.string.ingredients_edit_line, validated.text)).assertIsDisplayed()
+        rule.onNodeWithText(context.getString(R.string.ingredients_review_line, validated.text)).assertDoesNotExist()
+        rule.onNodeWithText(context.getString(R.string.ingredients_unscaled, 0)).assertDoesNotExist()
     }
 }

@@ -162,7 +162,8 @@ class RecipeEditRepository(
         val edited = edit(document)
         // Only photos changed: they are assets, and the document stays as it is.
         if (edited == document) return ApiResult.Success(slug)
-        return apiCall { api.replaceRecipe(slug, edited) }.map { it.slug.ifBlank { slug } }
+        val resolved = IngredientCatalogWriter(api).resolve(edited).valueOr { return it }
+        return apiCall { api.replaceRecipe(slug, resolved) }.map { it.slug.ifBlank { slug } }
     }
 
     private fun JsonObject.toDetail(): RecipeDetailDto = json.decodeFromJsonElement(RecipeDetailDto.serializer(), this)

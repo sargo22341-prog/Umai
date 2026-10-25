@@ -270,6 +270,12 @@ interface MealieApi {
         @Body body: IngredientsRequestDto,
     ): List<ParsedIngredientDto>
 
+    @POST("api/foods")
+    suspend fun createIngredientFood(@Body body: org.opensources.umai.core.network.dto.IngredientNameDto): IngredientFoodListDto
+
+    @POST("api/units")
+    suspend fun createIngredientUnit(@Body body: org.opensources.umai.core.network.dto.IngredientNameDto): IngredientUnitDto
+
     @GET("api/units")
     suspend fun units(
         @Query("search") search: String? = null,

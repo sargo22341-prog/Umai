@@ -7,4 +7,6 @@ la GitHub Release, puis vide la liste dans le commit `Version X.Y.Z`. Sans notes
 liste des commits. Détails : [docs/release.md](docs/release.md).
 
 <!-- notes -->
+- Clarifie les quantités ajustables et les ingrédients déjà validés dans l’éditeur de recette.
+- Fiabilise les mesures des ingrédients et rend la recherche des aliments et unités Mealie visible pendant la saisie.
 

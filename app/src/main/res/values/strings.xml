@@ -857,7 +857,9 @@
     <string name="generation_import_image">Import an image</string>
     <string name="generation_attribution">Recipe created by local AI. Estimated calories per serving; please check.</string>
     <string name="ingredients_analyze">Analyze ingredients</string>
-    <string name="ingredients_analyzed">Quantified: %1$d. Kept without adjustable quantity: %2$d.</string>
+    <string name="ingredients_analyzed">Ingredients with adjustable quantities: %1$d.</string>
+    <string name="ingredients_unscaled">Ingredients kept without adjustable quantities: %1$d.</string>
+    <string name="ingredients_edit_line">Edit: %1$s</string>
     <string name="ingredients_analysis_help">Mealie analyzes quantities, units and foods first. Local AI can suggest corrections; uncertain results need your confirmation.</string>
     <string name="ingredients_review_line">Review: %1$s</string>
     <string name="ingredients_review_title">Check this ingredient</string>
@@ -873,4 +875,9 @@
     <string name="ingredients_ai_suggestion">Local AI suggestion: check every value before confirming.</string>
     <string name="ingredients_confidence">Lowest Mealie confidence: %1$s (0 to 1)</string>
     <string name="ingredients_servings_needed">Set the recipe servings in Basics to enable portion adjustments.</string>
+    <string name="ingredients_linked">Linked to Mealie</string>
+    <string name="ingredients_unlinked">Name only: not linked to Mealie</string>
+    <string name="ingredients_no_choices">No matching foods or units found. Refine your search.</string>
+    <string name="ingredients_mealie_choice">%1$s (Mealie)</string>
+    <string name="ingredients_reference_choice">%1$s (reference food)</string>
 </resources>

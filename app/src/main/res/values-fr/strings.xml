@@ -867,7 +867,9 @@
     <string name="generation_import_image">Importer une image</string>
     <string name="generation_attribution">Recette créée par l’IA locale. Calories estimées par portion, à vérifier.</string>
     <string name="ingredients_analyze">Analyser les ingrédients</string>
-    <string name="ingredients_analyzed">Avec quantité : %1$d. Conservés sans quantité ajustable : %2$d.</string>
+    <string name="ingredients_analyzed">Ingrédients à quantité ajustable : %1$d.</string>
+    <string name="ingredients_unscaled">Ingrédients conservés sans quantité ajustable : %1$d.</string>
+    <string name="ingredients_edit_line">Modifier : %1$s</string>
     <string name="ingredients_analysis_help">Mealie analyse les quantités, unités et aliments en premier. L’IA locale peut proposer des corrections ; les résultats incertains demandent votre confirmation.</string>
     <string name="ingredients_review_line">Vérifier : %1$s</string>
     <string name="ingredients_review_title">Vérifier cet ingrédient</string>
@@ -882,5 +884,10 @@
     <string name="ingredients_keep_text">Conserver en texte (quantité non ajustable)</string>
     <string name="ingredients_ai_suggestion">Suggestion de l’IA locale : vérifiez chaque valeur avant de confirmer.</string>
     <string name="ingredients_confidence">Confiance Mealie minimale : %1$s (de 0 à 1)</string>
-    <string name="ingredients_servings_needed">Renseignez les portions de la recette dans L?essentiel pour pouvoir ajuster les quantités.</string>
+    <string name="ingredients_servings_needed">Renseignez les portions de la recette dans L’essentiel pour pouvoir ajuster les quantités.</string>
+    <string name="ingredients_linked">Associé à Mealie</string>
+    <string name="ingredients_unlinked">Nom seul : non associé à Mealie</string>
+    <string name="ingredients_no_choices">Aucun aliment ni aucune unité trouvés. Précisez la recherche.</string>
+    <string name="ingredients_mealie_choice">%1$s (Mealie)</string>
+    <string name="ingredients_reference_choice">%1$s (aliment de référence)</string>
 </resources>

@@ -1,6 +1,8 @@
 package org.opensources.umai.recipe.ui
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -19,6 +21,8 @@ data class IngredientReviewState(
     val error: NetworkError? = null,
     val reviewing: DraftIngredient? = null,
     val choices: IngredientChoices = IngredientChoices(emptyList(), emptyList()),
+    val searching: Boolean = false,
+    val searched: Boolean = false,
 )
 
 /** Owns one bounded analysis run; results never overwrite edits made while it ran. */
@@ -30,6 +34,7 @@ class IngredientReview(
 ) {
     private val mutable = MutableStateFlow(IngredientReviewState())
     val state = mutable.asStateFlow()
+    private var searchJob: Job? = null
 
     fun analyze() {
         if (mutable.value.busy) return
@@ -55,16 +60,20 @@ class IngredientReview(
     }
 
     fun review(line: DraftIngredient) {
-        mutable.update { it.copy(reviewing = line, error = null, choices = IngredientChoices(emptyList(), emptyList())) }
+        searchJob?.cancel()
+        mutable.update { it.copy(reviewing = line, error = null, choices = IngredientChoices(emptyList(), emptyList()), searching = false, searched = false) }
     }
 
     fun search(food: String, unit: String) {
         if (mutable.value.busy) return
-        mutable.update { it.copy(busy = true, error = null) }
-        scope.launch {
+        searchJob?.cancel()
+        val line = mutable.value.reviewing
+        mutable.update { it.copy(searching = true, searched = false, error = null, choices = IngredientChoices(emptyList(), emptyList())) }
+        searchJob = scope.launch {
+            delay(350)
             when (val result = repository.choices(food, unit)) {
-                is ApiResult.Failure -> mutable.update { it.copy(busy = false, error = result.error) }
-                is ApiResult.Success -> mutable.update { it.copy(busy = false, choices = result.value) }
+                is ApiResult.Failure -> mutable.update { if (it.reviewing == line) it.copy(searching = false, searched = true, error = result.error) else it }
+                is ApiResult.Success -> mutable.update { if (it.reviewing == line) it.copy(searching = false, searched = true, choices = result.value) else it }
             }
         }
     }
@@ -78,10 +87,14 @@ class IngredientReview(
         next()
     }
 
-    fun dismiss() = mutable.update { it.copy(reviewing = null, error = null) }
+    fun dismiss() {
+        searchJob?.cancel()
+        mutable.update { IngredientReviewState(busy = it.busy) }
+    }
 
     private fun next() {
+        searchJob?.cancel()
         mutable.update { it.copy(reviewing = draft().ingredientsNeedingReview.firstOrNull(),
-            choices = IngredientChoices(emptyList(), emptyList())) }
+            choices = IngredientChoices(emptyList(), emptyList()), searching = false, searched = false) }
     }
 }

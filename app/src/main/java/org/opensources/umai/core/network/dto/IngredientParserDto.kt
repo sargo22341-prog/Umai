@@ -6,6 +6,9 @@ import kotlinx.serialization.Serializable
 data class IngredientsRequestDto(val ingredients: List<String>, val parser: String = "nlp")
 
 @Serializable
+data class IngredientNameDto(val name: String)
+
+@Serializable
 data class ParsedIngredientDto(
     val input: String? = null,
     val ingredient: RecipeIngredientDto,
