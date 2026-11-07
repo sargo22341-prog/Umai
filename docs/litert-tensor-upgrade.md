@@ -28,6 +28,8 @@ réussie n'est jamais utilisée comme preuve de compatibilité NPU.
 | 0.17.1 | `9fe5be45564c868408e6514c8aabb83e211a0911` | Reconstruit depuis ce commit, sans patch natif | NPU, réponse correcte | 328,7 / 14,8 jetons/s | 11,588 s |
 | 0.18.0 | `26895c9fbcc25c43faa8c1a98cd1fd28951602c3` | Reconstruit ; retrait de la dépendance privée de profilage inutilisée ; GCC hôte explicite | NPU, réponse correcte | 588,9 / 14,2 jetons/s | 11,593 s |
 | 0.18.1 | `ca21dc99de51c76bdcc572afeea1dd937d3c9e5c` | Idem 0.18.0, plus retrait du re-pin TensorFlow cassé du `WORKSPACE` (voir plus bas) | NPU, réponse correcte | 129,8 / 12,9 jetons/s | 13,870 s |
+| 0.19.1 avec LiteRT v2.3.0 | `4352e261d3f1b3cda00345db5dbd75859d3bf0d3` | Reconstruit en remplaçant le pin du tag, même patch | Échec : `No usable Dispatch runtime found` | Aucun jeton | échec |
+| 0.19.1 avec LiteRT v2.2.0 | `145c7523ff08d5e57ab5c582141775eea47da9c7` | Reconstruit sans patch (cette version n'a pas la dépendance aux hooks) | Échec : `No usable Dispatch runtime found` | Aucun jeton | échec |
 | 0.19.1 avec LiteRT v2.3.2 | `d30595a09f74b4c4c4f669eafeb26928a92deb5a` | Reconstruit en remplaçant le pin du tag, même patch | Échec : `No usable Dispatch runtime found` | Aucun jeton | échec |
 | **0.19.1** | `dcb657e8a537b2dc944e53e14c7eb43bcd9ededa` | Pin du tag, Bazel 7.7.2, NDK r30, JDK 25 dans l'image | **NPU, réponse correcte** | **201,8 / 20,7 jetons/s** | **7 s (génération)** |
 
@@ -139,8 +141,8 @@ Le `WORKSPACE` du tag 0.19.1 corrige lui-même le re-pin TensorFlow (bazel_skyli
 Le manifeste vérifie 45 fichiers (le patch `PATCH.llguidance_parser` et le paquet `espeak_ng`
 n'existent plus ; `third_party/sentencepiece/sentencepiece.patch` est ajouté).
 
-**LiteRT v2.3.2** (`d30595a0`, branche de release, 638 commits derrière et 12 devant le pin de
-`main`) compile avec le même patch, mais le runtime Maven 0.19.1 le rejette sur Tensor G5 : « No
+**LiteRT v2.2.0, v2.3.0 et v2.3.2** (`145c7523`, `4352e261`, `d30595a0`, branche de release, 638 commits derrière et 12 devant le pin de
+`main`) compilent (le patch des hooks n'est pas nécessaire en v2.2.0), mais le runtime Maven 0.19.1 le rejette sur Tensor G5 : « No
 usable Dispatch runtime found ». Le pin du tag fait donc foi, comme pour 0.16.1.
 
 Outils : Bazel 7.7.2 (dernier 7.x ; Bazel 9 n'a plus `WORKSPACE`, dont dépend LiteRT-LM), NDK r30
