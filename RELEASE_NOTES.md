@@ -7,4 +7,6 @@ la GitHub Release, puis vide la liste dans le commit `Version X.Y.Z`. Sans notes
 liste des commits. Détails : [docs/release.md](docs/release.md).
 
 <!-- notes -->
+- Mise à jour des outils de compilation (Android Gradle Plugin 9.5, Gradle 9.9) et de la transcription locale (whisper.cpp 1.9.5).
+- Moteur IA local : LiteRT-LM 0.19.1 (dispatch NPU Tensor reconstruit, Bazel 7.7.2, NDK r30).
 

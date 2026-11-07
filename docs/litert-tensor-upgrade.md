@@ -27,7 +27,9 @@ réussie n'est jamais utilisée comme preuve de compatibilité NPU.
 | 0.16.1 | `0ff28117f1cb5556d0e015bf80b773f74e2bee51` | Reconstruit depuis ce commit | Échec : `Unsupported dispatch runtime version`, puis échec du warmup | Aucun jeton | 0,795 s, échec |
 | 0.17.1 | `9fe5be45564c868408e6514c8aabb83e211a0911` | Reconstruit depuis ce commit, sans patch natif | NPU, réponse correcte | 328,7 / 14,8 jetons/s | 11,588 s |
 | 0.18.0 | `26895c9fbcc25c43faa8c1a98cd1fd28951602c3` | Reconstruit ; retrait de la dépendance privée de profilage inutilisée ; GCC hôte explicite | NPU, réponse correcte | 588,9 / 14,2 jetons/s | 11,593 s |
-| **0.18.1** | `ca21dc99de51c76bdcc572afeea1dd937d3c9e5c` | Idem 0.18.0, plus retrait du re-pin TensorFlow cassé du `WORKSPACE` (voir plus bas) | **NPU, réponse correcte** | **129,8 / 12,9 jetons/s** | **13,870 s** |
+| 0.18.1 | `ca21dc99de51c76bdcc572afeea1dd937d3c9e5c` | Idem 0.18.0, plus retrait du re-pin TensorFlow cassé du `WORKSPACE` (voir plus bas) | NPU, réponse correcte | 129,8 / 12,9 jetons/s | 13,870 s |
+| 0.19.1 avec LiteRT v2.3.2 | `d30595a09f74b4c4c4f669eafeb26928a92deb5a` | Reconstruit en remplaçant le pin du tag, même patch | Échec : `No usable Dispatch runtime found` | Aucun jeton | échec |
+| **0.19.1** | `dcb657e8a537b2dc944e53e14c7eb43bcd9ededa` | Pin du tag, Bazel 7.7.2, NDK r30, JDK 25 dans l'image | **NPU, réponse correcte** | **201,8 / 20,7 jetons/s** | **7 s (génération)** |
 
 Le prompt court contient 130 jetons ; chaque réponse en compte 50 et classe correctement les
 lasagnes, la tarte aux pommes et le mojito. La mémoire anonyme après génération reste proche
@@ -89,7 +91,7 @@ La première suite complète confirme aussi le CPU (15,508 s pour le test court)
 
 ## Intégration et build
 
-`gradle/libs.versions.toml` épingle 0.18.1. `FetchTensorDispatch` construit le dispatch à partir
+`gradle/libs.versions.toml` épingle 0.19.1 (voir la section 0.19.1 plus bas). `FetchTensorDispatch` construit le dispatch à partir
 du workspace LiteRT-LM au commit **`bda624851d74be34d4e1f7fac1fc4155939539c7`**.
 
 ### 0.18.1 (21 octobre 2026)
@@ -111,7 +113,7 @@ Import vidéo : 1 403 jetons lus, 505 écrits, 43,3 s ; planning 25 recettes : 1
 télécharger les centaines de Mo de fixtures de modèle de l'archive complète.
 
 Docker Linux, sur hôte x86-64, est un nouveau prérequis de build, **sans effet sur le téléphone**.
-La recette épingle l'image par digest, Bazel 7.6.1, le NDK r28c, le SDK et les outils de build par
+La recette épingle l'image par digest (Temurin 25), Bazel 7.7.2, le NDK r30, le SDK et les outils de build par
 SHA-256. Les dépendances Bazel gardent leurs contrôles de checksum. APT vérifie ses métadonnées
 signées et les checksums des paquets ; ses versions transitives peuvent évoluer. Le build n'est
 donc pas revendiqué comme reproductible octet pour octet entre dates.
@@ -129,6 +131,25 @@ Chaque tentative Bazel est limitée à dix minutes. Seuls les échecs DNS explic
 trois fois au maximum, avec un cache BuildKit pour conserver les téléchargements vérifiés.
 Une erreur de compilation, de checksum ou un timeout arrête immédiatement le build.
 Les commandes Docker ont elles aussi une borne ; un client interrompu est arrêté.
+
+### 0.19.1 (7 novembre 2026)
+
+Le `WORKSPACE` du tag 0.19.1 corrige lui-même le re-pin TensorFlow (bazel_skylib 1.9.0,
+`compatibility_proxy_repo`) : `dropped_workspace_lines` est donc vide. Il passe LiteRT à `dcb657e8`.
+Le manifeste vérifie 45 fichiers (le patch `PATCH.llguidance_parser` et le paquet `espeak_ng`
+n'existent plus ; `third_party/sentencepiece/sentencepiece.patch` est ajouté).
+
+**LiteRT v2.3.2** (`d30595a0`, branche de release, 638 commits derrière et 12 devant le pin de
+`main`) compile avec le même patch, mais le runtime Maven 0.19.1 le rejette sur Tensor G5 : « No
+usable Dispatch runtime found ». Le pin du tag fait donc foi, comme pour 0.16.1.
+
+Outils : Bazel 7.7.2 (dernier 7.x ; Bazel 9 n'a plus `WORKSPACE`, dont dépend LiteRT-LM), NDK r30
+et JDK 25 dans l'image ; le dispatch compilé fonctionne sur le NPU. Le SDK 36 de l'image reste.
+
+Sur Pixel 10 Pro XL Tensor G5 : les 7 tests de `LiteRtLmBackendTest` passent ; génération courte
+130 jetons lus à 201,8/s, 50 écrits à 20,7/s ; import vidéo 1 403 / 553 jetons en 35,3 s ; planning
+25 recettes 15,4 s, 3 recettes 4,9 s. Le modèle Gemma 4 E2B Tensor G5 a dû être retéléchargé
+(l'app debug n'était plus installée) et copié par `run-as` dans `files/models/`.
 
 ## Recherche publique
 

@@ -1,14 +1,14 @@
-FROM eclipse-temurin:21-jdk@sha256:4d06038800655fe1211760cd561de70ef2ed7a47f5d69255e9834414602b7026
+FROM eclipse-temurin:25-jdk@sha256:83f4a7fc27df94dcc7b8de04d14cbbba8da14406f921e966969c3b09000aa507
 
 # A Linux host avoids Bazel's Windows symlink requirement. APT verifies signed
 # repository metadata and package checksums; no toolchain reaches the APK.
 RUN timeout 300 apt-get update -qq && \
-    DEBIAN_FRONTEND=noninteractive timeout 600 apt-get install -y -qq unzip python3 git build-essential
-RUN curl -fsSL --max-time 120 -o /usr/local/bin/bazel https://github.com/bazelbuild/bazel/releases/download/7.6.1/bazel-7.6.1-linux-x86_64 && \
-    echo 'ac6249d1192aea9feaf49dfee2ab50c38cee2454b00cf29bbec985a11795c025  /usr/local/bin/bazel' | sha256sum -c - && \
+    DEBIAN_FRONTEND=noninteractive timeout 600 apt-get install -y -qq curl unzip python3 git build-essential
+RUN curl -fsSL --max-time 120 -o /usr/local/bin/bazel https://github.com/bazelbuild/bazel/releases/download/7.7.2/bazel-7.7.2-linux-x86_64 && \
+    echo 'f7b8c4e72f8776f6a352fbe699cc1de381342b5e7e0ad1f34d72c5a9b163288c  /usr/local/bin/bazel' | sha256sum -c - && \
     chmod +x /usr/local/bin/bazel
-RUN curl -fsSL --max-time 600 -o /tmp/ndk.zip https://dl.google.com/android/repository/android-ndk-r28c-linux.zip && \
-    echo 'dfb20d396df28ca02a8c708314b814a4d961dc9074f9a161932746f815aa552f  /tmp/ndk.zip' | sha256sum -c - && \
+RUN curl -fsSL --max-time 600 -o /tmp/ndk.zip https://dl.google.com/android/repository/android-ndk-r30-linux.zip && \
+    echo '753611f410d002cfcd3f3dc2ef49aad532089d3180b436c060a90bf0fcb64df2  /tmp/ndk.zip' | sha256sum -c - && \
     unzip -q /tmp/ndk.zip -d /opt && rm /tmp/ndk.zip
 RUN curl -fsSL --max-time 120 -o /tmp/platform.zip https://dl.google.com/android/repository/platform-36_r02.zip && \
     echo '37607369a28c5b640b3a7998868d45898ebcb777565a0e85f9acf36f29631d2e  /tmp/platform.zip' | sha256sum -c - && \
@@ -18,7 +18,7 @@ RUN curl -fsSL --max-time 120 -o /tmp/tools.zip https://dl.google.com/android/re
     unzip -q /tmp/tools.zip -d /tmp/tools && mkdir -p /opt/android-sdk/build-tools && \
     mv /tmp/tools/android-16 /opt/android-sdk/build-tools/36.0.0 && rm /tmp/tools.zip
 
-ENV ANDROID_HOME=/opt/android-sdk ANDROID_NDK_HOME=/opt/android-ndk-r28c
+ENV ANDROID_HOME=/opt/android-sdk ANDROID_NDK_HOME=/opt/android-ndk-r30
 COPY sources.json fetch-sources.py google-tensor-public-hooks.patch /recipe/
 RUN python3 /recipe/fetch-sources.py
 WORKDIR /src/litert-lm

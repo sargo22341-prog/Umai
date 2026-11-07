@@ -102,8 +102,8 @@ est affiché. « Créer une autre recette » efface la demande et le résultat p
 
 ### Le TPU Tensor
 
-- **LiteRT-LM 0.18.1** utilise le dispatch Google Tensor compilé depuis son commit LiteRT
-  **`ca21dc99de51c76bdcc572afeea1dd937d3c9e5c`**, via `scripts/tensor-dispatch` et
+- **LiteRT-LM 0.19.1** utilise le dispatch Google Tensor compilé depuis son commit LiteRT
+  **`dcb657e8a537b2dc944e53e14c7eb43bcd9ededa`**, via `scripts/tensor-dispatch` et
   `FetchTensorDispatch`. Docker Linux est requis sur l'hôte de build. Les fichiers du workspace
   LiteRT-LM sont téléchargés au commit immuable et vérifiés par SHA-256 ; Bazel vérifie les archives
   de dépendances. L'image Docker, Bazel et les archives NDK/SDK sont aussi épinglés. Aucun binaire
