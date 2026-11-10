@@ -69,6 +69,9 @@
           model runs on the CPU.
         -->
         <uses-native-library
+            android:name="libedgetpu_util.so"
+            android:required="false" />
+        <uses-native-library
             android:name="libedgetpu_litert.so"
             android:required="false" />
         <uses-native-library
