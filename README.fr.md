@@ -107,7 +107,7 @@ releases GitHub du dépôt (il peut être suivi avec Obtainium), ou l'applicatio
 les sources.
 
 Prérequis : une instance **Mealie** joignable depuis le téléphone, et un téléphone sous
-**Android 17 (API 37)** minimum. Pour compiler : Android Studio récent (JDK 21 embarqué) et SDK
+**Android 17 (API 37)** minimum. Pour compiler : Android Studio récent (JDK 25 embarqué) et SDK
 Android 37.
 
 ```powershell

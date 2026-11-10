@@ -98,7 +98,7 @@ repository's GitHub releases (it can be followed with Obtainium), or the app can
 source.
 
 Requirements: a **Mealie** instance reachable from the phone, and a phone running
-**Android 17 (API 37)** or later. To build: a recent Android Studio (bundled JDK 21) and Android
+**Android 17 (API 37)** or later. To build: a recent Android Studio (bundled JDK 25) and Android
 SDK 37.
 
 ```powershell

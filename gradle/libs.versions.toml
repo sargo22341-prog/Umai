@@ -14,9 +14,9 @@ retrofit = "3.0.0"
 okhttp = "5.5.1"
 coil = "3.6.3"
 media3 = "1.11.1"
-# JitPack serves each release as both "v0.26.5" and "0.26.5" (same jar); the
+# JitPack serves each release as both "v0.27.1" and "0.27.1" (same jar); the
 # plain form is the one dependencyUpdates can compare with later releases.
-newpipeExtractor = "0.26.5"
+newpipeExtractor = "0.27.1"
 zxing = "3.5.4"
 camerax = "1.6.2"
 # Paired with the source-built Google Tensor dispatch in scripts/tensor-dispatch.

@@ -8,3 +8,4 @@ liste des commits. Détails : [docs/release.md](docs/release.md).
 
 <!-- notes -->
 
+- Mise à jour des outils de build (Gradle 9.9.1, JDK 25, CMake 4.1.2) et de l'import YouTube (NewPipeExtractor 0.27.1).
